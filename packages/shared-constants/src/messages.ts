@@ -7,6 +7,8 @@ export const MESSAGES = {
       tokenExpired: 'Token has expired',
       unauthorized: 'Unauthorized access',
       invalidToken: 'Invalid token',
+      refreshTokenInvalid: 'Invalid or expired refresh token',
+      refreshTokenExpired: 'Refresh token has expired',
     },
     de: {
       loginSuccess: 'Anmeldung erfolgreich',
@@ -15,6 +17,8 @@ export const MESSAGES = {
       tokenExpired: 'Token ist abgelaufen',
       unauthorized: 'Unbefugter Zugriff',
       invalidToken: 'Ungültiger Token',
+      refreshTokenInvalid: 'Ungültiger oder abgelaufener Refresh-Token',
+      refreshTokenExpired: 'Refresh-Token ist abgelaufen',
     },
   },
   USER: {
