@@ -64,6 +64,14 @@ export function OrderDetailModal({
     setStatusNote('');
   }, [open]);
 
+  // When modal opens with an assignable order, load approved active drivers so user can search/select
+  const isAssignable = order && order.status !== 'delivered' && order.status !== 'cancelled';
+  useEffect(() => {
+    if (open && order && isAssignable) {
+      runDriverSearch('').catch(() => {});
+    }
+  }, [open, order?._id, isAssignable]);
+
   const statusHistory = useMemo(() => {
     const h = order?.statusHistory ?? [];
     return [...h].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -81,8 +89,16 @@ export function OrderDetailModal({
   async function runDriverSearch(q: string) {
     setDriverLoading(true);
     try {
-      const res = await searchDrivers({ search: q, page: 1, limit: 10, approvalStatus: 'approved', status: 'active' });
-      setDriverResults(res.data);
+      const res = await searchDrivers({
+        search: q.trim() || undefined,
+        page: 1,
+        limit: 20,
+        approvalStatus: 'approved',
+        status: 'active',
+      });
+      setDriverResults(res.data ?? []);
+    } catch (err) {
+      setDriverResults([]);
     } finally {
       setDriverLoading(false);
     }
@@ -380,7 +396,7 @@ export function OrderDetailModal({
                       <button
                         className="btn"
                         onClick={() => void runDriverSearch(driverQuery)}
-                        disabled={driverLoading || !driverQuery.trim()}
+                        disabled={driverLoading}
                         aria-label="Search drivers"
                       >
                         <Search size={16} />
@@ -391,7 +407,7 @@ export function OrderDetailModal({
                         <Skeleton height={42} />
                       ) : driverResults.length === 0 ? (
                         <div className="muted" style={{ fontSize: 13 }}>
-                          Search for an approved active driver.
+                          No approved active drivers found. Click Search to load or refine your search.
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflow: 'auto' }}>

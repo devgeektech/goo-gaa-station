@@ -4,13 +4,14 @@ import type { PropsWithChildren } from 'react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BarChart3, Package, Receipt, Users, Menu, LogOut, User, Search, Bell, LayoutGrid } from 'lucide-react';
+import { BarChart3, Package, Receipt, Users, UserPlus, Menu, LogOut, User, Search, Bell, LayoutGrid } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: BarChart3 },
   { href: '/orders', label: 'Orders', icon: Package },
   { href: '/transactions', label: 'Transactions', icon: Receipt },
+  { href: '/customers', label: 'Customers', icon: UserPlus },
   { href: '/drivers', label: 'Drivers', icon: Users },
 ];
 
