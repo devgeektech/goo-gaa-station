@@ -1,0 +1,86 @@
+/** EN/SO (English / Somali) translations for admin UI */
+export const translations = {
+  en: {
+    nav: {
+      dashboard: 'Dashboard',
+      orders: 'Orders',
+      transactions: 'Transactions',
+      customers: 'Customers',
+      drivers: 'Drivers',
+      vendors: 'Vendors',
+    },
+    common: {
+      refresh: 'Refresh',
+      apply: 'Apply',
+      cancel: 'Cancel',
+      save: 'Save',
+      delete: 'Delete',
+      edit: 'Edit',
+      view: 'View',
+      back: 'Back',
+      loading: 'Loading…',
+      noResults: 'No results found.',
+      tryFilters: 'Try adjusting filters.',
+    },
+    empty: {
+      orders: 'No orders found.',
+      transactions: 'No transactions found.',
+      customers: 'No customers found.',
+      drivers: 'No drivers found.',
+      vendors: 'No vendors found.',
+      menuItems: 'No menu items yet.',
+    },
+    theme: {
+      light: 'Light',
+      dark: 'Dark',
+      toggle: 'Toggle theme',
+    },
+    auth: {
+      logout: 'Log out',
+      loggingOut: 'Logging out…',
+    },
+  },
+  so: {
+    nav: {
+      dashboard: 'Baaraha',
+      orders: 'Dalabka',
+      transactions: 'Macamilka',
+      customers: 'Macamiilka',
+      drivers: 'Darawalada',
+      vendors: 'Iibiyeyaasha',
+    },
+    common: {
+      refresh: 'Cusboonaysii',
+      apply: 'Codso',
+      cancel: 'Jooji',
+      save: 'Kaydi',
+      delete: 'Tirtir',
+      edit: 'Sax',
+      view: 'Arag',
+      back: 'Dib',
+      loading: 'Waa la soo dejiyeyaa…',
+      noResults: 'Wax walba lama helin.',
+      tryFilters: 'Isbeddel filerka.',
+    },
+    empty: {
+      orders: 'Dalab lama helin.',
+      transactions: 'Macamil lama helin.',
+      customers: 'Macamiil lama helin.',
+      drivers: 'Darawal lama helin.',
+      vendors: 'Iibiyey lama helin.',
+      menuItems: 'Wax alaab ah weli ma jiraan.',
+    },
+    theme: {
+      light: 'Iftiinka',
+      dark: 'Madow',
+      toggle: 'Beddel theme',
+    },
+    auth: {
+      logout: 'Ka bax',
+      loggingOut: 'Laga baxayaa…',
+    },
+  },
+} as const;
+
+export type Locale = keyof typeof translations;
+export type TranslationKey = keyof (typeof translations)['en'];

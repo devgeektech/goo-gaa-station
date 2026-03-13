@@ -9,6 +9,9 @@ export type OrdersFilters = {
   dateFrom: string;
   dateTo: string;
   search: string;
+  customerId: string;
+  driverId: string;
+  vendorId: string;
 };
 
 export type OrdersState = {
@@ -31,7 +34,7 @@ export type OrdersState = {
 const initialState: OrdersState = {
   items: [],
   pagination: { total: 0, page: 1, limit: 20, totalPages: 1, hasNext: false, hasPrev: false },
-  filters: { status: [], paymentStatus: '', dateFrom: '', dateTo: '', search: '' },
+  filters: { status: [], paymentStatus: '', dateFrom: '', dateTo: '', search: '', customerId: '', driverId: '', vendorId: '' },
   selectedOrder: null,
   stats: null,
   loading: false,
@@ -52,6 +55,9 @@ export const fetchOrders = createAsyncThunk(
         dateFrom: filters.dateFrom || '',
         dateTo: filters.dateTo || '',
         search: filters.search || '',
+        customerId: filters.customerId || undefined,
+        driverId: filters.driverId || undefined,
+        vendorId: filters.vendorId || undefined,
       });
       return res;
     } catch (e) {

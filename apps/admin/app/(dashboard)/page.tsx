@@ -38,8 +38,8 @@ export default function DashboardHome() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Dashboard</h1>
-          <div className="muted" style={{ marginTop: 4 }}>Live overview of orders and revenue.</div>
+          <h1 className="pageTitle">Dashboard</h1>
+          <div className="pageSubtitle">Live overview of orders and revenue.</div>
         </div>
         <div className="row">
           <Link className="btn btnPrimary" href="/orders">View orders</Link>

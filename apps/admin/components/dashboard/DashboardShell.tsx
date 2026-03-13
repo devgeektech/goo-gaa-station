@@ -4,16 +4,21 @@ import type { PropsWithChildren } from 'react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BarChart3, Package, Receipt, Users, UserPlus, Menu, LogOut, User, Search, Bell, LayoutGrid } from 'lucide-react';
-import { apiClient } from '@/lib/api/client';
+import { useTheme } from 'next-themes';
+import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon } from 'lucide-react';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import type { Locale } from '@/lib/i18n/translations';
 
-const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard', icon: BarChart3 },
-  { href: '/orders', label: 'Orders', icon: Package },
-  { href: '/transactions', label: 'Transactions', icon: Receipt },
-  { href: '/customers', label: 'Customers', icon: UserPlus },
-  { href: '/drivers', label: 'Drivers', icon: Users },
+const NAV_KEYS = [
+  { href: '/', key: 'dashboard' as const, icon: BarChart3 },
+  { href: '/orders', key: 'orders' as const, icon: Package },
+  { href: '/transactions', key: 'transactions' as const, icon: Receipt },
+  { href: '/customers', key: 'customers' as const, icon: UserPlus },
+  { href: '/drivers', key: 'drivers' as const, icon: Users },
+  { href: '/vendors', key: 'vendors' as const, icon: Store },
 ];
+
+import { apiClient } from '@/lib/api/client';
 
 function NavLink({
   href,
@@ -43,8 +48,14 @@ function NavLink({
 export function DashboardShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const router = useRouter();
+  const { setTheme, resolvedTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [locale, setLocale] = useState<Locale>('en');
+  const t = useTranslations(locale);
+
+  useEffect(() => setMounted(true), []);
 
   const isActive = (href: string) => {
     const pathBase = href.split('?')[0];
@@ -97,69 +108,49 @@ export function DashboardShell({ children }: PropsWithChildren) {
         </div>
         <nav className="sidebarNav" aria-label="Main">
           <div className="sidebarNavSection">Menu</div>
-          {NAV_ITEMS.map((item) => (
+          {NAV_KEYS.map((item) => (
             <NavLink
               key={item.href}
               href={item.href}
-              label={item.label}
+              label={t.nav[item.key]}
               icon={item.icon}
               active={isActive(item.href)}
               onNavigate={closeSidebar}
             />
           ))}
         </nav>
-        <div className="sidebarFooter">
-          <div className="sidebarProfile">
-            <User size={18} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} aria-hidden />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span className="sidebarProfileLabel">Admin</span>
-              <span className="sidebarProfileRole">Dashboard</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="logoutBtn"
-            onClick={() => void handleLogout()}
-            disabled={loggingOut}
-            aria-label="Log out"
-          >
-            <LogOut size={16} aria-hidden />
-            {loggingOut ? 'Logging out…' : 'Log out'}
-          </button>
-        </div>
       </aside>
 
       <main className="mainContent">
         <header className="mainHeader">
-          <div style={{ position: 'relative', width: 260 }}>
-            <Search
-              size={18}
-              aria-hidden
-              style={{
-                position: 'absolute',
-                left: 14,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-secondary)',
-                pointerEvents: 'none',
-              }}
-            />
-            <input
-              type="search"
-              className="mainHeaderSearch"
-              placeholder="Search..."
-              aria-label="Search"
-            />
-          </div>
           <div className="mainHeaderIcons">
-            <button type="button" className="mainHeaderIconBtn" aria-label="Notifications">
-              <Bell size={20} aria-hidden />
+            <select
+              className="select"
+              value={locale}
+              onChange={(e) => setLocale(e.target.value as Locale)}
+              style={{ minWidth: 72, fontSize: 14 }}
+              aria-label="Language"
+            >
+              <option value="en">EN</option>
+              <option value="so">SO</option>
+            </select>
+            <button
+              type="button"
+              className="mainHeaderIconBtn"
+              aria-label={t.theme.toggle}
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            >
+              {mounted && resolvedTheme === 'dark' ? <Sun size={20} aria-hidden /> : <Moon size={20} aria-hidden />}
             </button>
-            <button type="button" className="mainHeaderIconBtn" aria-label="Profile">
-              <User size={20} aria-hidden />
-            </button>
-            <button type="button" className="mainHeaderIconBtn" aria-label="Menu">
-              <LayoutGrid size={20} aria-hidden />
+            <button
+              type="button"
+              className="mainHeaderIconBtn mainHeaderIconBtn--logout"
+              aria-label={t.auth.logout}
+              onClick={() => void handleLogout()}
+              disabled={loggingOut}
+            >
+              <LogOut size={20} aria-hidden />
+              <span>{loggingOut ? t.auth.loggingOut : t.auth.logout}</span>
             </button>
           </div>
         </header>

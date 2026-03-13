@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Eye, Ban, Trash2, RefreshCcw, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, Ban, Trash2, RefreshCcw, CheckCircle, XCircle, Users } from 'lucide-react';
 import {
   searchDrivers,
   getPendingCount,
@@ -19,6 +19,7 @@ import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { DeleteDriverDialog } from '@/components/drivers/DeleteDriverDialog';
 import { DriverDetailDrawer } from '@/components/drivers/DriverDetailDrawer';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 
 const STATUS_OPTIONS = [
@@ -280,7 +281,7 @@ export default function DriversPage() {
                 <Skeleton height={120} />
               </div>
             ) : pendingList.length === 0 ? (
-              <div className="muted">No pending approvals.</div>
+              <EmptyState icon={<Users size={48} />} heading="No pending approvals" subtext="All driver applications are processed." />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {pendingList.map((d) => (
@@ -363,6 +364,31 @@ export default function DriversPage() {
 
           <div className="card">
             <div className="cardBody">
+              {loadingAll && allList.length === 0 ? (
+                <div className="tableWrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Approval</th>
+                        <th>Status</th>
+                        <th>Vehicle</th>
+                        <th>Rating</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <tr key={i}><td colSpan={7}><Skeleton height={18} /></td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : allList.length === 0 ? (
+                <EmptyState icon={<Users size={48} />} heading="No drivers found" subtext="Try adjusting search or filters." />
+              ) : (
+                <>
               <div className="tableWrap">
                 <table>
                   <thead>
@@ -377,14 +403,7 @@ export default function DriversPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {loadingAll && allList.length === 0 ? (
-                      Array.from({ length: 6 }).map((_, i) => (
-                        <tr key={i}><td colSpan={7}><Skeleton height={18} /></td></tr>
-                      ))
-                    ) : allList.length === 0 ? (
-                      <tr><td colSpan={7} className="muted">No drivers found.</td></tr>
-                    ) : (
-                      allList.map((d) => (
+                      {allList.map((d) => (
                         <tr key={d._id} className="clickableRow" onClick={() => openDetail(d._id)}>
                           <td style={{ fontWeight: 700 }}>{d.name}</td>
                           <td>{d.phone}</td>
@@ -406,8 +425,7 @@ export default function DriversPage() {
                             </div>
                           </td>
                         </tr>
-                      ))
-                    )}
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -418,6 +436,8 @@ export default function DriversPage() {
                   <button className="btn" disabled={!allPagination.hasNext || loadingAll} onClick={() => fetchAllPage(allPagination.page + 1)}>Next</button>
                 </div>
               </div>
+                </>
+              )}
             </div>
           </div>
         </>

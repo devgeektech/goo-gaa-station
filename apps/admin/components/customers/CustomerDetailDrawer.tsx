@@ -1,10 +1,18 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { X } from 'lucide-react';
-import type { CustomerDetail, CustomerOrderItem } from '@/lib/api/users.api';
+import type { CustomerDetail } from '@/lib/api/customers.api';
+import type { CustomerOrderItem } from '@/lib/api/users.api';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
 import { Skeleton } from '@/components/ui/Skeleton';
+
+const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+function imgSrc(url: string | null | undefined) {
+  if (!url) return null;
+  return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
+}
 
 export function CustomerDetailDrawer({
   open,
@@ -69,9 +77,9 @@ export function CustomerDetailDrawer({
                   <div className="cardBody">
                     <div className="muted">Profile</div>
                     <div className="row" style={{ alignItems: 'center', gap: 12, marginTop: 8 }}>
-                      {customer.profileImage ? (
+                      {imgSrc(customer.profileImage) ? (
                         <img
-                          src={customer.profileImage.startsWith('http') ? customer.profileImage : `${process.env.NEXT_PUBLIC_API_URL ?? ''}${customer.profileImage}`}
+                          src={imgSrc(customer.profileImage)!}
                           alt=""
                           style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }}
                         />
@@ -83,6 +91,9 @@ export function CustomerDetailDrawer({
                         <span className="badge" style={{ marginTop: 6, background: customer.status === 'blocked' ? 'var(--danger-light)' : customer.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>
                           {customer.status}
                         </span>
+                        <div style={{ marginTop: 8 }}>
+                          <Link href={`/customers/${customer._id}`} className="btn" style={{ fontSize: 13 }}>View full page</Link>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -95,8 +106,12 @@ export function CustomerDetailDrawer({
                       <div className="muted" style={{ fontSize: 13 }}>Total spend</div>
                     </div>
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontWeight: 800 }}>{customer.totalOrders ?? 0}</div>
+                      <div style={{ fontWeight: 800 }}>{customer.orderCount ?? customer.totalOrders ?? 0}</div>
                       <div className="muted" style={{ fontSize: 13 }}>Orders</div>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontWeight: 800 }}>{customer.points ?? 0}</div>
+                      <div className="muted" style={{ fontSize: 13 }}>Points balance</div>
                     </div>
                   </div>
                 </div>

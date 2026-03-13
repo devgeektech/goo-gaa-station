@@ -1,16 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTheme } from 'next-themes';
+import { Sun, Moon } from 'lucide-react';
 import { apiClient, getErrorMessage } from '@/lib/api/client';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,28 +34,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-        background: 'linear-gradient(135deg, var(--primary-light) 0%, var(--bg) 50%, #fff 100%)',
-      }}
-    >
-      <div
-        className="card"
-        style={{
-          width: 'min(420px, 100%)',
-          padding: 32,
-          boxShadow: 'var(--shadow-lg)',
-        }}
+    <div className="loginPage">
+      <button
+        type="button"
+        className="loginThemeToggle"
+        aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
       >
+        {mounted && resolvedTheme === 'dark' ? <Sun size={20} aria-hidden /> : <Moon size={20} aria-hidden />}
+      </button>
+      <div className="card loginCard">
         <div style={{ marginBottom: 8 }}>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--primary)' }}>
-            DeliverEats Admin
-          </h1>
+          <h1 className="loginTitle">DeliverEats Admin</h1>
           <p className="muted" style={{ marginTop: 8, fontSize: 14 }}>
             Sign in with your admin account
           </p>
@@ -102,8 +98,8 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <p className="muted" style={{ marginTop: 20, fontSize: 13 }}>
-          Default after seed: <code style={{ background: 'var(--bg)', padding: '4px 8px', borderRadius: 6, fontSize: 12 }}>admin@delivereats.com</code> / <code style={{ background: 'var(--bg)', padding: '4px 8px', borderRadius: 6, fontSize: 12 }}>Admin@123!</code>
+        <p className="muted loginHint">
+          Default after seed: <code className="loginCode">admin@delivereats.com</code> / <code className="loginCode">Admin@123!</code>
         </p>
         <Link href="/" className="btn" style={{ marginTop: 16, display: 'inline-block' }}>
           Back to dashboard

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { X } from 'lucide-react';
 import type { DriverDetail, DriverOrderItem } from '@/lib/api/drivers.api';
 import { formatMoney, formatDateTime } from '@/lib/utils/format';
@@ -94,6 +95,9 @@ export function DriverDetailDrawer({
                   <div className="row" style={{ gap: 8, marginTop: 8 }}>
                     <span className="badge" style={{ background: driver.approvalStatus === 'approved' ? 'var(--success-light)' : driver.approvalStatus === 'rejected' ? 'var(--danger-light)' : 'var(--warning-light)' }}>{driver.approvalStatus}</span>
                     <span className="badge" style={{ background: driver.status === 'blocked' ? 'var(--danger-light)' : driver.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>{driver.status}</span>
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Link href={`/drivers/${driver._id}`} className="btn" style={{ fontSize: 13 }}>View full page</Link>
                   </div>
                 </div>
               </div>

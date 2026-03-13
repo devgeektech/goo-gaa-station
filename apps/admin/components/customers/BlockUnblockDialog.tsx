@@ -13,7 +13,7 @@ export function BlockUnblockDialog({
   loading,
 }: {
   open: boolean;
-  type: 'customer' | 'driver';
+  type: 'customer' | 'driver' | 'vendor';
   currentStatus: string;
   currentReason?: string | null;
   onClose: () => void;
@@ -22,6 +22,7 @@ export function BlockUnblockDialog({
 }) {
   const [reason, setReason] = useState('');
   const isBlocking = currentStatus !== 'blocked';
+  const label = type === 'customer' ? 'Customer' : type === 'driver' ? 'Driver' : 'Vendor';
 
   const handleConfirm = () => {
     if (isBlocking && !reason.trim()) return;
@@ -31,7 +32,7 @@ export function BlockUnblockDialog({
   return (
     <Modal
       open={open}
-      title={isBlocking ? `Block ${type === 'customer' ? 'Customer' : 'Driver'}` : `Unblock ${type === 'customer' ? 'Customer' : 'Driver'}`}
+      title={isBlocking ? `Block ${label}` : `Unblock ${label}`}
       onClose={onClose}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

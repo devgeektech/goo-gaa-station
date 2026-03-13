@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Eye, Download, RefreshCcw } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Eye, Download, RefreshCcw, Package } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchOrders, setFilters, setSelectedOrder, setStatusMulti } from '@/store/slices/ordersSlice';
+import { fetchOrders, setFilters, setStatusMulti } from '@/store/slices/ordersSlice';
 import type { OrderStatus, PaymentStatus } from '@/lib/api/orders.api';
 import { paymentBadge, statusBadge } from '@/components/orders/orderBadges';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
 import { toCsv, downloadCsv } from '@/lib/utils/csv';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { OrderDetailModal } from '@/components/orders/OrderDetailModal';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { getOrders } from '@/lib/api/orders.api';
 import { useToast } from '@/components/ui/Toast';
 
@@ -31,11 +33,11 @@ const ALL_PAYMENT: Array<{ value: PaymentStatus; label: string }> = [
 ];
 
 export default function OrdersPage() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const toast = useToast();
-  const { items, pagination, filters, loading, error, selectedOrder } = useAppSelector((s) => s.orders);
+  const { items, pagination, filters, loading, error } = useAppSelector((s) => s.orders);
 
-  const [detailOpen, setDetailOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -218,6 +220,18 @@ export default function OrdersPage() {
               <div className="label">Date to</div>
               <input className="input" type="date" value={filters.dateTo} onChange={(e) => dispatch(setFilters({ dateTo: e.target.value }))} />
             </div>
+            <div className="field" style={{ minWidth: 140 }}>
+              <div className="label">Customer ID</div>
+              <input className="input" value={filters.customerId} onChange={(e) => dispatch(setFilters({ customerId: e.target.value }))} placeholder="Optional" />
+            </div>
+            <div className="field" style={{ minWidth: 140 }}>
+              <div className="label">Driver ID</div>
+              <input className="input" value={filters.driverId} onChange={(e) => dispatch(setFilters({ driverId: e.target.value }))} placeholder="Optional" />
+            </div>
+            <div className="field" style={{ minWidth: 140 }}>
+              <div className="label">Vendor ID</div>
+              <input className="input" value={filters.vendorId} onChange={(e) => dispatch(setFilters({ vendorId: e.target.value }))} placeholder="Optional" />
+            </div>
 
             <div className="field" style={{ minWidth: 120 }}>
               <div className="label"> </div>
@@ -237,7 +251,35 @@ export default function OrdersPage() {
 
       <div className="card">
         <div className="cardBody">
-          <div className="tableWrap">
+          {loading && items.length === 0 ? (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order#</th>
+                    <th>Customer</th>
+                    <th>Driver</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={9}><Skeleton height={18} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : items.length === 0 ? (
+            <EmptyState icon={<Package size={48} />} heading="No orders found" subtext="Try adjusting filters or date range." />
+          ) : (
+            <div className="tableWrap">
             <table>
               <thead>
                 <tr>
@@ -253,21 +295,7 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading && items.length === 0 ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={9}>
-                        <Skeleton height={18} />
-                      </td>
-                    </tr>
-                  ))
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="muted">
-                      No orders found.
-                    </td>
-                  </tr>
-                ) : (
+                {
                   items.map((o) => {
                     const customerName = typeof o.customerId === 'string' ? o.customerId : o.customerId?.name ?? '—';
                     const driverName = !o.driverId ? 'Unassigned' : typeof o.driverId === 'string' ? o.driverId : o.driverId?.name ?? '—';
@@ -275,10 +303,7 @@ export default function OrdersPage() {
                       <tr
                         key={o._id}
                         className="clickableRow"
-                        onClick={() => {
-                          dispatch(setSelectedOrder(o));
-                          setDetailOpen(true);
-                        }}
+                        onClick={() => router.push(`/orders/${o._id}`)}
                       >
                         <td style={{ fontWeight: 800 }}>{o.orderNumber}</td>
                         <td>{customerName}</td>
@@ -288,27 +313,21 @@ export default function OrdersPage() {
                         <td>{paymentBadge(o.paymentStatus)}</td>
                         <td>{statusBadge(o.status)}</td>
                         <td className="muted">{formatDateTime(o.createdAt)}</td>
-                        <td>
-                          <button
-                            className="btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              dispatch(setSelectedOrder(o));
-                              setDetailOpen(true);
-                            }}
-                            aria-label="View order details"
-                          >
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <Link href={`/orders/${o._id}`} className="btn" aria-label="View order details">
                             <Eye size={18} aria-hidden />
-                          </button>
+                          </Link>
                         </td>
                       </tr>
                     );
                   })
-                )}
+                }
               </tbody>
             </table>
-          </div>
+            </div>
+          )}
 
+          {items.length > 0 ? (
           <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">
               Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
@@ -322,16 +341,10 @@ export default function OrdersPage() {
               </button>
             </div>
           </div>
+          ) : null}
         </div>
       </div>
 
-      <OrderDetailModal
-        open={detailOpen}
-        orderId={selectedOrder?._id ?? null}
-        onClose={() => {
-          setDetailOpen(false);
-        }}
-      />
     </div>
   );
 }

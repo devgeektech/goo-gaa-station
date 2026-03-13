@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
+import * as customersApi from '@/lib/api/customers.api';
 import * as usersApi from '@/lib/api/users.api';
 import { getErrorMessage } from '@/lib/api/client';
 
@@ -10,7 +11,7 @@ export type CustomersFilters = {
 };
 
 export type CustomersState = {
-  items: usersApi.CustomerListItem[];
+  items: customersApi.CustomerListItem[];
   pagination: {
     total: number;
     page: number;
@@ -20,7 +21,7 @@ export type CustomersState = {
     hasPrev: boolean;
   };
   filters: CustomersFilters;
-  selectedCustomer: usersApi.CustomerDetail | null;
+  selectedCustomer: customersApi.CustomerDetail | null;
   customerOrders: {
     items: usersApi.CustomerOrderItem[];
     pagination: { total: number; page: number; limit: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
@@ -47,12 +48,12 @@ export const fetchCustomers = createAsyncThunk(
     try {
       const state = getState() as RootState;
       const { filters, pagination } = state.customers;
-      const res = await usersApi.searchCustomers({
+      const res = await customersApi.searchCustomers({
         page: args?.page ?? pagination.page,
         limit: args?.limit ?? pagination.limit,
         search: filters.search || undefined,
         status: filters.status || undefined,
-        showDeleted: filters.showDeleted,
+        isDeleted: filters.showDeleted,
       });
       return res;
     } catch (e) {
@@ -65,7 +66,7 @@ export const fetchCustomerById = createAsyncThunk(
   'customers/fetchCustomerById',
   async (id: string, { rejectWithValue }) => {
     try {
-      const res = await usersApi.getCustomer(id);
+      const res = await customersApi.getCustomer(id);
       return res.data;
     } catch (e) {
       return rejectWithValue(getErrorMessage(e));
@@ -77,7 +78,7 @@ export const createCustomer = createAsyncThunk(
   'customers/createCustomer',
   async (formData: FormData, { rejectWithValue }) => {
     try {
-      const res = await usersApi.createCustomer(formData);
+      const res = await customersApi.createCustomer(formData);
       return res.data;
     } catch (e) {
       return rejectWithValue(getErrorMessage(e));
@@ -89,7 +90,7 @@ export const updateCustomer = createAsyncThunk(
   'customers/updateCustomer',
   async (args: { id: string; formData: FormData }, { rejectWithValue }) => {
     try {
-      const res = await usersApi.updateCustomer(args.id, args.formData);
+      const res = await customersApi.updateCustomer(args.id, args.formData);
       return res.data;
     } catch (e) {
       return rejectWithValue(getErrorMessage(e));
@@ -101,7 +102,7 @@ export const deleteCustomer = createAsyncThunk(
   'customers/deleteCustomer',
   async (id: string, { rejectWithValue }) => {
     try {
-      const res = await usersApi.deleteCustomer(id);
+      const res = await customersApi.deleteCustomer(id);
       return res.data;
     } catch (e) {
       return rejectWithValue(getErrorMessage(e));
@@ -109,11 +110,12 @@ export const deleteCustomer = createAsyncThunk(
   }
 );
 
+/** Block or unblock customer (backend toggles on PATCH /admin/customers/:id/block). Reason required when blocking. */
 export const updateCustomerStatus = createAsyncThunk(
   'customers/updateCustomerStatus',
   async (args: { id: string; status: 'active' | 'blocked'; reason?: string }, { rejectWithValue }) => {
     try {
-      const res = await usersApi.updateCustomerStatus(args.id, args.status, args.reason);
+      const res = await customersApi.blockCustomer(args.id, args.reason);
       return res.data;
     } catch (e) {
       return rejectWithValue(getErrorMessage(e));
@@ -143,7 +145,7 @@ const customersSlice = createSlice({
     setShowDeleted(state, action: PayloadAction<boolean>) {
       state.filters.showDeleted = action.payload;
     },
-    setSelectedCustomer(state, action: PayloadAction<usersApi.CustomerDetail | null>) {
+    setSelectedCustomer(state, action: PayloadAction<customersApi.CustomerDetail | null>) {
       state.selectedCustomer = action.payload;
     },
     clearError(state) {
@@ -193,7 +195,7 @@ const customersSlice = createSlice({
         if (state.selectedCustomer?._id === action.payload._id) state.selectedCustomer = null;
       })
       .addCase(updateCustomerStatus.fulfilled, (state, action) => {
-        state.selectedCustomer = action.payload as usersApi.CustomerDetail;
+        state.selectedCustomer = action.payload as customersApi.CustomerDetail;
         const idx = state.items.findIndex((c) => c._id === action.payload._id);
         if (idx >= 0) state.items[idx] = action.payload;
       })

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Eye, Pencil, Ban, Trash2, RefreshCcw, UserPlus } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchCustomers,
@@ -241,33 +242,62 @@ export default function CustomersPage() {
 
       <div className="card">
         <div className="cardBody">
-          <div className="tableWrap">
+          {loading && items.length === 0 ? (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Avatar</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Orders</th>
+                    <th>Points</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={8}><Skeleton height={18} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : items.length === 0 ? (
+            <EmptyState icon={<UserPlus size={48} />} heading="No customers found" subtext="Try adjusting search or filters." />
+          ) : (
+            <div className="tableWrap">
             <table>
               <thead>
                 <tr>
+                  <th>Avatar</th>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
                   <th>Status</th>
                   <th>Orders</th>
-                  <th>Total spend</th>
+                  <th>Points</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {loading && items.length === 0 ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={7}><Skeleton height={18} /></td>
-                    </tr>
-                  ))
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="muted">No customers found.</td>
-                  </tr>
-                ) : (
+                {  
                   items.map((c) => (
                     <tr key={c._id} className="clickableRow" onClick={() => openDetail(c._id)}>
+                      <td>
+                        {c.profileImage ? (
+                          <img
+                            src={c.profileImage.startsWith('http') ? c.profileImage : `${process.env.NEXT_PUBLIC_API_URL ?? ''}${c.profileImage}`}
+                            alt=""
+                            style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>—</div>
+                        )}
+                      </td>
                       <td style={{ fontWeight: 700 }}>{c.name}</td>
                       <td className="muted">{c.email ?? '—'}</td>
                       <td>{c.phone}</td>
@@ -281,8 +311,8 @@ export default function CustomersPage() {
                           {c.status}
                         </span>
                       </td>
-                      <td>{c.totalOrders ?? 0}</td>
-                      <td>{formatMoney(c.totalSpent ?? 0)}</td>
+                      <td>{c.totalOrders ?? c.orderCount ?? 0}</td>
+                      <td>{c.points ?? 0}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="row" style={{ gap: 6 }}>
                           <button className="btn" onClick={() => openDetail(c._id)} aria-label="View"><Eye size={16} /></button>
@@ -295,10 +325,12 @@ export default function CustomersPage() {
                       </td>
                     </tr>
                   ))
-                )}
+                }
               </tbody>
             </table>
-          </div>
+            </div>
+          )}
+          {items.length > 0 ? (
           <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}</div>
             <div className="row">
@@ -306,6 +338,7 @@ export default function CustomersPage() {
               <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void dispatch(fetchCustomers({ page: pagination.page + 1 }))}>Next</button>
             </div>
           </div>
+          ) : null}
         </div>
       </div>
 
@@ -348,7 +381,7 @@ export default function CustomersPage() {
       />
       <DeleteCustomerDialog
         open={deleteDialogOpen}
-        customerName={customerForAction?.name}
+        customerName={customerForAction?.name ?? ''}
         onClose={() => { setDeleteDialogOpen(false); setActionCustomerId(null); }}
         onConfirm={handleDeleteConfirm}
         loading={deleteLoading}

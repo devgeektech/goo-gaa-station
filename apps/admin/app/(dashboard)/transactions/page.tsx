@@ -1,24 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Eye, RefreshCcw } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Eye, RefreshCcw, Receipt } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchTransactions, setFilters, setSelectedTransaction } from '@/store/slices/transactionsSlice';
+import { fetchTransactions, setFilters } from '@/store/slices/transactionsSlice';
 import { txnStatusBadge, txnTypeBadge } from '@/components/transactions/transactionBadges';
 import { formatDateTime, formatMoney, truncateId } from '@/lib/utils/format';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { TransactionDetailModal } from '@/components/transactions/TransactionDetailModal';
+import { EmptyState } from '@/components/ui/EmptyState';
 
-export default function TransactionsPage() {
+export default function TransactionsPage(): JSX.Element {
+  const router = useRouter();
   const dispatch = useAppDispatch();
-  const { items, pagination, filters, loading, error, selectedTransaction } = useAppSelector((s) => s.transactions);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const { items, pagination, filters, loading, error } = useAppSelector((s) => s.transactions);
 
   useEffect(() => {
     void dispatch(fetchTransactions({ page: 1, limit: 20 }));
   }, [dispatch]);
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
@@ -81,7 +84,33 @@ export default function TransactionsPage() {
 
       <div className="card">
         <div className="cardBody">
-          <div className="tableWrap">
+          {loading && items.length === 0 ? (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Txn ID</th>
+                    <th>Order#</th>
+                    <th>Customer phone</th>
+                    <th>Amount</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>WifiPay Ref</th>
+                    <th>Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}><td colSpan={9}><Skeleton height={18} /></td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : items.length === 0 ? (
+            <EmptyState icon={<Receipt size={48} />} heading="No transactions found" subtext="Try adjusting type, status or date range." />
+          ) : (
+            <div className="tableWrap">
             <table>
               <thead>
                 <tr>
@@ -97,32 +126,14 @@ export default function TransactionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading && items.length === 0 ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={9}>
-                        <Skeleton height={18} />
-                      </td>
-                    </tr>
-                  ))
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="muted">
-                      No transactions found.
-                    </td>
-                  </tr>
-                ) : (
-                  items.map((t) => {
+                  {items.map((t) => {
                     const orderNumber = typeof t.orderId === 'string' ? t.orderId : t.orderId?.orderNumber ?? '—';
                     const customerPhone = typeof t.customerId === 'string' ? '' : t.customerId?.phone ?? '';
                     return (
                       <tr
                         key={t._id}
                         className="clickableRow"
-                        onClick={() => {
-                          dispatch(setSelectedTransaction(t));
-                          setDetailOpen(true);
-                        }}
+                        onClick={() => router.push(`/transactions/${t._id}`)}
                       >
                         <td style={{ fontWeight: 800 }}>{truncateId(t._id)}</td>
                         <td>{orderNumber}</td>
@@ -134,27 +145,20 @@ export default function TransactionsPage() {
                           {t.wifipayRef ?? '—'}
                         </td>
                         <td className="muted">{formatDateTime(t.createdAt)}</td>
-                        <td>
-                          <button
-                            className="btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              dispatch(setSelectedTransaction(t));
-                              setDetailOpen(true);
-                            }}
-                            aria-label="View transaction details"
-                          >
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <Link href={`/transactions/${t._id}`} className="btn" aria-label="View transaction details">
                             <Eye size={18} aria-hidden />
-                          </button>
+                          </Link>
                         </td>
                       </tr>
                     );
                   })
-                )}
+                }
               </tbody>
             </table>
-          </div>
-
+            </div>
+          )}
+          {items.length > 0 ? (
           <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">
               Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
@@ -168,15 +172,12 @@ export default function TransactionsPage() {
               </button>
             </div>
           </div>
+          ) : null}
         </div>
       </div>
 
-      <TransactionDetailModal
-        open={detailOpen}
-        transactionId={selectedTransaction?._id ?? null}
-        onClose={() => setDetailOpen(false)}
-      />
     </div>
+    </>
   );
 }
 

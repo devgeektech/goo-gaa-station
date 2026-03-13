@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import type { CustomerDetail, CustomerAddress } from '@/lib/api/users.api';
+import type { CustomerDetail, CustomerAddress } from '@/lib/api/customers.api';
 
 export type EditCustomerForm = {
   name: string;

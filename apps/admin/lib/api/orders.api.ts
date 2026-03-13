@@ -14,8 +14,9 @@ export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type OrderListItem = {
   _id: string;
   orderNumber: string;
-  customerId?: { _id: string; name?: string; phone?: string } | string;
+  customerId?: { _id: string; name?: string; phone?: string; email?: string } | string;
   driverId?: { _id: string; name?: string; phone?: string } | string | null;
+  vendorId?: { _id: string; name?: string; slug?: string; logo?: string } | string | null;
   items: Array<{ name: string; qty: number; unitPrice: number; subtotal: number }>;
   total: number;
   paymentStatus: PaymentStatus;
@@ -55,13 +56,14 @@ export type Paginated<T> = {
 export type GetOrdersParams = {
   page?: number;
   limit?: number;
-  status?: string; // backend currently expects a single status
+  status?: string; // backend expects a single status
   paymentStatus?: string;
   dateFrom?: string;
   dateTo?: string;
   search?: string;
   customerId?: string;
   driverId?: string;
+  vendorId?: string;
 };
 
 export async function getOrders(params: GetOrdersParams) {
