@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon } from 'lucide-react';
+import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 import type { Locale } from '@/lib/i18n/translations';
 
@@ -16,9 +16,11 @@ const NAV_KEYS = [
   { href: '/customers', key: 'customers' as const, icon: UserPlus },
   { href: '/drivers', key: 'drivers' as const, icon: Users },
   { href: '/vendors', key: 'vendors' as const, icon: Store },
+  { href: '/categories', key: 'categories' as const, icon: LayoutGrid },
 ];
 
 import { apiClient } from '@/lib/api/client';
+import { useVendorPending } from '@/lib/context/VendorPendingContext';
 
 function NavLink({
   href,
@@ -26,12 +28,14 @@ function NavLink({
   icon: Icon,
   active,
   onNavigate,
+  badge,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number }>;
   active: boolean;
   onNavigate?: () => void;
+  badge?: number;
 }) {
   return (
     <Link
@@ -41,6 +45,26 @@ function NavLink({
     >
       <Icon size={18} aria-hidden />
       <span>{label}</span>
+      {badge != null && badge > 0 && (
+        <span
+          className="badge"
+          style={{
+            marginLeft: 'auto',
+            background: 'var(--danger)',
+            color: '#fff',
+            fontSize: 11,
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          aria-label={`${badge} pending`}
+        >
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -49,6 +73,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
+  const { pendingCount } = useVendorPending();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -116,6 +141,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
               icon={item.icon}
               active={isActive(item.href)}
               onNavigate={closeSidebar}
+              badge={item.key === 'vendors' ? pendingCount : undefined}
             />
           ))}
         </nav>

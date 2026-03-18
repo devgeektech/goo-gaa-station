@@ -3,7 +3,7 @@
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-type ToastItem = { id: string; title: string; description?: string; variant?: 'default' | 'success' | 'danger' };
+type ToastItem = { id: string; title: string; description?: string; variant?: 'default' | 'success' | 'danger' | 'info' | 'warning' };
 type ToastContextValue = { push: (t: Omit<ToastItem, 'id'>) => void };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -49,7 +49,11 @@ export function ToastProvider({ children }: PropsWithChildren) {
                   ? '4px solid var(--success)'
                   : t.variant === 'danger'
                     ? '4px solid var(--danger)'
-                    : '4px solid var(--primary)',
+                    : t.variant === 'warning'
+                      ? '4px solid var(--warning, #ea580c)'
+                      : t.variant === 'info'
+                        ? '4px solid var(--primary)'
+                        : '4px solid var(--primary)',
             }}
           >
             <div style={{ fontWeight: 700, marginBottom: 4 }}>{t.title}</div>

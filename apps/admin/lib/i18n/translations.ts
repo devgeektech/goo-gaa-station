@@ -8,6 +8,7 @@ export const translations = {
       customers: 'Customers',
       drivers: 'Drivers',
       vendors: 'Vendors',
+      categories: 'Categories',
     },
     common: {
       refresh: 'Refresh',
@@ -39,6 +40,20 @@ export const translations = {
       logout: 'Log out',
       loggingOut: 'Logging out…',
     },
+    categories: {
+      title: 'Categories',
+      addNew: 'Add Category',
+      noCategories: 'No categories yet',
+      deleteBlocked: 'This category is used by vendors',
+      filterAll: 'All',
+      filterFood: 'Food',
+      filterGrocery: 'Grocery',
+      filterPharmacy: 'Pharmacy',
+      filterFashion: 'Fashion',
+      reorderSaved: 'Order saved',
+      toggleOn: 'Active',
+      toggleOff: 'Inactive',
+    },
   },
   so: {
     nav: {
@@ -48,6 +63,7 @@ export const translations = {
       customers: 'Macamiilka',
       drivers: 'Darawalada',
       vendors: 'Iibiyeyaasha',
+      categories: 'Qaybaha',
     },
     common: {
       refresh: 'Cusboonaysii',
@@ -78,6 +94,20 @@ export const translations = {
     auth: {
       logout: 'Ka bax',
       loggingOut: 'Laga baxayaa…',
+    },
+    categories: {
+      title: 'Qaybaha',
+      addNew: 'Ku dar Qaybaha',
+      noCategories: 'Weli qaybaho ma jiraan',
+      deleteBlocked: 'Qaybahan waxaa isticmaala iibiyeyaasha',
+      filterAll: 'Dhammaan',
+      filterFood: 'Cunto',
+      filterGrocery: 'Alaabta guriga',
+      filterPharmacy: 'Dugsi dhaqameel',
+      filterFashion: 'Fashan',
+      reorderSaved: 'Kala soocida waa la keydiyey',
+      toggleOn: 'Firfircoon',
+      toggleOff: 'Firfircoon ma aha',
     },
   },
 } as const;

@@ -13,6 +13,7 @@ import { DeleteVendorDialog } from '@/components/vendors/DeleteVendorDialog';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { useVendorPending } from '@/lib/context/VendorPendingContext';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -20,27 +21,40 @@ const STATUS_OPTIONS = [
   { value: 'blocked', label: 'Blocked' },
 ];
 
+const APPROVAL_TABS = [
+  { value: '', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+] as const;
+
+function approvalStatusBadge(status: string | null | undefined): { label: string; style: React.CSSProperties } {
+  switch (status) {
+    case 'pending':
+      return { label: 'Pending Review', style: { background: 'rgba(249, 115, 22, 0.2)', color: '#ea580c' } };
+    case 'approved':
+      return { label: 'Approved', style: { background: 'var(--success-light)', color: 'var(--success)' } };
+    case 'rejected':
+      return { label: 'Rejected', style: { background: 'var(--danger-light)', color: 'var(--danger)' } };
+    case 'none':
+    default:
+      return { label: 'Incomplete', style: { background: 'var(--border-light)', color: 'var(--text-secondary)' } };
+  }
+}
+
 const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
   return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
 }
 
-function categoryLabel(v: VendorListItem): string {
-  const cats = v.categoryIds;
-  if (!cats || cats.length === 0) return '—';
-  if (Array.isArray(cats) && typeof cats[0] === 'object' && cats[0] && 'name' in (cats[0] as object)) {
-    return (cats[0] as { name?: string }).name ?? '—';
-  }
-  return cats.length > 1 ? `${cats.length} categories` : '—';
-}
-
 export default function VendorsPage() {
   const router = useRouter();
   const toast = useToast();
+  const { setPendingCount } = useVendorPending();
   const [items, setItems] = useState<VendorListItem[]>([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20, totalPages: 1, hasNext: false, hasPrev: false });
-  const [filters, setFilters] = useState({ search: '', status: '' });
+  const [filters, setFilters] = useState({ search: '', status: '', approvalStatus: '' as '' | 'pending' | 'approved' | 'rejected' });
   const [loading, setLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -60,6 +74,7 @@ export default function VendorsPage() {
       limit: 20,
       search: filters.search || undefined,
       status: filters.status || undefined,
+      approvalStatus: filters.approvalStatus || undefined,
     })
       .then((res) => {
         setItems(res.data ?? []);
@@ -71,6 +86,7 @@ export default function VendorsPage() {
           hasNext: res.hasNext ?? false,
           hasPrev: res.hasPrev ?? false,
         });
+        if (typeof res.pendingCount === 'number') setPendingCount(res.pendingCount);
       })
       .catch((e) => toast.push({ title: 'Failed to load vendors', description: e?.message ?? 'Error', variant: 'danger' }))
       .finally(() => setLoading(false));
@@ -78,7 +94,7 @@ export default function VendorsPage() {
 
   useEffect(() => {
     load(1);
-  }, [filters.search, filters.status]);
+  }, [filters.search, filters.status, filters.approvalStatus]);
 
   const actionVendor = actionVendorId ? items.find((v) => v._id === actionVendorId) ?? selectedVendor : selectedVendor;
 
@@ -168,6 +184,29 @@ export default function VendorsPage() {
         </div>
       </div>
 
+      {/* Approval filter tabs */}
+      <div className="card">
+        <div className="cardBody" style={{ paddingTop: 12, paddingBottom: 12 }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {APPROVAL_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                className="btn"
+                style={{
+                  background: filters.approvalStatus === tab.value ? 'var(--primary)' : 'var(--panel)',
+                  color: filters.approvalStatus === tab.value ? '#fff' : 'var(--text)',
+                  border: '1px solid var(--border)',
+                }}
+                onClick={() => setFilters((f) => ({ ...f, approvalStatus: tab.value }))}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="card">
         <div className="cardBody">
           <div className="toolbar">
@@ -208,7 +247,7 @@ export default function VendorsPage() {
                   <tr>
                     <th>Logo</th>
                     <th>Name</th>
-                    <th>Category</th>
+                    <th>Approval</th>
                     <th>Status</th>
                     <th>Rating</th>
                     <th>Orders</th>
@@ -231,7 +270,7 @@ export default function VendorsPage() {
                 <tr>
                   <th>Logo</th>
                   <th>Name</th>
-                  <th>Category</th>
+                  <th>Approval</th>
                   <th>Status</th>
                   <th>Rating</th>
                   <th>Orders</th>
@@ -239,7 +278,9 @@ export default function VendorsPage() {
                 </tr>
               </thead>
               <tbody>
-                  {items.map((v) => (
+                  {items.map((v) => {
+                    const ab = approvalStatusBadge(v.approvalStatus ?? null);
+                    return (
                     <tr key={v._id} className="clickableRow" onClick={() => router.push(`/vendors/${v._id}`)}>
                       <td>
                         {imgSrc(v.logo) ? (
@@ -249,7 +290,9 @@ export default function VendorsPage() {
                         )}
                       </td>
                       <td style={{ fontWeight: 700 }}>{v.name}</td>
-                      <td className="muted">{categoryLabel(v)}</td>
+                      <td>
+                        <span className="badge" style={ab.style}>{ab.label}</span>
+                      </td>
                       <td>
                         <span className="badge" style={{ background: v.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{v.status}</span>
                       </td>
@@ -266,7 +309,7 @@ export default function VendorsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ); })}
               </tbody>
             </table>
             </div>
