@@ -1,0 +1,1703 @@
+{
+  "info": {
+    "name": "DeliverEats API",
+    "description": "DeliverEats API: Auth – Admin (cookies), Auth – Customer (/auth/customer, phone OTP, Bearer {{accessToken}}), Auth – Vendor (/auth/vendor, phone OTP, Bearer {{vendorAccessToken}}), Vendor – Onboarding (/vendor/onboarding, Bearer {{vendorAccessToken}}), Vendor – Products (Phase 4: /vendor/categories, /vendor/products), Admin, App (customer/driver), Payment. Set baseUrl. Variables: accessToken, refreshToken, vendorAccessToken, vendorRefreshToken, userId, customerId, vendorId, categoryId, categorySlug, itemId, productId, driverId, orderId, transactionId, paymentReference. OpenAPI: GET {{baseUrl}}/api/openapi.json. Swagger: {{baseUrl}}/api-docs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "driverId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "transactionId", "value": "" },
+    { "key": "paymentReference", "value": "" },
+    { "key": "customerId", "value": "" },
+    { "key": "vendorId", "value": "" },
+    { "key": "itemId", "value": "" },
+    { "key": "addressId", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "categorySlug", "value": "burgers" },
+    { "key": "vendorAccessToken", "value": "" },
+    { "key": "vendorRefreshToken", "value": "" },
+    { "key": "productId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health & Info",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health"
+          }
+        },
+        {
+          "name": "API v1 welcome",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1"
+          }
+        },
+        {
+          "name": "Get API docs (route list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "Machine-readable list of all routes (method, path, auth, description)."
+          }
+        },
+        {
+          "name": "Get OpenAPI spec",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/openapi.json",
+            "description": "OpenAPI 3.0 JSON for Swagger UI, Postman import, or codegen."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth – Admin (cookies)",
+      "description": "Admin dashboard: login (email+password sets cookies), refresh, logout. Use cookies for all Admin – * requests.",
+      "item": [
+        {
+          "name": "Admin login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@delivereats.com\",\n  \"password\": \"Admin@123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/admin/login"
+          }
+        },
+        {
+          "name": "Admin refresh",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/admin/refresh"
+          }
+        },
+        {
+          "name": "Admin logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/admin/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth – Customer",
+      "description": "Customer app: phone-only auth under /api/v1/auth/customer. Send OTP (5/hour per phone), verify OTP (returns user, accessToken, refreshToken), resend, refresh, logout. Use Bearer {{accessToken}} for app/customer routes.",
+      "item": [
+        {
+          "name": "Customer send-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252618889456\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/customer/send-otp",
+            "description": "Send OTP to phone. Rate limit 5/hour per phone. In dev response includes otp (e.g. 1234)."
+          }
+        },
+        {
+          "name": "Customer verify-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252618889456\",\n  \"otp\": \"1234\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/customer/verify-otp",
+            "description": "Verify OTP. Returns user { _id, fullName, phone, profileImage }, accessToken, refreshToken, expiresIn. In dev use otp 1234."
+          }
+        },
+        {
+          "name": "Customer resend-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252618889456\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/customer/resend-otp",
+            "description": "Resend OTP. Same rate limit 5/hour per phone."
+          }
+        },
+        {
+          "name": "Customer refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/customer/refresh"
+          }
+        },
+        {
+          "name": "Customer logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/customer/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth – Vendor",
+      "description": "Vendor app: phone-only auth under /api/v1/auth/vendor. Send OTP (5/hour per phone), verify OTP (returns accessToken, refreshToken, isNewVendor, onboardingStep), resend, refresh, logout (Bearer + optional refreshToken/fcmToken in body).",
+      "item": [
+        {
+          "name": "Vendor send-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252612345678\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/vendor/send-otp",
+            "description": "Send OTP to phone. Rate limit 5/hour per phone. In dev OTP is logged to console. Returns maskedPhone."
+          }
+        },
+        {
+          "name": "Vendor verify-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252612345678\",\n  \"otp\": \"1234\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/vendor/verify-otp",
+            "description": "Verify OTP. Returns accessToken, refreshToken, isNewVendor, onboardingStep. In dev use OTP 1234 if NODE_ENV=development (or use OTP from send-otp response)."
+          }
+        },
+        {
+          "name": "Vendor resend-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252612345678\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/vendor/resend-otp",
+            "description": "Resend OTP. Same rate limit 5/hour per phone. 429 returns waitMinutes."
+          }
+        },
+        {
+          "name": "Vendor refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{vendorRefreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/vendor/refresh",
+            "description": "Refresh tokens. Body: refreshToken from verify-otp. Returns new accessToken, refreshToken, expiresIn."
+          }
+        },
+        {
+          "name": "Vendor logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{vendorRefreshToken}}\",\n  \"fcmToken\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/vendor/logout",
+            "description": "Logout. Requires Bearer token. Optional body: refreshToken (invalidate), fcmToken (remove from vendor.fcmTokens)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendor – Onboarding",
+      "description": "Vendor app onboarding (Bearer {{vendorAccessToken}}). GET status; PATCH business-info (Step 2), address (Step 3), contact (Step 4); POST kyc-documents (Step 5), submit (Step 6). All steps idempotent.",
+      "item": [
+        {
+          "name": "Get onboarding status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/status"
+          }
+        },
+        {
+          "name": "PATCH business-info (Step 2)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "storeName", "value": "My Restaurant", "type": "text" },
+                { "key": "storeType", "value": "food", "type": "text", "description": "food | grocery | pharmacy | fashion" },
+                { "key": "description", "value": "Best food in town", "type": "text" },
+                { "key": "operatingHours", "value": "[{\"day\":\"mon\",\"isOpen\":true,\"from\":\"09:00\",\"to\":\"22:00\"}]", "type": "text" },
+                { "key": "logo", "type": "file", "src": [] }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/business-info"
+          }
+        },
+        {
+          "name": "PATCH address (Step 3)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressLine1\": \"123 Main St\",\n  \"addressLine2\": \"Berlin\",\n  \"landmark\": \"Near park\",\n  \"lat\": 52.52,\n  \"lng\": 13.405,\n  \"addressLabel\": \"work\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/address"
+          }
+        },
+        {
+          "name": "PATCH contact (Step 4)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contactName\": \"John Doe\",\n  \"contactEmail\": \"vendor@example.com\",\n  \"contactPhone\": \"+252612345678\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/contact"
+          }
+        },
+        {
+          "name": "POST kyc-documents (Step 5)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "businessRegistration", "type": "file", "src": [], "description": "Required; image or PDF, 5MB" },
+                { "key": "identityDocument", "type": "file", "src": [], "description": "Required; image or PDF, 5MB" },
+                { "key": "healthSafetyLicense", "type": "file", "src": [], "description": "Optional" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/kyc-documents"
+          }
+        },
+        {
+          "name": "POST submit (Step 6)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/submit",
+            "description": "Submit application. 422 if steps 2–5 not complete; emits vendor:new_submission to admin room and FCM to admins."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendor – Products",
+      "description": "Phase 4: Product management. Requires vendor Bearer (authVendor + requireApproved). Store must be approved. Set productId from list/get. Multipart for create/update.",
+      "item": [
+        {
+          "name": "GET vendor categories",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/categories",
+            "description": "Categories for vendor store type (from categoryIds). Returns _id, name, slug, icon, sortOrder."
+          }
+        },
+        {
+          "name": "List vendor products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/products?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "category", "value": "{{categoryId}}", "disabled": true },
+                { "key": "isAvailable", "value": "", "disabled": true, "description": "true | false" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get product by id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/products/{{productId}}",
+            "description": "403 if product belongs to another vendor."
+          }
+        },
+        {
+          "name": "Create product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Margherita Pizza", "type": "text", "description": "Required" },
+                { "key": "price", "value": "12.99", "type": "text", "description": "Required" },
+                { "key": "category", "value": "{{categoryId}}", "type": "text", "description": "Required; ObjectId from GET /vendor/categories" },
+                { "key": "description", "value": "Tomato and mozzarella", "type": "text" },
+                { "key": "image", "type": "file", "src": [], "description": "Optional; 2MB max, image/*" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/products",
+            "description": "Multipart. Emits product:created to admin room."
+          }
+        },
+        {
+          "name": "Update product",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Margherita Pizza (Large)", "type": "text" },
+                { "key": "price", "value": "14.99", "type": "text" },
+                { "key": "category", "value": "{{categoryId}}", "type": "text" },
+                { "key": "description", "value": "", "type": "text" },
+                { "key": "image", "type": "file", "src": [], "description": "Optional; replace image" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/products/{{productId}}"
+          }
+        },
+        {
+          "name": "Toggle product (Stock)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/products/{{productId}}/toggle",
+            "description": "Flips isAvailable. Emits product:toggled to admin when set to false."
+          }
+        },
+        {
+          "name": "Delete product",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/products/{{productId}}",
+            "description": "Soft delete (isDeleted: true). Returns 204. Emits product:deleted to admin."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendor – Orders",
+      "description": "Vendor order management. Bearer {{vendorAccessToken}}. authVendor + requireApproved.",
+      "item": [
+        {
+          "name": "List orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/orders?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "orders"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "", "disabled": true, "description": "pending | confirmed | preparing | ready | out_for_delivery | delivered | cancelled | rejected" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/orders/{{orderId}}",
+            "description": "403 if order does not belong to this vendor."
+          }
+        },
+        {
+          "name": "Update order status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\",\n  \"note\": \"Order confirmed by restaurant\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/orders/{{orderId}}/status",
+            "description": "Allowed transitions per workflow (e.g. pending -> confirmed -> preparing -> ready)."
+          }
+        },
+        {
+          "name": "Reject order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Cannot fulfill this order\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/orders/{{orderId}}/reject",
+            "description": "Only for pending orders."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – Users",
+      "description": "Requires admin auth (cookies from Admin login). All routes: authenticateJWT + requireRole(admin, super_admin).",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "", "disabled": true, "description": "Name, phone, or email" },
+                { "key": "status", "value": "", "disabled": true, "description": "active | blocked | deleted" },
+                { "key": "showDeleted", "value": "false", "disabled": true, "description": "Include deleted when true" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "New Customer", "type": "text" },
+                { "key": "phone", "value": "+4915333344444", "type": "text" },
+                { "key": "password", "value": "Customer@123!", "type": "text" },
+                { "key": "email", "value": "customer@example.com", "type": "text", "disabled": true },
+                { "key": "preferredLang", "value": "en", "type": "text" },
+                { "key": "address", "value": "{\"label\":\"Home\",\"street\":\"Main St 1\",\"city\":\"Berlin\",\"country\":\"Germany\"}", "type": "text", "description": "Optional JSON: label, street, city, country", "disabled": true },
+                { "key": "profileImage", "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/admin/users"
+          }
+        },
+        {
+          "name": "Get user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}"
+          }
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Updated Name", "type": "text" },
+                { "key": "email", "value": "", "type": "text" },
+                { "key": "phone", "value": "+4915333344444", "type": "text" },
+                { "key": "preferredLang", "value": "en", "type": "text" },
+                { "key": "addresses", "value": "[{\"label\":\"Home\",\"street\":\"Main St 1\",\"city\":\"Berlin\",\"country\":\"Germany\"}]", "type": "text", "description": "JSON array of addresses", "disabled": true },
+                { "key": "profileImage", "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}"
+          }
+        },
+        {
+          "name": "Delete user (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}"
+          }
+        },
+        {
+          "name": "Patch user status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}/status",
+            "description": "status: active | blocked. When blocking, reason (string) is required and stored in blockReason."
+          }
+        },
+        {
+          "name": "Patch user status (block with reason)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"blocked\",\n  \"reason\": \"Violation of terms\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}/status"
+          }
+        },
+        {
+          "name": "Get user orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{userId}}/orders?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "{{userId}}", "orders"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export users CSV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/export/csv",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "export", "csv"],
+              "query": [
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – Customers",
+      "description": "Customer management. Requires admin auth (cookies from Admin login). Set customerId after Get/List.",
+      "item": [
+        {
+          "name": "List customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/customers?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "customers"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true, "description": "active | blocked" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get customer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/customers/{{customerId}}"
+          }
+        },
+        {
+          "name": "Create customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Customer\",\n  \"phone\": \"+4915333344444\",\n  \"password\": \"Customer@123!\",\n  \"email\": \"newcustomer@example.com\",\n  \"preferredLang\": \"en\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/customers"
+          }
+        },
+        {
+          "name": "Update customer",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\",\n  \"preferredLang\": \"en\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/customers/{{customerId}}"
+          }
+        },
+        {
+          "name": "Block/unblock customer",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blocked\": true,\n  \"reason\": \"Terms violation\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/customers/{{customerId}}/block",
+            "description": "blocked: true to block, false to unblock; reason optional when blocking."
+          }
+        },
+        {
+          "name": "Delete customer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/customers/{{customerId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – Drivers",
+      "description": "Driver management. Requires admin auth (cookies from Admin login).",
+      "item": [
+        {
+          "name": "Pending count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/drivers/stats/pending-count"
+          }
+        },
+        {
+          "name": "List drivers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/drivers?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "drivers"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true, "description": "active | blocked | deleted" },
+                { "key": "approvalStatus", "value": "", "disabled": true, "description": "pending | approved | rejected" },
+                { "key": "vehicleType", "value": "", "disabled": true, "description": "bike | scooter | car | van" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get driver",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}"
+          }
+        },
+        {
+          "name": "Update driver",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Driver Name", "type": "text" },
+                { "key": "email", "value": "driver@example.com", "type": "text" },
+                { "key": "phone", "value": "+4915222345678", "type": "text" },
+                { "key": "vehicleType", "value": "bike", "type": "text" },
+                { "key": "vehiclePlate", "value": "", "type": "text" },
+                { "key": "profileImage", "type": "file", "src": [], "disabled": true },
+                { "key": "licenseImage", "type": "file", "src": [], "disabled": true }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}"
+          }
+        },
+        {
+          "name": "Delete driver (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}"
+          }
+        },
+        {
+          "name": "Approve driver",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/approve"
+          }
+        },
+        {
+          "name": "Reject driver",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Documents could not be verified. Please resubmit clear photos.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/reject",
+            "description": "reason required, min 10 chars; stored in approvalNote."
+          }
+        },
+        {
+          "name": "Patch driver status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/status",
+            "description": "status: active | blocked. When blocking, reason is required (blockReason)."
+          }
+        },
+        {
+          "name": "Patch driver status (block with reason)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"blocked\",\n  \"reason\": \"Repeated late deliveries\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/status"
+          }
+        },
+        {
+          "name": "Get driver orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/orders?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "drivers", "{{driverId}}", "orders"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get driver location",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/location"
+          }
+        }
+      ]
+    },
+    {
+      "name": "App – Customer profile",
+      "description": "Requires customer Bearer token (from verify-otp). Set Authorization: Bearer {{accessToken}}. Profile uses fullName, phone, profileImage (no email).",
+      "item": [
+        {
+          "name": "Get profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/customer/profile",
+            "description": "Customer app: returns fullName, phone, profileImage, points, totalOrders only. No password/email."
+          }
+        },
+        {
+          "name": "Update profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "fullName", "value": "My Full Name", "type": "text", "description": "Full name" },
+                { "key": "phone", "value": "+252618889456", "type": "text", "description": "Phone (E.164)" },
+                { "key": "profileImage", "type": "file", "src": [], "description": "Profile image (optional)" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/app/customer/profile",
+            "description": "Update customer profile. Body: multipart/form-data with fullName, phone, profileImage (optional) only. No email."
+          }
+        },
+        {
+          "name": "Update FCM token",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fcmToken\": \"your-fcm-device-token\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/customer/fcm-token",
+            "description": "Body: { \"fcmToken\": \"string\" }. Updates FCM token and lastActiveAt."
+          }
+        },
+        {
+          "name": "Get addresses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/customer/addresses"
+          }
+        },
+        {
+          "name": "Add address",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressLine1\": \"123 Main St\",\n  \"addressLine2\": \"Apt 4\",\n  \"landmark\": \"Near city mall\",\n  \"saveAddressType\": \"home\",\n  \"city\": \"Berlin\",\n  \"country\": \"Germany\",\n  \"lat\": 52.52,\n  \"lng\": 13.405,\n  \"isDefault\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/customer/addresses",
+            "description": "Body: addressLine1, saveAddressType (home|work|other), city, country (required); addressLine2, landmark, lat, lng, isDefault (optional). Max 5 addresses."
+          }
+        },
+        {
+          "name": "Update address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressLine1\": \"Office Str 2\",\n  \"addressLine2\": \"Floor 3\",\n  \"landmark\": \"Next to bank\",\n  \"saveAddressType\": \"work\",\n  \"city\": \"Berlin\",\n  \"country\": \"Germany\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/customer/addresses/{{addressId}}",
+            "description": "Path: id (address _id from GET addresses). Body: addressLine1, addressLine2, landmark, saveAddressType (home|work|other), city, country, lat, lng, isDefault (all optional)."
+          }
+        },
+        {
+          "name": "Delete address",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/customer/addresses/{{addressId}}",
+            "description": "Path: id (address _id from GET addresses)."
+          }
+        },
+        {
+          "name": "Order history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/customer/order-history?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "customer", "order-history"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete account",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/customer/account"
+          }
+        }
+      ]
+    },
+    {
+      "name": "App – Cart",
+      "description": "Customer cart. Bearer {{accessToken}}. GET cart, POST set cart, PATCH item (qty 0 = remove), DELETE clear.",
+      "item": [
+        {
+          "name": "Get cart",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/cart"
+          }
+        },
+        {
+          "name": "Set cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{vendorId}}\",\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"qty\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/cart",
+            "description": "Replaces current cart. vendorId + items with productId and qty."
+          }
+        },
+        {
+          "name": "Update cart item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"qty\": 2\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/cart/item",
+            "description": "Update quantity. qty 0 removes the item."
+          }
+        },
+        {
+          "name": "Clear cart",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/cart"
+          }
+        }
+      ]
+    },
+    {
+      "name": "App – Products",
+      "description": "Public product by id. No auth.",
+      "item": [
+        {
+          "name": "Get product by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/app/products/{{productId}}",
+            "description": "Returns product with category and vendor info. Public."
+          }
+        }
+      ]
+    },
+    {
+      "name": "App – Customer orders",
+      "description": "Customer order endpoints. Use Bearer {{accessToken}} from App login (customer).",
+      "item": [
+        {
+          "name": "Place order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryAddress\": \"123 Main St, Berlin\",\n  \"usePoints\": false,\n  \"deliveryInstructions\": \"Ring the bell\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/orders",
+            "description": "Cart-based: deliveryAddress required; usePoints, deliveryInstructions optional. Or send vendorId + items + deliveryAddress for direct order."
+          }
+        },
+        {
+          "name": "List my orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/orders?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "orders"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Cancel order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Changed my mind\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/orders/{{orderId}}/cancel"
+          }
+        },
+        {
+          "name": "Rate order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Great delivery!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/orders/{{orderId}}/rate"
+          }
+        },
+        {
+          "name": "Track order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/orders/{{orderId}}/track"
+          }
+        }
+      ]
+    },
+    {
+      "name": "App – Driver orders",
+      "description": "Driver order endpoints. Use Bearer {{accessToken}} from App login (driver). Driver must be approved, active and online for available/accept.",
+      "item": [
+        {
+          "name": "Get available orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/driver/orders/available"
+          }
+        },
+        {
+          "name": "Get active order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/driver/orders/active"
+          }
+        },
+        {
+          "name": "Get delivery history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/driver/orders/history?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "driver", "orders", "history"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/driver/orders/{{orderId}}/accept"
+          }
+        },
+        {
+          "name": "Update order status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"picked_up\",\n  \"note\": \"Collected from restaurant\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/driver/orders/{{orderId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – Orders",
+      "description": "Admin order management. Requires admin auth (cookies from Admin login).",
+      "item": [
+        {
+          "name": "List orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "", "disabled": true },
+                { "key": "paymentStatus", "value": "", "disabled": true },
+                { "key": "customerId", "value": "", "disabled": true },
+                { "key": "driverId", "value": "", "disabled": true },
+                { "key": "dateFrom", "value": "", "disabled": true },
+                { "key": "dateTo", "value": "", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Orders stats summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/orders/stats/summary"
+          }
+        },
+        {
+          "name": "Get order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Update order status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\",\n  \"note\": \"Restaurant confirmed\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "Cancel order",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer requested cancellation\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/cancel"
+          }
+        },
+        {
+          "name": "Assign driver",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/assign-driver",
+            "description": "driverId: approved active driver's _id. Returns order with populated driverId."
+          }
+        },
+        {
+          "name": "Assign driver (PATCH :id/driver)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/driver",
+            "description": "Same as assign-driver; alternative path PATCH /admin/orders/:id/driver."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – Transactions",
+      "description": "Admin transaction list and revenue. Requires admin auth (cookies).",
+      "item": [
+        {
+          "name": "List transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/transactions?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "transactions"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "type", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true },
+                { "key": "customerId", "value": "", "disabled": true },
+                { "key": "dateFrom", "value": "", "disabled": true },
+                { "key": "dateTo", "value": "", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Revenue stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/transactions/stats/revenue?period=daily",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "transactions", "stats", "revenue"],
+              "query": [
+                { "key": "period", "value": "daily" },
+                { "key": "dateFrom", "value": "", "disabled": true },
+                { "key": "dateTo", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get transaction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/transactions/{{transactionId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – Vendors",
+      "description": "Vendor and menu-item management. Requires admin auth (cookies). Set vendorId and itemId as needed.",
+      "item": [
+        {
+          "name": "List vendors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/vendors?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "vendors"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get vendor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}"
+          }
+        },
+        {
+          "name": "Create vendor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Restaurant\",\n  \"email\": \"vendor@example.com\",\n  \"phone\": \"+4915444455555\",\n  \"address\": \"Restaurant St 1, Berlin\",\n  \"cuisine\": \"Italian\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/vendors"
+          }
+        },
+        {
+          "name": "Update vendor",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Restaurant\",\n  \"address\": \"New Address 2\",\n  \"cuisine\": \"Mediterranean\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}"
+          }
+        },
+        {
+          "name": "Block/unblock vendor",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blocked\": true,\n  \"reason\": \"Pending verification\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/block"
+          }
+        },
+        {
+          "name": "Delete vendor",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}"
+          }
+        },
+        {
+          "name": "List vendor menu items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/menu-items?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "vendors", "{{vendorId}}", "menu-items"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create menu item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pizza Margherita\",\n  \"description\": \"Classic tomato and mozzarella\",\n  \"price\": 9.99,\n  \"category\": \"Main\",\n  \"available\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/menu-items"
+          }
+        },
+        {
+          "name": "Update menu item",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pizza Margherita (Large)\",\n  \"price\": 12.99,\n  \"available\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/menu-items/{{itemId}}"
+          }
+        },
+        {
+          "name": "Delete menu item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/menu-items/{{itemId}}"
+          }
+        },
+        {
+          "name": "List vendor products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/products?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "vendors", "{{vendorId}}", "products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "category", "value": "", "disabled": true, "description": "Category ObjectId filter" },
+                { "key": "isAvailable", "value": "", "disabled": true, "description": "true | false" }
+              ]
+            },
+            "description": "Phase 4: Paginated products for vendor. Query: page, limit, category, isAvailable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – Categories",
+      "description": "Category management. Requires admin auth (cookies). Create/update use multipart (name, type, description, sortOrder, icon file). Set categoryId for by-id operations.",
+      "item": [
+        {
+          "name": "List categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories"],
+              "query": [
+                { "key": "type", "value": "", "disabled": true, "description": "food | grocery | pharmacy | fashion" },
+                { "key": "isActive", "value": "true", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create category",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Burgers", "type": "text", "description": "Required" },
+                { "key": "type", "value": "food", "type": "text", "description": "food | grocery | pharmacy | fashion" },
+                { "key": "description", "value": "Burgers and more", "type": "text", "disabled": true },
+                { "key": "sortOrder", "value": "1", "type": "text" },
+                { "key": "icon", "type": "file", "src": [], "description": "JPEG/PNG max 2MB" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/admin/categories"
+          }
+        },
+        {
+          "name": "Reorder categories",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \"id\": \"{{categoryId}}\", \"sortOrder\": 0 },\n  { \"id\": \"<anotherCategoryId>\", \"sortOrder\": 1 }\n]"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/categories/reorder"
+          }
+        },
+        {
+          "name": "Update category",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Burgers Updated", "type": "text" },
+                { "key": "type", "value": "food", "type": "text" },
+                { "key": "description", "value": "", "type": "text", "disabled": true },
+                { "key": "sortOrder", "value": "0", "type": "text" },
+                { "key": "isActive", "value": "true", "type": "text" },
+                { "key": "icon", "type": "file", "src": [], "description": "Replace icon (optional)" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}"
+          }
+        },
+        {
+          "name": "Toggle category active",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}/toggle"
+          }
+        },
+        {
+          "name": "Delete category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+            "description": "Returns 409 with vendors list if category is in use."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment",
+      "description": "Payment: initiate (customer Bearer), status (any Bearer), refund (admin cookies). Callback is WifiPay webhook (no auth, raw body).",
+      "item": [
+        {
+          "name": "Initiate payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"phone\": \"+4915112345678\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/payment/initiate"
+          }
+        },
+        {
+          "name": "Get payment status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/payment/status/{{paymentReference}}"
+          }
+        },
+        {
+          "name": "Refund (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"reason\": \"Customer request\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/payment/refund"
+          }
+        },
+        {
+          "name": "Payment callback (WifiPay webhook)",
+          "description": "Called by WifiPay; raw body, no auth. Signature in x-wifipay-signature. For testing only.",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-wifipay-signature", "value": "{{signature}}", "disabled": true }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"ref-from-wifipay\",\n  \"status\": \"SUCCESS\",\n  \"amount\": 12.49\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/payment/callback"
+          }
+        }
+      ]
+    },
+    {
+      "name": "App – Vendors",
+      "description": "Public vendor listing for app. No auth required. Set vendorId for Get vendor. Query: search, category, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit (default 10).",
+      "item": [
+        {
+          "name": "List vendors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/vendors?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "vendors"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number (default 1)" },
+                { "key": "limit", "value": "10", "description": "Items per page (default 10)" },
+                { "key": "search", "value": "pizza", "disabled": true, "description": "Search vendor name (case-insensitive)" },
+                { "key": "category", "value": "{{categoryId}}", "disabled": true, "description": "Category ObjectId to filter" },
+                { "key": "sort", "value": "recommended", "disabled": true, "description": "recommended | rating | deliveryTime" },
+                { "key": "minRating", "value": "4", "disabled": true, "description": "Minimum rating (1-5)" },
+                { "key": "maxDeliveryTime", "value": "45", "disabled": true, "description": "Max delivery time (minutes)" },
+                { "key": "minPrice", "value": "5", "disabled": true, "description": "Minimum order amount" },
+                { "key": "maxPrice", "value": "50", "disabled": true, "description": "Maximum order amount" }
+              ]
+            },
+            "description": "Returns { data: { vendors, total, page, pages } }. Categories populated with _id, name, slug, icon."
+          }
+        },
+        {
+          "name": "Get vendor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/app/vendors/{{vendorId}}",
+            "description": "Returns { data: { vendor, products } }. Vendor has categoryIds populated; products have category (name) populated. 404 if not found or not active."
+          }
+        }
+      ]
+    },
+    {
+      "name": "App – Categories",
+      "description": "Public category listing and vendors by category. No auth. Query: type (food|grocery|pharmacy|fashion|retail). Set categorySlug for Get category vendors.",
+      "item": [
+        {
+          "name": "List categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "categories"],
+              "query": [
+                { "key": "type", "value": "food", "disabled": true, "description": "Filter: food | grocery | pharmacy | fashion | retail" }
+              ]
+            },
+            "description": "Returns { data: [ { _id, name, slug, icon, type, sortOrder } ] }. Only isActive and non-deleted."
+          }
+        },
+        {
+          "name": "Get category vendors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/categories/{{categorySlug}}/vendors?page=1&limit=10&sort=recommended",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "categories", "{{categorySlug}}", "vendors"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number (default 1)" },
+                { "key": "limit", "value": "10", "description": "Items per page (default 10)" },
+                { "key": "sort", "value": "recommended", "description": "recommended | rating | deliveryTime" },
+                { "key": "minRating", "value": "4", "disabled": true, "description": "Minimum vendor rating (1-5)" },
+                { "key": "maxDeliveryTime", "value": "45", "disabled": true, "description": "Max delivery time (minutes)" },
+                { "key": "minPrice", "value": "5", "disabled": true, "description": "Minimum order amount" },
+                { "key": "maxPrice", "value": "50", "disabled": true, "description": "Maximum order amount" }
+              ]
+            },
+            "description": "Returns { data: { vendors, total, page, pages } }. 404 if category slug not found or inactive."
+          }
+        }
+      ]
+    }
+  ]
+}

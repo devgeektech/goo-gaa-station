@@ -1,0 +1,52 @@
+### DeliverEats API – test from Cursor/VS Code (REST Client)
+### Install extension: "REST Client" by Huachao Mao (id: humao.rest-client)
+### Then click "Send Request" above any line that starts with ###
+
+@baseUrl = http://localhost:5000
+
+### Health check
+GET {{baseUrl}}/api/health
+
+### API v1 welcome
+GET {{baseUrl}}/api/v1
+
+### 404 (should return error JSON)
+GET {{baseUrl}}/api/v1/unknown
+
+### ----- Auth: Admin (cookies) -----
+### Admin login (sets accessToken + refreshToken cookies)
+POST {{baseUrl}}/api/v1/auth/admin/login
+Content-Type: application/json
+
+{ "email": "admin@delivereats.com", "password": "Admin@123!" }
+
+### Admin refresh (send cookies)
+POST {{baseUrl}}/api/v1/auth/admin/refresh
+
+### Admin logout
+POST {{baseUrl}}/api/v1/auth/admin/logout
+
+### ----- Auth: Customer (phone OTP) — send-otp + verify-otp -----
+### Customer send-otp
+POST {{baseUrl}}/api/v1/auth/customer/send-otp
+Content-Type: application/json
+
+{ "phone": "+252618889456" }
+
+### Customer verify-otp (paste otp from send-otp response in dev)
+POST {{baseUrl}}/api/v1/auth/customer/verify-otp
+Content-Type: application/json
+
+{ "phone": "+252618889456", "otp": "1234" }
+
+### Customer refresh (paste refreshToken from verify-otp response)
+POST {{baseUrl}}/api/v1/auth/customer/refresh
+Content-Type: application/json
+
+{ "refreshToken": "YOUR_REFRESH_TOKEN" }
+
+### Customer logout
+POST {{baseUrl}}/api/v1/auth/customer/logout
+Content-Type: application/json
+
+{ "refreshToken": "YOUR_REFRESH_TOKEN" }

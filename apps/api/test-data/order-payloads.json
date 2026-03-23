@@ -1,0 +1,334 @@
+{
+  "description": "Request bodies for POST /api/app/orders (place order). Use with a logged-in customer; customerId is set from auth.",
+  "orders": [
+    {
+      "items": [
+        { "name": "Pizza Margherita", "qty": 2, "unitPrice": 9.99, "itemId": "item1" }
+      ],
+      "deliveryAddress": {
+        "street": "Main St 1",
+        "city": "Berlin",
+        "country": "Germany",
+        "lat": 52.52,
+        "lng": 13.405,
+        "contactName": "John",
+        "contactPhone": "+4915112345678"
+      },
+      "deliveryFee": 2.5,
+      "discount": 0,
+      "notes": "Leave at door",
+      "phone": "+4915112345678"
+    },
+    {
+      "items": [
+        { "name": "Classic Cheeseburger", "qty": 1, "unitPrice": 12.5, "itemId": "item2" },
+        { "name": "French Fries", "qty": 2, "unitPrice": 3.99, "itemId": "item3" }
+      ],
+      "deliveryAddress": {
+        "street": "Friedrichstrasse 45",
+        "city": "Berlin",
+        "country": "Germany",
+        "lat": 52.5186,
+        "lng": 13.4081,
+        "contactName": "Anna Schmidt",
+        "contactPhone": "+4915223456789"
+      },
+      "deliveryFee": 3,
+      "discount": 2,
+      "notes": "Ring the bell, 3rd floor",
+      "phone": "+4915223456789"
+    },
+    {
+      "items": [
+        { "name": "Salmon Nigiri Set", "qty": 1, "unitPrice": 14.99, "itemId": "item4" },
+        { "name": "Miso Soup", "qty": 2, "unitPrice": 2.5, "itemId": "item5" }
+      ],
+      "deliveryAddress": {
+        "street": "Alexanderplatz 9",
+        "city": "Berlin",
+        "country": "Germany",
+        "lat": 52.5219,
+        "lng": 13.4132,
+        "contactName": "Maria Weber",
+        "contactPhone": "+4915334567890"
+      },
+      "deliveryFee": 4.5,
+      "discount": 0,
+      "notes": "Please include chopsticks",
+      "phone": "+4915334567890"
+    },
+    {
+      "items": [
+        { "name": "Spaghetti Carbonara", "qty": 2, "unitPrice": 11, "itemId": "item6" },
+        { "name": "Tiramisu", "qty": 1, "unitPrice": 5.5, "itemId": "item7" }
+      ],
+      "deliveryAddress": {
+        "street": "Kurfürstendamm 120",
+        "city": "Berlin",
+        "country": "Germany",
+        "lat": 52.5044,
+        "lng": 13.3298,
+        "contactName": "Thomas Müller",
+        "contactPhone": "+4915445678901"
+      },
+      "deliveryFee": 2.5,
+      "discount": 5,
+      "notes": "",
+      "phone": "+4915445678901"
+    },
+    {
+      "items": [
+        { "name": "Full English Breakfast", "qty": 1, "unitPrice": 15.99, "itemId": "item8" },
+        { "name": "Orange Juice", "qty": 2, "unitPrice": 3.5, "itemId": "item9" }
+      ],
+      "deliveryAddress": {
+        "street": "Potsdamer Platz 1",
+        "city": "Berlin",
+        "country": "Germany",
+        "lat": 52.5096,
+        "lng": 13.3766,
+        "contactName": "Lisa Fischer",
+        "contactPhone": "+4915556789012"
+      },
+      "deliveryFee": 3.5,
+      "discount": 0,
+      "notes": "Call when you arrive",
+      "phone": "+4915556789012"
+    },
+    {
+      "items": [
+        { "name": "Chicken Wings", "qty": 3, "unitPrice": 8.99, "itemId": "item10" },
+        { "name": "Caesar Salad", "qty": 1, "unitPrice": 7.5, "itemId": "item11" },
+        { "name": "Cola", "qty": 2, "unitPrice": 2.99, "itemId": "item12" }
+      ],
+      "deliveryAddress": {
+        "street": "Unter den Linden 77",
+        "city": "Berlin",
+        "country": "Germany",
+        "lat": 52.517,
+        "lng": 13.3888,
+        "contactName": "Peter Becker",
+        "contactPhone": "+4915667890123"
+      },
+      "deliveryFee": 2,
+      "discount": 3.5,
+      "notes": "No ice in drinks",
+      "phone": "+4915667890123"
+    },
+    {
+      "items": [
+        { "name": "Veggie Bowl", "qty": 1, "unitPrice": 10.5, "itemId": "item13" },
+        { "name": "Green Smoothie", "qty": 1, "unitPrice": 4.99, "itemId": "item14" }
+      ],
+      "deliveryAddress": {
+        "street": "Warschauer Str. 12",
+        "city": "Berlin",
+        "country": "Germany",
+        "contactName": "Julia Klein",
+        "contactPhone": "+4915778901234"
+      },
+      "deliveryFee": 2.5,
+      "discount": 0,
+      "notes": "Vegan only, no plastic cutlery",
+      "phone": "+4915778901234"
+    },
+    {
+      "items": [
+        { "name": "Double Espresso", "qty": 2, "unitPrice": 2.8, "itemId": "item15" },
+        { "name": "Croissant", "qty": 2, "unitPrice": 3.2, "itemId": "item16" }
+      ],
+      "deliveryAddress": {
+        "street": "Oranienburger Str. 88",
+        "city": "Berlin",
+        "country": "Germany",
+        "lat": 52.5244,
+        "lng": 13.3944,
+        "contactName": "David Wolf",
+        "contactPhone": "+4915889012345"
+      },
+      "deliveryFee": 1.5,
+      "discount": 0,
+      "notes": "Extra hot coffee",
+      "phone": "+4915889012345"
+    },
+    {
+      "items": [
+        { "name": "Pad Thai", "qty": 2, "unitPrice": 10.5, "itemId": "item17" },
+        { "name": "Spring Rolls", "qty": 1, "unitPrice": 5.99, "itemId": "item18" },
+        { "name": "Thai Iced Tea", "qty": 2, "unitPrice": 3.5, "itemId": "item19" }
+      ],
+      "deliveryAddress": {
+        "street": "Leopoldstr. 42",
+        "city": "Munich",
+        "country": "Germany",
+        "lat": 48.1351,
+        "lng": 11.5820,
+        "contactName": "Sophie Meyer",
+        "contactPhone": "+498912345678"
+      },
+      "deliveryFee": 4,
+      "discount": 0,
+      "notes": "Extra spicy please",
+      "phone": "+498912345678"
+    },
+    {
+      "items": [
+        { "name": "Fish & Chips", "qty": 1, "unitPrice": 13.99, "itemId": "item20" },
+        { "name": "Mushy Peas", "qty": 1, "unitPrice": 2.5, "itemId": "item21" }
+      ],
+      "deliveryAddress": {
+        "street": "Königsallee 60",
+        "city": "Düsseldorf",
+        "country": "Germany",
+        "lat": 51.2277,
+        "lng": 6.7735,
+        "contactName": "Michael Braun",
+        "contactPhone": "+492112345678"
+      },
+      "deliveryFee": 3.5,
+      "discount": 1.5,
+      "notes": "Tartar sauce on the side",
+      "phone": "+492112345678"
+    },
+    {
+      "items": [
+        { "name": "Döner Kebab", "qty": 2, "unitPrice": 6.5, "itemId": "item22" },
+        { "name": "Ayran", "qty": 2, "unitPrice": 1.5, "itemId": "item23" }
+      ],
+      "deliveryAddress": {
+        "street": "Reeperbahn 1",
+        "city": "Hamburg",
+        "country": "Germany",
+        "lat": 53.5511,
+        "lng": 9.9937,
+        "contactName": "Jan Hoffmann",
+        "contactPhone": "+494012345678"
+      },
+      "deliveryFee": 2,
+      "discount": 0,
+      "notes": "Extra sauce",
+      "phone": "+494012345678"
+    },
+    {
+      "items": [
+        { "name": "Pho Bo", "qty": 1, "unitPrice": 11.99, "itemId": "item24" },
+        { "name": "Summer Rolls", "qty": 1, "unitPrice": 4.5, "itemId": "item25" }
+      ],
+      "deliveryAddress": {
+        "street": "Karl-Liebknecht-Str. 5",
+        "city": "Leipzig",
+        "country": "Germany",
+        "lat": 51.3397,
+        "lng": 12.3731,
+        "contactName": "Elena Richter",
+        "contactPhone": "+493412345678"
+      },
+      "deliveryFee": 3,
+      "discount": 0,
+      "notes": "Bean sprouts on the side",
+      "phone": "+493412345678"
+    },
+    {
+      "items": [
+        { "name": "Burrito Bowl", "qty": 1, "unitPrice": 9.99, "itemId": "item26" },
+        { "name": "Guacamole", "qty": 1, "unitPrice": 3.5, "itemId": "item27" },
+        { "name": "Churros", "qty": 1, "unitPrice": 4.99, "itemId": "item28" }
+      ],
+      "deliveryAddress": {
+        "street": "Zeil 112",
+        "city": "Frankfurt",
+        "country": "Germany",
+        "lat": 50.1109,
+        "lng": 8.6821,
+        "contactName": "Christoph Wagner",
+        "contactPhone": "+496912345678"
+      },
+      "deliveryFee": 3.5,
+      "discount": 2,
+      "notes": "No cilantro",
+      "phone": "+496912345678"
+    },
+    {
+      "items": [
+        { "name": "Ramen Tonkotsu", "qty": 1, "unitPrice": 12.99, "itemId": "item29" },
+        { "name": "Gyoza", "qty": 2, "unitPrice": 5.5, "itemId": "item30" }
+      ],
+      "deliveryAddress": {
+        "street": "Ebertstr. 24",
+        "city": "Cologne",
+        "country": "Germany",
+        "lat": 50.9375,
+        "lng": 6.9603,
+        "contactName": "Nina Schulz",
+        "contactPhone": "+492212345678"
+      },
+      "deliveryFee": 4,
+      "discount": 0,
+      "notes": "Extra noodles",
+      "phone": "+492212345678"
+    },
+    {
+      "items": [
+        { "name": "Club Sandwich", "qty": 1, "unitPrice": 8.5, "itemId": "item31" },
+        { "name": "Sweet Potato Fries", "qty": 1, "unitPrice": 4.25, "itemId": "item32" },
+        { "name": "Iced Lemonade", "qty": 2, "unitPrice": 2.99, "itemId": "item33" }
+      ],
+      "deliveryAddress": {
+        "street": "Schlossplatz 2",
+        "city": "Stuttgart",
+        "country": "Germany",
+        "lat": 48.7758,
+        "lng": 9.1829,
+        "contactName": "Stefan König",
+        "contactPhone": "+497112345678"
+      },
+      "deliveryFee": 2.5,
+      "discount": 0,
+      "notes": "",
+      "phone": "+497112345678"
+    },
+    {
+      "items": [
+        { "name": "Margherita Pizza", "qty": 1, "unitPrice": 9.99, "image": "https://example.com/pizza.jpg", "itemId": "item34" },
+        { "name": "Garlic Bread", "qty": 1, "unitPrice": 4.5, "itemId": "item35" },
+        { "name": "Pepperoni Pizza", "qty": 1, "unitPrice": 11.5, "itemId": "item36" }
+      ],
+      "deliveryAddress": {
+        "street": "Neuer Markt 3",
+        "city": "Nuremberg",
+        "country": "Germany",
+        "lat": 49.4521,
+        "lng": 11.0767,
+        "contactName": "Laura Bauer",
+        "contactPhone": "+499112345678"
+      },
+      "pickupAddress": {
+        "street": "Restaurant Row 7",
+        "city": "Nuremberg",
+        "country": "Germany",
+        "name": "Pizza Palace"
+      },
+      "deliveryFee": 3,
+      "discount": 5,
+      "notes": "Cut into 8 slices",
+      "phone": "+499112345678"
+    },
+    {
+      "items": [
+        { "name": "Falafel Wrap", "qty": 2, "unitPrice": 6.99, "itemId": "item37" },
+        { "name": "Hummus", "qty": 1, "unitPrice": 3.5, "itemId": "item38" }
+      ],
+      "deliveryAddress": {
+        "street": "Breite Str. 88",
+        "city": "Dresden",
+        "country": "Germany",
+        "contactName": "Felix Neumann",
+        "contactPhone": "+493512345678"
+      },
+      "deliveryFee": 2.5,
+      "discount": 0,
+      "notes": "Vegan hummus only",
+      "phone": "+493512345678"
+    }
+  ]
+}

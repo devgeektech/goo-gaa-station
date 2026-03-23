@@ -1,0 +1,152 @@
+import 'express-async-errors';
+import path from 'path';
+import express, { type Request } from 'express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import mongoSanitize from 'express-mongo-sanitize';
+
+import { env } from './config/env';
+import { requestIdMiddleware } from './middlewares/requestId.middleware';
+import { notFoundMiddleware } from './middlewares/notFound.middleware';
+import { errorMiddleware } from './middlewares/error.middleware';
+import swaggerUi from 'swagger-ui-express';
+import routes from './routes';
+import { paymentCallback, wifipayWebhookHandler } from './controllers/payment.controller';
+
+const app = express();
+
+// --- WifiPay webhooks (raw body) — MUST be before json parser; public, signature verification in handler ---
+app.use('/api/v1/payment/callback', express.raw({ type: '*/*' }), paymentCallback);
+app.use('/api/v1/webhooks/wifipay', express.raw({ type: '*/*' }), wifipayWebhookHandler);
+
+// --- Body parsing: 10mb JSON, 10mb urlencoded; multipart (multer) uses 5mb per route ---
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
+
+// --- Security: sanitize after body parser (no $ or . in req body) ---
+app.use(mongoSanitize());
+// app.use(compression() as unknown as express.RequestHandler);
+
+// --- CORS: whitelist from ALLOWED_ORIGINS env, or single CLIENT_ORIGIN ---
+const allowedOrigins = env.ALLOWED_ORIGINS.length > 0 ? env.ALLOWED_ORIGINS : [env.CLIENT_ORIGIN];
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+      else cb(null, false);
+    },
+    credentials: true,
+  })
+);
+
+// --- Helmet with CSP (scriptSrc unsafe-inline for Swagger UI at /api-docs) ---
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+      },
+    },
+  })
+);
+
+// --- Logging (dev only) ---
+if (env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// --- Request ID ---
+app.use(requestIdMiddleware);
+
+// --- Rate limits ---
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  skip: (req) =>
+    req.path === '/api/health' || req.path.startsWith('/api/v1/admin'),
+});
+app.use(globalLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+});
+app.use('/api/v1/auth', authLimiter);
+
+const customerOtpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => {
+    const phone = req.body?.phone;
+    return typeof phone === 'string' ? String(phone).trim().replace(/\s/g, '') : (req.ip ?? 'unknown');
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const resetTime = (req as Request & { rateLimit?: { resetTime?: number } }).rateLimit?.resetTime;
+    const waitMinutes = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 60000)) : 60;
+    res.status(429).json({ success: false, message: 'Too many OTP requests', waitMinutes });
+  },
+});
+app.use('/api/v1/auth/customer/send-otp', customerOtpLimiter);
+app.use('/api/v1/auth/customer/resend-otp', customerOtpLimiter);
+
+const vendorOtpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => {
+    const phone = req.body?.phone;
+    return typeof phone === 'string' ? String(phone).trim().replace(/\s/g, '') : (req.ip ?? 'unknown');
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const resetTime = (req as Request & { rateLimit?: { resetTime?: number } }).rateLimit?.resetTime;
+    const waitMinutes = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 60000)) : 60;
+    res.status(429).json({ success: false, message: 'Too many OTP requests', waitMinutes });
+  },
+});
+app.use('/api/v1/auth/vendor/send-otp', vendorOtpLimiter);
+app.use('/api/v1/auth/vendor/resend-otp', vendorOtpLimiter);
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+});
+app.use('/api/v1/admin', adminLimiter);
+
+// --- Static uploads (local storage only) ---
+if (env.STORAGE_PROVIDER === 'local') {
+  const uploadsPath = path.join(process.cwd(), env.UPLOAD_DIR);
+  app.use('/uploads', express.static(uploadsPath));
+}
+
+// --- API routes (health at /api/health, v1 at /api/v1) ---
+app.use('/api', routes);
+
+// --- Swagger UI: interactive API docs at /api-docs (for app team) ---
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(null, {
+    swaggerOptions: { url: '/api/openapi.json' },
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Goo Gaa Station API',
+  })
+);
+
+// --- 404 then global error handler ---
+app.use(notFoundMiddleware);
+app.use(errorMiddleware);
+
+export default app;
