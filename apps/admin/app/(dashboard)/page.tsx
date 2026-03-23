@@ -137,7 +137,7 @@ export default function DashboardHome() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {items.slice(0, 10).map((o) => (
+                {Array.isArray(items) &&items.slice(0, 10).map((o) => (
                   <Link key={o._id} href="/orders" className="card" style={{ padding: 14, background: 'var(--bg)', boxShadow: 'none', border: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
                       <div>
