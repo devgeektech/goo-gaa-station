@@ -67,8 +67,26 @@ export type GetOrdersParams = {
 };
 
 export async function getOrders(params: GetOrdersParams) {
-  const res = await apiClient.get<ApiSuccess<OrderListItem[]>>('/admin/orders', { params });
-  return res.data as ApiSuccess<OrderListItem[]> & Paginated<OrderListItem>;
+  const res = await apiClient.get<ApiSuccess<OrderListItem[] | { orders?: OrderListItem[]; total?: number; page?: number; pages?: number }>>('/admin/orders', { params });
+  const raw = res.data;
+  const payload = raw.data;
+
+  const list = Array.isArray(payload) ? payload : (payload?.orders ?? []);
+  const total = raw.total ?? (Array.isArray(payload) ? 0 : (payload?.total ?? 0));
+  const page = raw.page ?? (Array.isArray(payload) ? 1 : (payload?.page ?? 1));
+  const limit = raw.limit ?? params.limit ?? 20;
+  const totalPages = raw.totalPages ?? (Array.isArray(payload) ? 1 : (payload?.pages ?? 1));
+
+  return {
+    ...raw,
+    data: list,
+    total,
+    page,
+    limit,
+    totalPages,
+    hasNext: raw.hasNext ?? page < totalPages,
+    hasPrev: raw.hasPrev ?? page > 1,
+  } as ApiSuccess<OrderListItem[]> & Paginated<OrderListItem>;
 }
 
 export async function getOrderById(id: string) {

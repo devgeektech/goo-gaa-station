@@ -4,6 +4,21 @@ import bcrypt from 'bcryptjs';
 const SALT_ROUNDS = 12;
 
 export type AdminRole = 'super_admin' | 'admin';
+type FcmToken = {
+  token: string;
+  device?: string | null;
+  updatedAt: Date;
+};
+
+export type AdminDocument = mongoose.Document & {
+  name: string;
+  email: string;
+  password: string;
+  role: AdminRole;
+  isActive: boolean;
+  fcmTokens: FcmToken[];
+  comparePassword: (plain: string) => Promise<boolean>;
+};
 
 const FcmTokenSchema = new mongoose.Schema(
   {
@@ -36,4 +51,6 @@ AdminSchema.methods.comparePassword = function (plain: string): Promise<boolean>
   return bcrypt.compare(plain, this.password);
 };
 
-export const Admin = mongoose.models.Admin ?? mongoose.model('Admin', AdminSchema);
+export const Admin: mongoose.Model<AdminDocument> =
+  (mongoose.models.Admin as mongoose.Model<AdminDocument> | undefined) ??
+  mongoose.model<AdminDocument>('Admin', AdminSchema);

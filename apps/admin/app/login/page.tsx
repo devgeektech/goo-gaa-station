@@ -99,7 +99,7 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="muted loginHint">
-          Default after seed: <code className="loginCode">admin@delivereats.com</code> / <code className="loginCode">Admin@123!</code>
+          Default after seed: <code className="loginCode">admin@deliveryapp.com</code> / <code className="loginCode">Admin@12345</code>
         </p>
         <Link href="/" className="btn" style={{ marginTop: 16, display: 'inline-block' }}>
           Back to dashboard
