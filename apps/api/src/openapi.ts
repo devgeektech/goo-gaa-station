@@ -120,7 +120,7 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
 
 /** Return response content with example for Swagger UI by "METHOD path" key (optional). */
 function getResponseExampleForRoute(opKey: string): Record<string, unknown> | undefined {
-  const categoryItem = { _id: '507f1f77bcf86cd799439011', name: 'Burgers', slug: 'burgers', icon: '/uploads/categories/icon.png', type: 'food', sortOrder: 0 };
+  const categoryItem = { _id: '507f1f77bcf86cd799439011', name: 'Burgers', slug: 'burgers', icon: '/uploads/categories/icon.png', sortOrder: 0 };
   const vendorItem = {
     _id: '507f1f77bcf86cd799439012',
     name: 'Pizza House',
@@ -156,18 +156,26 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
                 items: {
                   type: 'object',
                   properties: {
-                    _id: { type: 'string' },
-                    name: { type: 'string' },
-                    slug: { type: 'string' },
-                    icon: { type: 'string', nullable: true },
                     type: { type: 'string' },
-                    sortOrder: { type: 'number' },
+                    categories: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          _id: { type: 'string' },
+                          name: { type: 'string' },
+                          slug: { type: 'string' },
+                          icon: { type: 'string', nullable: true },
+                          sortOrder: { type: 'number' },
+                        },
+                      },
+                    },
                   },
                 },
               },
             },
           },
-          example: { success: true, data: [categoryItem] },
+          example: { success: true, data: [{ type: 'food', categories: [categoryItem] }] },
         },
       },
     },
@@ -859,8 +867,8 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
         cookieAuth: {
           type: 'apiKey',
           in: 'cookie',
-          name: 'accessToken',
-          description: 'Admin auth: login sets accessToken + refreshToken cookies. Send cookies with each request.',
+          name: 'adminAccessToken',
+          description: 'Admin auth: login sets adminAccessToken + adminRefreshToken cookies. Send cookies with each request.',
         },
         bearerAuth: {
           type: 'http',

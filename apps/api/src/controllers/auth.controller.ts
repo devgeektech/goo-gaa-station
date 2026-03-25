@@ -104,8 +104,11 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
   const refreshToken = generateRefreshToken(payload);
   await storeRefreshToken(admin._id, 'Admin', refreshToken);
 
-  res.cookie('accessToken', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE });
-  res.cookie('refreshToken', refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE });
+  res.cookie('adminAccessToken', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE });
+  res.cookie('adminRefreshToken', refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE });
+  // Clear legacy cookie names to avoid cross-role auth collisions.
+  res.cookie('accessToken', '', { ...COOKIE_OPTIONS, maxAge: 0 });
+  res.cookie('refreshToken', '', { ...COOKIE_OPTIONS, maxAge: 0 });
 
   return sendSuccess(res, {
     admin: { _id: admin._id, name: admin.name, email: admin.email, role: admin.role },
@@ -114,7 +117,7 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
 
 /** POST /api/v1/auth/admin/refresh */
 export const adminRefresh = asyncHandler(async (req: Request, res: Response) => {
-  const refreshToken = req.cookies?.refreshToken;
+  const refreshToken = req.cookies?.adminRefreshToken ?? req.cookies?.refreshToken;
   if (!refreshToken) {
     logAuthFailure({ ip: getClientIp(req), route: 'POST /auth/admin/refresh', reason: 'missing_refresh_cookie' });
     throw new AppError(
@@ -134,8 +137,8 @@ export const adminRefresh = asyncHandler(async (req: Request, res: Response) => 
       'Admin',
       payload
     );
-    res.cookie('accessToken', refreshed.accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE });
-    res.cookie('refreshToken', refreshed.refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE });
+    res.cookie('adminAccessToken', refreshed.accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE });
+    res.cookie('adminRefreshToken', refreshed.refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE });
     return sendSuccess(res, {});
   } catch {
     logAuthFailure({ ip: getClientIp(req), route: 'POST /auth/admin/refresh', reason: 'invalid_refresh_token' });
@@ -149,7 +152,7 @@ export const adminRefresh = asyncHandler(async (req: Request, res: Response) => 
 
 /** POST /api/v1/auth/admin/logout */
 export const adminLogout = asyncHandler(async (req: Request, res: Response) => {
-  const refreshToken = req.cookies?.refreshToken;
+  const refreshToken = req.cookies?.adminRefreshToken ?? req.cookies?.refreshToken;
   if (refreshToken) {
     try {
       const payload = jwt.decode(refreshToken) as { _id?: string } | null;
@@ -164,6 +167,9 @@ export const adminLogout = asyncHandler(async (req: Request, res: Response) => {
       // ignore invalid token on logout
     }
   }
+  res.cookie('adminAccessToken', '', { ...COOKIE_OPTIONS, maxAge: 0 });
+  res.cookie('adminRefreshToken', '', { ...COOKIE_OPTIONS, maxAge: 0 });
+  // Clear legacy cookie names as well.
   res.cookie('accessToken', '', { ...COOKIE_OPTIONS, maxAge: 0 });
   res.cookie('refreshToken', '', { ...COOKIE_OPTIONS, maxAge: 0 });
   return sendSuccess(res, {});

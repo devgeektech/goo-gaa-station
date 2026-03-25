@@ -14,11 +14,11 @@ declare global {
 }
 
 /**
- * Admin auth: verify accessToken from httpOnly cookie only → attach req.admin (and req.user for compatibility).
+ * Admin auth: verify adminAccessToken from httpOnly cookie only → attach req.admin (and req.user for compatibility).
  * Use on routes under /api/v1/auth/admin or /api/v1/admin.
  */
 export function authAdmin(req: Request, _res: Response, next: NextFunction): void {
-  const accessToken = req.cookies?.accessToken;
+  const accessToken = req.cookies?.adminAccessToken ?? req.cookies?.accessToken;
   if (!accessToken) {
     throw new AppError(
       { en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized },

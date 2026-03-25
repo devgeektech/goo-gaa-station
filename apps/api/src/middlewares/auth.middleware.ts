@@ -24,10 +24,10 @@ declare global {
 
 /** Get access token from cookie (admin) or Authorization Bearer (app) */
 function getAccessToken(req: Request): string | undefined {
-  const fromCookie = req.cookies?.accessToken;
-  if (fromCookie) return fromCookie;
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7);
+  const fromCookie = req.cookies?.accessToken;
+  if (fromCookie) return fromCookie;
   return undefined;
 }
 

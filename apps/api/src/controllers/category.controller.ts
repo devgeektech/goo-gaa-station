@@ -150,7 +150,28 @@ export const appListCategories = asyncHandler(async (req: Request, res: Response
     .select('_id name slug icon type sortOrder')
     .lean()
     .sort({ sortOrder: 1 });
-  return sendSuccess(res, list);
+
+  // Group categories by `type` for better UI consumption.
+  // Response format:
+  // { data: [{ type: 'food', categories: [{ _id, name, slug, icon, sortOrder }, ...] }, ...] }
+  const groupsByType = new Map<string, typeof list>();
+  for (const item of list) {
+    const key = String((item as { type?: unknown }).type ?? '');
+    if (!groupsByType.has(key)) groupsByType.set(key, []);
+    groupsByType.get(key)!.push(item);
+  }
+
+  const data = Array.from(groupsByType.entries())
+    .sort(([a], [b]) => a.localeCompare(b)) // stable alphabetical order by type
+    .map(([type, items]) => ({
+      type,
+      categories: items.map((c) => {
+        const { type: _ignored, ...rest } = c as unknown as { type?: unknown };
+        return rest;
+      }),
+    }));
+
+  return sendSuccess(res, data);
 });
 
 /** GET /api/v1/app/categories/:slug/vendors — Vendors in category (by slug), with filters */
