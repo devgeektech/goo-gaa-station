@@ -18,7 +18,7 @@ export const ROUTES = [
   { method: 'POST', path: '/api/v1/auth/vendor/refresh', auth: false, description: 'Vendor: refresh tokens (body: refreshToken)' },
   { method: 'POST', path: '/api/v1/auth/vendor/logout', auth: true, description: 'Vendor: logout (Bearer required; optional body: refreshToken, fcmToken)' },
   { method: 'GET', path: '/api/v1/vendor/onboarding/status', auth: true, description: 'Vendor onboarding: get status (onboardingStep, approvalStatus, submittedAt, name)' },
-  { method: 'PATCH', path: '/api/v1/vendor/onboarding/business-info', auth: true, description: 'Vendor onboarding Step 2: business info (multipart: storeName, storeType, description, operatingHours JSON, logo)' },
+  { method: 'PATCH', path: '/api/v1/vendor/onboarding/business-info', auth: true, description: 'Vendor onboarding Step 2: business info (multipart: storeName, description, operatingHours JSON, logo)' },
   { method: 'PATCH', path: '/api/v1/vendor/onboarding/address', auth: true, description: 'Vendor onboarding Step 3: address (addressLine1, addressLine2, landmark, lat, lng, addressLabel)' },
   { method: 'POST', path: '/api/v1/vendor/onboarding/kyc-documents', auth: true, description: 'Vendor onboarding Step 5: KYC (multipart: businessRegistration, identityDocument, healthSafetyLicense optional)' },
   { method: 'POST', path: '/api/v1/vendor/onboarding/submit', auth: true, description: 'Vendor onboarding Step 6: submit application (422 if steps incomplete)' },

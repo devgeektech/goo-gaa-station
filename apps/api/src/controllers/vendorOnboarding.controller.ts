@@ -1,7 +1,5 @@
 import type { Request, Response } from 'express';
-import mongoose from 'mongoose';
 import { Vendor } from '../models/Vendor';
-import { Category } from '../models/Category';
 import { AppError } from '../utils/AppError';
 import { sendSuccess } from '../utils/response';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -17,10 +15,8 @@ import { Admin } from '../models/Admin';
 
 // Mongoose model typing in this repo is loose; cast for controller usage.
 const VendorModel = Vendor as any;
-const CategoryModel = Category as any;
 const AdminModel = Admin as any;
 
-const STORE_TYPES = ['food', 'grocery', 'pharmacy', 'fashion'] as const;
 const MAX_KYC_SIZE = 5 * 1024 * 1024; // 5MB
 
 const uploadBusinessInfo = getUploadMiddleware('vendors', MAX_FILE_SIZE_2MB).single('logo');
@@ -64,14 +60,7 @@ export const patchBusinessInfo = asyncHandler(async (req: Request, res: Response
 
   const body = req.body ?? {};
   const storeName = String(body.storeName ?? '').trim();
-  const storeType = String(body.storeType ?? '').trim().toLowerCase();
   if (!storeName) throw new AppError({ en: 'storeName is required', de: 'Store-Name erforderlich' }, 400, 'VALIDATION_ERROR');
-  if (!STORE_TYPES.includes(storeType as (typeof STORE_TYPES)[number])) {
-    throw new AppError({ en: 'storeType must be one of: food, grocery, pharmacy, fashion', de: 'Ungültiger storeType' }, 400, 'VALIDATION_ERROR');
-  }
-
-  const category = await CategoryModel.findOne({ type: storeType, isActive: true, isDeleted: false }).lean();
-  const categoryIds = category ? [category._id] : [];
 
   let operatingHours: Array<{ day: string; isOpen: boolean; from?: string; to?: string }> = [];
   if (body.operatingHours) {
@@ -88,7 +77,6 @@ export const patchBusinessInfo = asyncHandler(async (req: Request, res: Response
 
   doc.name = storeName;
   doc.description = typeof body.description === 'string' ? body.description.trim() : (doc.description ?? '');
-  doc.categoryIds = categoryIds as mongoose.Types.ObjectId[];
   doc.operatingHours = operatingHours as any;
   const currentStep = doc.onboardingStep ?? 0;
   doc.onboardingStep = Math.max(currentStep, 2);

@@ -509,14 +509,15 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     'POST /api/v1/auth/vendor/refresh': vendorRefreshBody,
     'POST /api/v1/auth/vendor/logout': vendorLogoutBody,
     'PATCH /api/v1/vendor/onboarding/business-info': {
+      description: 'Vendor onboarding step 2. **Required:** `storeName` only. Optional: `description`, `operatingHours` (JSON string), `logo`. The `storeType` field is **not** accepted; vendor categories are not set from this endpoint.',
       content: {
         'multipart/form-data': {
           schema: {
             type: 'object',
-            required: ['storeName', 'storeType'],
+            description: 'Multipart fields for business info. Do not send storeType.',
+            required: ['storeName'],
             properties: {
               storeName: { type: 'string', description: 'Store name', example: 'My Restaurant' },
-              storeType: { type: 'string', enum: ['food', 'grocery', 'pharmacy', 'fashion'], example: 'food' },
               description: { type: 'string', example: 'Best food in town', description: 'Optional store description' },
               operatingHours: {
                 type: 'string',

@@ -242,7 +242,7 @@
     },
     {
       "name": "Vendor – Onboarding",
-      "description": "Vendor app onboarding (Bearer {{vendorAccessToken}}). GET status; PATCH business-info (Step 2), address (Step 3), contact (Step 4); POST kyc-documents (Step 5), submit (Step 6). All steps idempotent.",
+      "description": "Vendor app onboarding (Bearer {{vendorAccessToken}}). GET status; PATCH business-info (Step 2: multipart — storeName required; optional description, operatingHours JSON, logo — no storeType), address (Step 3), contact (Step 4); POST kyc-documents (Step 5), submit (Step 6). All steps idempotent.",
       "item": [
         {
           "name": "Get onboarding status",
@@ -254,6 +254,7 @@
         },
         {
           "name": "PATCH business-info (Step 2)",
+          "description": "Multipart body: `storeName` (required). Optional: `description`, `operatingHours` (JSON string), `logo` (file). Do not send `storeType` — it was removed from the API.",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
@@ -261,7 +262,6 @@
               "mode": "formdata",
               "formdata": [
                 { "key": "storeName", "value": "My Restaurant", "type": "text" },
-                { "key": "storeType", "value": "food", "type": "text", "description": "food | grocery | pharmacy | fashion" },
                 { "key": "description", "value": "Best food in town", "type": "text" },
                 { "key": "operatingHours", "value": "[{\"day\":\"mon\",\"isOpen\":true,\"from\":\"09:00\",\"to\":\"22:00\"}]", "type": "text" },
                 { "key": "logo", "type": "file", "src": [] }
