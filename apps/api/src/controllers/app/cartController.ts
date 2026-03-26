@@ -86,19 +86,50 @@ export const setCart = asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const subtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   const customerIdObj = new mongoose.Types.ObjectId(customerId);
 
-  const cart = await Cart.findOneAndUpdate(
-    { customer: customerIdObj },
-    {
-      vendor: vendorIdObj,
-      items: cartItems,
-      subtotal,
-      updatedAt: new Date(),
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  )
+  // SINGLE-VENDOR ENFORCEMENT:
+  // If a cart already exists and belongs to another vendor, block switching vendors.
+  const existing = await Cart.findOne({ customer: customerIdObj }).select('vendor').lean();
+  if (existing?.vendor && String((existing as { vendor: mongoose.Types.ObjectId }).vendor) !== String(vendorIdObj)) {
+    const existingVendor = await Vendor.findById((existing as { vendor: mongoose.Types.ObjectId }).vendor).select('name').lean();
+    const existingName = (existingVendor as { name?: string })?.name ?? 'another restaurant';
+    throw new AppError(
+      {
+        en: `Your cart already contains items from ${existingName}. Clear your cart to add items from this restaurant.`,
+        de: `Ihr Warenkorb enthält bereits Artikel von ${existingName}. Leeren Sie den Warenkorb, um Artikel dieses Anbieters hinzuzufügen.`,
+      },
+      409,
+      'VENDOR_CONFLICT'
+    );
+  }
+
+  // Merge into existing cart (same vendor) so caller can send multiple items
+  // and subsequent calls can append items instead of overwriting.
+  const cartDoc = await Cart.findOne({ customer: customerIdObj });
+  const cartToSave = cartDoc ?? new Cart({ customer: customerIdObj, vendor: vendorIdObj, items: [], subtotal: 0 });
+
+  (cartToSave as any).vendor = vendorIdObj;
+  const existingItems = ((cartToSave as any).items ?? []) as Array<{
+    product: mongoose.Types.ObjectId;
+    name: string;
+    price: number;
+    qty: number;
+    image: string | null;
+  }>;
+
+  for (const incoming of cartItems) {
+    const idx = existingItems.findIndex((x) => x.product.toString() === incoming.product.toString());
+    if (idx >= 0) existingItems[idx].qty += incoming.qty;
+    else existingItems.push(incoming);
+  }
+
+  (cartToSave as any).items = existingItems;
+  (cartToSave as any).subtotal = existingItems.reduce((s, i) => s + i.price * i.qty, 0);
+  (cartToSave as any).updatedAt = new Date();
+  await (cartToSave as any).save();
+
+  const cart = await Cart.findOne({ customer: customerIdObj })
     .populate('items.product', '_id name price image isAvailable')
     .lean();
 
