@@ -34,8 +34,16 @@ const FcmTokenSchema = new mongoose.Schema(
 const DriverSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    email: { type: String, sparse: true, unique: true, default: null, lowercase: true },
+    // Important: no default `null`.
+    // Placeholder drivers created during OTP auth should *not* write an indexed
+    // `email: null` value, otherwise MongoDB can throw duplicate-key errors.
+    email: { type: String, sparse: true, unique: true, lowercase: true },
     phone: { type: String, required: true, unique: true },
+    phoneOtp: { type: String, default: null, select: false },
+    phoneOtpExpiry: { type: Date, default: null, select: false },
+    phoneOtpAttempts: { type: Number, default: 0, select: false },
+    isPhoneVerified: { type: Boolean, default: false },
+    refreshToken: { type: String, default: null, select: false },
     password: { type: String, required: true, select: false },
     profileImage: { type: String, default: null },
     licenseImage: { type: String, default: null },
@@ -43,6 +51,15 @@ const DriverSchema = new mongoose.Schema(
     nationalIdImage: { type: String, default: null },
     vehicleType: { type: String, enum: ['bike', 'scooter', 'car', 'van'], default: null },
     vehiclePlate: { type: String, default: null },
+    // Phase 8: vehicle number (profile setup step 2)
+    vehicleNumber: {
+      type: String,
+      default: null,
+      set: (v: string | null | undefined) => {
+        if (v === null || v === undefined) return v;
+        return String(v).trim().toUpperCase();
+      },
+    },
     licenseNumber: { type: String, default: null },
     nationalId: { type: String, default: null },
     approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
@@ -68,6 +85,8 @@ const DriverSchema = new mongoose.Schema(
     fcmTokens: [FcmTokenSchema],
     preferredLang: { type: String, enum: ['en', 'de'], default: 'en' },
     lastActiveAt: { type: Date, default: null },
+    // Phase 8: 0=auth-only, 1=profile saved, 2=vehicle saved
+    setupStep: { type: Number, default: 0, min: 0, max: 2 },
   },
   { timestamps: true }
 );
@@ -89,4 +108,21 @@ DriverSchema.methods.comparePassword = function (plain: string): Promise<boolean
   return bcrypt.compare(plain, this.password);
 };
 
-export const Driver = mongoose.models.Driver ?? mongoose.model('Driver', DriverSchema);
+export type DriverDocument = mongoose.Document & {
+  name: string;
+  email?: string | null;
+  phone: string;
+  phoneOtp?: string | null;
+  phoneOtpExpiry?: Date | null;
+  phoneOtpAttempts?: number;
+  isPhoneVerified: boolean;
+  refreshToken?: string | null;
+  password: string;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  status: 'active' | 'blocked' | 'deleted';
+  fcmTokens?: Array<{ token: string | null | undefined; device?: string | null }>;
+};
+
+export const Driver: mongoose.Model<DriverDocument> =
+  (mongoose.models.Driver as mongoose.Model<DriverDocument> | undefined) ??
+  mongoose.model<DriverDocument>('Driver', DriverSchema);

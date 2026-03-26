@@ -241,6 +241,206 @@
       ]
     },
     {
+      "name": "Auth – Driver",
+      "description": "Driver app: phone-only auth under /api/v1/auth/driver. Send OTP (5/hour per phone), verify OTP (returns accessToken, refreshToken, isNewDriver, approvalStatus), resend, refresh, logout (Bearer required; optional body: refreshToken, fcmToken).",
+      "item": [
+        {
+          "name": "Driver send-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252688889999\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/driver/send-otp",
+            "description": "Send OTP to phone. Rate limit 5/hour per phone. In dev OTP is logged to console and returned as `otp`. Otherwise returns `maskedPhone`."
+          }
+        },
+        {
+          "name": "Driver verify-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252688889999\",\n  \"otp\": \"1234\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/driver/verify-otp",
+            "description": "Verify OTP. Returns accessToken, refreshToken, isNewDriver, approvalStatus. In dev use otp 1234."
+          }
+        },
+        {
+          "name": "Driver resend-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+252688889999\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/driver/resend-otp",
+            "description": "Resend OTP. Same rate limit 5/hour per phone. 429 returns waitMinutes. In dev returns `otp`."
+          }
+        },
+        {
+          "name": "Driver refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/driver/refresh",
+            "description": "Refresh tokens. Body: refreshToken from verify-otp. Returns new accessToken, refreshToken, expiresIn."
+          }
+        },
+        {
+          "name": "Driver logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"fcmToken\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/driver/logout",
+            "description": "Logout. Requires Bearer token. Optional body: refreshToken (invalidate), fcmToken (remove from driver.fcmTokens)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Driver – Setup",
+      "description": "Driver profile setup flow under /api/v1/driver/setup. Requires Bearer {{accessToken}}. Step 1: profile-info (multipart). Step 2: vehicle-info (JSON).",
+      "item": [
+        {
+          "name": "Get setup status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/setup/status"
+          }
+        },
+        {
+          "name": "PATCH profile-info (Step 1)",
+          "description": "Multipart/form-data. `name` required. `phone` optional. `profileImage` optional (max 2MB, image/*).",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Ahmed Driver", "type": "text" },
+                { "key": "phone", "value": "+252612345678", "type": "text" },
+                { "key": "profileImage", "type": "file", "src": [] }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/driver/setup/profile-info"
+          }
+        },
+        {
+          "name": "PATCH vehicle-info (Step 2)",
+          "description": "JSON body. Requires setupStep >= 1. `vehicleType`: bike|car|scooter|bicycle. `vehicleNumber`: trimmed + uppercased.",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleType\": \"car\",\n  \"vehicleNumber\": \"abc-123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/driver/setup/vehicle-info"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Driver – Profile",
+      "description": "Driver self-service profile management under /api/v1/driver/profile. Requires Bearer {{accessToken}} (Driver auth).",
+      "item": [
+        {
+          "name": "Get my profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/profile"
+          }
+        },
+        {
+          "name": "PATCH my profile (multipart)",
+          "description": "All fields optional: name, phone, profileImage (max 2MB), vehicleType, vehicleNumber.",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Ahmed Driver", "type": "text" },
+                { "key": "phone", "value": "+252612345678", "type": "text" },
+                { "key": "vehicleType", "value": "car", "type": "text" },
+                { "key": "vehicleNumber", "value": "abc-123", "type": "text" },
+                { "key": "profileImage", "type": "file", "src": [] }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/driver/profile"
+          }
+        },
+        {
+          "name": "Register FCM token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm-token...\",\n  \"device\": \"android\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/driver/profile/fcm-token"
+          }
+        },
+        {
+          "name": "Remove FCM token",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm-token...\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/driver/profile/fcm-token"
+          }
+        },
+        {
+          "name": "PATCH online/offline status",
+          "description": "Guard: approvalStatus must be approved to go online.",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"online\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/driver/profile/status"
+          }
+        }
+      ]
+    },
+    {
       "name": "Vendor – Onboarding",
       "description": "Vendor app onboarding (Bearer {{vendorAccessToken}}). GET status; PATCH business-info (Step 2: multipart — storeName required; optional description, operatingHours JSON, logo — no storeType), address (Step 3), contact (Step 4); POST kyc-documents (Step 5), submit (Step 6). All steps idempotent.",
       "item": [

@@ -492,6 +492,102 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       fcmToken: { type: 'string', description: 'Optional; remove from vendor.fcmTokens', example: 'dG9rZW4...' },
     },
   });
+
+  const driverSendOtpBody = json({
+    type: 'object',
+    required: ['phone'],
+    properties: { phone: { type: 'string', example: '+252612345678', description: 'E.164 format' } },
+  });
+
+  const driverVerifyOtpBody = json({
+    type: 'object',
+    required: ['phone', 'otp'],
+    properties: {
+      phone: { type: 'string', example: '+252612345678' },
+      otp: { type: 'string', example: '1234', description: '4-digit OTP' },
+    },
+  });
+
+  const driverResendOtpBody = json({
+    type: 'object',
+    required: ['phone'],
+    properties: { phone: { type: 'string', example: '+252612345678' } },
+  });
+
+  const driverRefreshBody = json({
+    type: 'object',
+    required: ['refreshToken'],
+    properties: { refreshToken: { type: 'string', description: 'Refresh token from verify-otp', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } },
+  });
+
+  const driverLogoutBody = json({
+    type: 'object',
+    properties: {
+      refreshToken: { type: 'string', description: 'Optional; invalidate this token', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+      fcmToken: { type: 'string', description: 'Optional; remove from driver.fcmTokens', example: 'dG9rZW4...' },
+    },
+  });
+
+  const driverProfileInfoBody = {
+    description: 'Driver setup Step 1: profile info (multipart). `name` required. `phone` optional. `profileImage` optional (JPEG/PNG/WEBP, max 2MB).',
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string', description: 'Driver name', example: 'Ahmed Hassan' },
+            phone: { type: 'string', description: 'Optional phone (string; usually E.164)', example: '+252612345678' },
+            profileImage: { type: 'string', format: 'binary', description: 'Optional profile image file (max 2MB)' },
+          },
+        },
+      },
+    },
+  };
+
+  const driverVehicleInfoBody = json({
+    type: 'object',
+    required: ['vehicleType', 'vehicleNumber'],
+    properties: {
+      vehicleType: { type: 'string', enum: ['bike', 'car', 'scooter', 'bicycle'], example: 'bike' },
+      vehicleNumber: { type: 'string', example: 'ABC123', description: 'Trimmed and uppercased vehicle number' },
+    },
+  });
+
+  const driverSelfProfilePatchBody = {
+    description: 'Driver self profile update (multipart). All fields optional: name, phone, profileImage (2MB, jpeg/png/webp), vehicleType, vehicleNumber.',
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', example: 'Ahmed Driver' },
+            phone: { type: 'string', example: '+252612345678' },
+            profileImage: { type: 'string', format: 'binary', description: 'Optional image (max 2MB)' },
+            vehicleType: { type: 'string', enum: ['bike', 'car', 'scooter', 'van', 'bicycle'], example: 'car' },
+            vehicleNumber: { type: 'string', example: 'ABC-123' },
+          },
+        },
+      },
+    },
+  };
+
+  const driverFcmTokenBody = json({
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { type: 'string', example: 'fcm-token...' },
+      device: { type: 'string', example: 'android', description: 'Optional device label' },
+    },
+  });
+
+  const driverStatusBody = json({
+    type: 'object',
+    required: ['status'],
+    properties: {
+      status: { type: 'string', enum: ['online', 'offline'], example: 'online' },
+    },
+  });
   const map: Record<string, Record<string, unknown>> = {
     'POST /api/v1/auth/admin/login': adminLogin,
     'POST /api/v1/auth/customer/send-otp': customerSendOtpBody,
@@ -516,6 +612,21 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     'POST /api/v1/auth/vendor/resend-otp': vendorResendOtpBody,
     'POST /api/v1/auth/vendor/refresh': vendorRefreshBody,
     'POST /api/v1/auth/vendor/logout': vendorLogoutBody,
+    'POST /api/v1/auth/driver/send-otp': driverSendOtpBody,
+    'POST /api/v1/auth/driver/verify-otp': driverVerifyOtpBody,
+    'POST /api/v1/auth/driver/resend-otp': driverResendOtpBody,
+    'POST /api/v1/auth/driver/refresh': driverRefreshBody,
+    'POST /api/v1/auth/driver/logout': driverLogoutBody,
+    'PATCH /api/v1/driver/setup/profile-info': driverProfileInfoBody,
+    'PATCH /api/v1/driver/setup/vehicle-info': driverVehicleInfoBody,
+    'PATCH /api/v1/driver/profile': driverSelfProfilePatchBody,
+    'POST /api/v1/driver/profile/fcm-token': driverFcmTokenBody,
+    'DELETE /api/v1/driver/profile/fcm-token': json({
+      type: 'object',
+      required: ['token'],
+      properties: { token: { type: 'string', example: 'fcm-token...' } },
+    }),
+    'PATCH /api/v1/driver/profile/status': driverStatusBody,
     'PATCH /api/v1/vendor/onboarding/business-info': {
       description: 'Vendor onboarding step 2. **Required:** `storeName` only. Optional: `description`, `operatingHours` (JSON string), `logo`. The `storeType` field is **not** accepted; vendor categories are not set from this endpoint.',
       content: {
@@ -847,7 +958,25 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
     };
     if (allParams.length > 0) operation.parameters = allParams;
     if (requestBody) operation.requestBody = requestBody;
-    const tag = r.path.includes('/auth/admin') ? 'Admin' : r.path.includes('/auth/customer') ? 'Auth – Customer' : r.path.includes('/auth/vendor') ? 'Auth – Vendor' : r.path.includes('/vendor/') ? 'Vendor' : r.path.includes('/admin/') ? 'Admin' : r.path.includes('/app/') ? 'App' : r.path.includes('payment') ? 'Payment' : 'General';
+    const tag = r.path.includes('/auth/admin')
+      ? 'Admin'
+      : r.path.includes('/auth/customer')
+        ? 'Auth – Customer'
+        : r.path.includes('/auth/vendor')
+          ? 'Auth – Vendor'
+          : r.path.includes('/auth/driver')
+            ? 'Auth – Driver'
+            : r.path.includes('/driver/')
+              ? 'App'
+            : r.path.includes('/vendor/')
+              ? 'Vendor'
+              : r.path.includes('/admin/')
+                ? 'Admin'
+                : r.path.includes('/app/')
+                  ? 'App'
+                  : r.path.includes('payment')
+                    ? 'Payment'
+                    : 'General';
     operation.tags = [tag];
     (paths[pathKey] as Record<string, unknown>)[method] = operation;
   }
@@ -882,6 +1011,7 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
       { name: 'General', description: 'Health and API info' },
       { name: 'Auth – Customer', description: 'Customer app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; body tokens)' },
       { name: 'Auth – Vendor', description: 'Vendor app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; Bearer for logout)' },
+      { name: 'Auth – Driver', description: 'Driver app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; Bearer for logout)' },
       { name: 'Vendor', description: 'Vendor onboarding: status, business-info, address, contact, kyc-documents, submit (Bearer required)' },
       { name: 'Admin', description: 'Admin panel (cookies from /auth/admin/login)' },
       { name: 'App', description: 'Customer and driver app endpoints (Bearer token)' },
