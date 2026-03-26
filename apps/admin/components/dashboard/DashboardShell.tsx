@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid } from 'lucide-react';
+import type { LucideProps } from 'lucide-react';
+import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 import type { Locale } from '@/lib/i18n/translations';
 
@@ -17,6 +18,7 @@ const NAV_KEYS = [
   { href: '/drivers', key: 'drivers' as const, icon: Users },
   { href: '/vendors', key: 'vendors' as const, icon: Store },
   { href: '/categories', key: 'categories' as const, icon: LayoutGrid },
+  { href: '/fees', key: 'fees' as const, icon: Percent },
 ];
 
 import { apiClient } from '@/lib/api/client';
@@ -32,7 +34,7 @@ function NavLink({
 }: {
   href: string;
   label: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: React.ComponentType<LucideProps>;
   active: boolean;
   onNavigate?: () => void;
   badge?: number;

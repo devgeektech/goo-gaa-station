@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Cart } from '../../models/Cart';
 import { Product } from '../../models/Product';
 import { Vendor } from '../../models/Vendor';
+import { AppSettings } from '../../models/AppSettings';
 import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -12,10 +13,30 @@ export const getCart = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user?._id;
   if (!customerId) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
-  const cart = await Cart.findOne({ customer: new mongoose.Types.ObjectId(customerId) })
-    .populate('items.product', '_id name price image isAvailable')
-    .lean();
-  return sendSuccess(res, cart ?? null);
+  const customerIdObj = new mongoose.Types.ObjectId(customerId);
+  const [cart, settings] = await Promise.all([
+    (Cart as any).findOne({ customer: customerIdObj }).populate('items.product', '_id name price image isAvailable').lean(),
+    (AppSettings as any).findOne().select('deliveryFee taxPercent').lean(),
+  ]);
+
+  const deliveryFee = Number((settings as { deliveryFee?: number })?.deliveryFee ?? 0) || 0;
+  const taxPercent = Number((settings as { taxPercent?: number })?.taxPercent ?? 0) || 0;
+
+  const subtotal = cart ? Number((cart as { subtotal?: number }).subtotal ?? 0) || 0 : 0;
+  const taxAmount = Math.max(0, subtotal * (taxPercent / 100));
+  const grandTotal = subtotal + deliveryFee + taxAmount;
+
+  if (!cart) {
+    return sendSuccess(res, { cart: null, subtotal, deliveryFee, taxPercent, taxAmount, grandTotal });
+  }
+
+  return sendSuccess(res, {
+    ...cart,
+    deliveryFee,
+    taxPercent,
+    taxAmount,
+    grandTotal,
+  });
 });
 
 /** POST / — Set cart: vendorId, items [{ productId, qty }]; validate vendor + products, upsert cart */
@@ -35,7 +56,7 @@ export const setCart = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const vendorIdObj = new mongoose.Types.ObjectId(vendorId);
-  const vendor = await Vendor.findById(vendorIdObj).select('status').lean();
+  const vendor = await (Vendor as any).findById(vendorIdObj).select('status').lean();
   if (!vendor || (vendor as { status?: string }).status !== 'active') {
     throw new AppError({ en: 'Vendor not found or not active', de: 'Anbieter nicht gefunden oder inaktiv' }, 404, 'NOT_FOUND');
   }
@@ -44,7 +65,7 @@ export const setCart = asyncHandler(async (req: Request, res: Response) => {
     .map((i) => i?.productId)
     .filter(Boolean)
     .map((id) => new mongoose.Types.ObjectId(id as string));
-  const products = await Product.find({
+  const products = await (Product as any).find({
     _id: { $in: productIds },
     vendor: vendorIdObj,
     isDeleted: false,
@@ -90,9 +111,12 @@ export const setCart = asyncHandler(async (req: Request, res: Response) => {
 
   // SINGLE-VENDOR ENFORCEMENT:
   // If a cart already exists and belongs to another vendor, block switching vendors.
-  const existing = await Cart.findOne({ customer: customerIdObj }).select('vendor').lean();
+  const existing = await (Cart as any).findOne({ customer: customerIdObj }).select('vendor').lean();
   if (existing?.vendor && String((existing as { vendor: mongoose.Types.ObjectId }).vendor) !== String(vendorIdObj)) {
-    const existingVendor = await Vendor.findById((existing as { vendor: mongoose.Types.ObjectId }).vendor).select('name').lean();
+    const existingVendor = await (Vendor as any)
+      .findById((existing as { vendor: mongoose.Types.ObjectId }).vendor)
+      .select('name')
+      .lean();
     const existingName = (existingVendor as { name?: string })?.name ?? 'another restaurant';
     throw new AppError(
       {
@@ -106,8 +130,8 @@ export const setCart = asyncHandler(async (req: Request, res: Response) => {
 
   // Merge into existing cart (same vendor) so caller can send multiple items
   // and subsequent calls can append items instead of overwriting.
-  const cartDoc = await Cart.findOne({ customer: customerIdObj });
-  const cartToSave = cartDoc ?? new Cart({ customer: customerIdObj, vendor: vendorIdObj, items: [], subtotal: 0 });
+  const cartDoc = await (Cart as any).findOne({ customer: customerIdObj });
+  const cartToSave = cartDoc ?? new (Cart as any)({ customer: customerIdObj, vendor: vendorIdObj, items: [], subtotal: 0 });
 
   (cartToSave as any).vendor = vendorIdObj;
   const existingItems = ((cartToSave as any).items ?? []) as Array<{
@@ -129,7 +153,7 @@ export const setCart = asyncHandler(async (req: Request, res: Response) => {
   (cartToSave as any).updatedAt = new Date();
   await (cartToSave as any).save();
 
-  const cart = await Cart.findOne({ customer: customerIdObj })
+  const cart = await (Cart as any).findOne({ customer: customerIdObj })
     .populate('items.product', '_id name price image isAvailable')
     .lean();
 
@@ -155,7 +179,7 @@ export const updateItem = asyncHandler(async (req: Request, res: Response) => {
   const customerIdObj = new mongoose.Types.ObjectId(customerId);
   const productIdObj = new mongoose.Types.ObjectId(productId);
 
-  const cart = await Cart.findOne({ customer: customerIdObj });
+  const cart = await (Cart as any).findOne({ customer: customerIdObj });
   if (!cart) {
     throw new AppError({ en: 'Cart not found', de: 'Warenkorb nicht gefunden' }, 404, 'NOT_FOUND');
   }
@@ -173,7 +197,7 @@ export const updateItem = asyncHandler(async (req: Request, res: Response) => {
   }
 
   if (items.length === 0) {
-    await Cart.deleteOne({ customer: customerIdObj });
+    await (Cart as any).deleteOne({ customer: customerIdObj });
     return sendSuccess(res, null);
   }
 
@@ -182,7 +206,7 @@ export const updateItem = asyncHandler(async (req: Request, res: Response) => {
   (cart as { updatedAt: Date }).updatedAt = new Date();
   await cart.save();
 
-  const updated = await Cart.findOne({ customer: customerIdObj })
+  const updated = await (Cart as any).findOne({ customer: customerIdObj })
     .populate('items.product', '_id name price image isAvailable')
     .lean();
   return sendSuccess(res, updated);

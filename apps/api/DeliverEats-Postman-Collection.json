@@ -1210,14 +1210,15 @@
     },
     {
       "name": "App – Cart",
-      "description": "Customer cart. Bearer {{accessToken}}. GET cart, POST set cart, PATCH item (qty 0 = remove), DELETE clear.",
+      "description": "Customer cart. Bearer {{accessToken}}. GET includes totals: subtotal, deliveryFee, taxPercent, taxAmount, grandTotal. POST set cart, PATCH item (qty 0 = remove), DELETE clear.",
       "item": [
         {
           "name": "Get cart",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/api/v1/app/cart"
+            "url": "{{baseUrl}}/api/v1/app/cart",
+            "description": "Returns cart and computed totals: subtotal, deliveryFee, taxPercent, taxAmount, grandTotal."
           }
         },
         {
@@ -1798,6 +1799,34 @@
             "header": [],
             "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
             "description": "Returns 409 with vendors list if category is in use."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin – App Settings",
+      "description": "App settings for pricing totals. Requires admin auth (cookies). Configure delivery fee and tax percent.",
+      "item": [
+        {
+          "name": "Get app settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/app-settings",
+            "description": "Returns deliveryFee and taxPercent."
+          }
+        },
+        {
+          "name": "Update app settings",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryFee\": 2,\n  \"taxPercent\": 5\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/app-settings",
+            "description": "Update deliveryFee (>=0) and taxPercent (0-100)."
           }
         }
       ]

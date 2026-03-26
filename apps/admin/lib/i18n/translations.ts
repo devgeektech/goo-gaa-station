@@ -9,6 +9,7 @@ export const translations = {
       drivers: 'Drivers',
       vendors: 'Vendors',
       categories: 'Categories',
+      fees: 'Fees & Tax',
     },
     common: {
       refresh: 'Refresh',
@@ -64,6 +65,7 @@ export const translations = {
       drivers: 'Darawalada',
       vendors: 'Iibiyeyaasha',
       categories: 'Qaybaha',
+      fees: 'Kharash & Canshuur',
     },
     common: {
       refresh: 'Cusboonaysii',
