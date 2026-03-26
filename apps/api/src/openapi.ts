@@ -326,6 +326,97 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
         },
       },
     },
+    'GET /api/v1/driver/kyc/status': {
+      description: 'Success — use for app routing (not_submitted | pending | approved | rejected)',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  kycStatus: {
+                    type: 'string',
+                    enum: ['not_submitted', 'pending', 'approved', 'rejected'],
+                  },
+                  kycRejectionReason: { type: 'string', nullable: true },
+                  kycSubmittedAt: { type: 'string', format: 'date-time', nullable: true },
+                  kycDocuments: {
+                    type: 'object',
+                    properties: {
+                      driversLicense: { type: 'string', nullable: true },
+                      nationalId: { type: 'array', items: { type: 'string' } },
+                      vehiclePhotos: { type: 'array', items: { type: 'string' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              kycStatus: 'pending',
+              kycRejectionReason: null,
+              kycSubmittedAt: '2025-03-26T12:00:00.000Z',
+              kycDocuments: {
+                driversLicense: '/uploads/driver-kyc/sample-license.pdf',
+                nationalId: ['/uploads/driver-kyc/id-front.jpg'],
+                vehiclePhotos: ['/uploads/driver-kyc/vehicle-1.jpg', '/uploads/driver-kyc/vehicle-2.jpg'],
+              },
+            },
+          },
+        },
+      },
+    },
+    'POST /api/v1/driver/kyc/upload': {
+      description:
+        'Success — `kycStatus` becomes `pending`. Server emits **Socket.IO** `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Errors: 422 wrong MIME / missing fields (`data.missing`), 413 file too large.',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  message: { type: 'string' },
+                  kycStatus: { type: 'string', example: 'pending' },
+                  kycSubmittedAt: { type: 'string', format: 'date-time' },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              message: 'Documents submitted successfully',
+              kycStatus: 'pending',
+              kycSubmittedAt: '2025-03-26T12:00:00.000Z',
+            },
+          },
+        },
+      },
+    },
+    'PATCH /api/v1/driver/kyc/resubmit': {
+      description:
+        'Success — only when `kycStatus` was `rejected`; sets `not_submitted` and clears `kycRejectionReason`. Driver app should navigate to document upload with empty file state.',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: { type: 'object', properties: { kycStatus: { type: 'string', example: 'not_submitted' } } },
+            },
+          },
+          example: { success: true, data: { kycStatus: 'not_submitted' } },
+        },
+      },
+    },
   };
   return map[opKey];
 }
@@ -588,6 +679,33 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       status: { type: 'string', enum: ['online', 'offline'], example: 'online' },
     },
   });
+
+  const driverKycUploadBody = {
+    description:
+      'Driver KYC upload. Required groups: driversLicense (1 file), nationalId (1–10 files), vehiclePhotos (1–10 files). Allowed: image/jpeg, image/png, application/pdf. Max size: 5MB per file.',
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
+          required: ['driversLicense', 'nationalId', 'vehiclePhotos'],
+          properties: {
+            driversLicense: { type: 'string', format: 'binary', description: 'Single image or PDF' },
+            nationalId: {
+              type: 'array',
+              items: { type: 'string', format: 'binary' },
+              description: 'One or more images/PDFs; use the same field name `nationalId` for each file',
+            },
+            vehiclePhotos: {
+              type: 'array',
+              items: { type: 'string', format: 'binary' },
+              description: 'One or more images/PDFs; use the same field name `vehiclePhotos` for each file',
+            },
+          },
+        },
+      },
+    },
+  };
+
   const map: Record<string, Record<string, unknown>> = {
     'POST /api/v1/auth/admin/login': adminLogin,
     'POST /api/v1/auth/customer/send-otp': customerSendOtpBody,
@@ -627,6 +745,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       properties: { token: { type: 'string', example: 'fcm-token...' } },
     }),
     'PATCH /api/v1/driver/profile/status': driverStatusBody,
+    'POST /api/v1/driver/kyc/upload': driverKycUploadBody,
     'PATCH /api/v1/vendor/onboarding/business-info': {
       description: 'Vendor onboarding step 2. **Required:** `storeName` only. Optional: `description`, `operatingHours` (JSON string), `logo`. The `storeType` field is **not** accepted; vendor categories are not set from this endpoint.',
       content: {
@@ -807,7 +926,15 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     }),
     'PATCH /api/v1/admin/drivers/:id/reject': json({
       type: 'object',
-      properties: { reason: { type: 'string', example: 'Documents did not meet requirements' } },
+      required: ['reason'],
+      properties: {
+        reason: { type: 'string', minLength: 10, example: 'Documents did not meet requirements' },
+        kycRejectionReason: {
+          type: 'string',
+          description: 'Optional; shown to driver for KYC. Defaults to `reason` when omitted.',
+          example: 'License image unclear',
+        },
+      },
     }),
     'POST /api/v1/app/cart': json({
       type: 'object',
@@ -966,8 +1093,10 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
           ? 'Auth – Vendor'
           : r.path.includes('/auth/driver')
             ? 'Auth – Driver'
-            : r.path.includes('/driver/')
-              ? 'App'
+            : r.path.includes('/driver/kyc')
+              ? 'Driver – KYC'
+              : r.path.includes('/driver/')
+                ? 'App'
             : r.path.includes('/vendor/')
               ? 'Vendor'
               : r.path.includes('/admin/')
@@ -985,7 +1114,8 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
     openapi: '3.0.3',
     info: {
       title: 'DeliverEats API',
-      description: 'Backend API: Admin (cookies). Customer auth: /auth/customer (phone OTP, Bearer). Vendor auth: /auth/vendor (phone OTP, Bearer). Vendor onboarding: /vendor/onboarding (Bearer). App: customer profile, orders; driver profile, orders. Payment: WifiPay. OpenAPI spec: GET /api/openapi.json. Swagger UI: /api-docs.',
+      description:
+        'Backend API: Admin (cookies). Customer auth: /auth/customer (phone OTP, Bearer). Vendor auth: /auth/vendor (phone OTP, Bearer). Driver auth: /auth/driver (phone OTP, Bearer). Driver KYC: /driver/kyc/status, /driver/kyc/upload, /driver/kyc/resubmit. Realtime: driver:kyc_submitted to admin room; driver:kyc_approved and driver:kyc_rejected to driver:{driverId} room (client must emit driver:join with driverId). Vendor onboarding, app orders, payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
       version: '1.0.0',
       contact: { name: 'API Team' },
     },
@@ -1003,7 +1133,8 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
-          description: 'Customer: from /auth/customer/verify-otp. Vendor: from /auth/vendor/verify-otp. Use in header: Authorization: Bearer <accessToken>',
+          description:
+            'Customer: /auth/customer/verify-otp. Vendor: /auth/vendor/verify-otp. Driver: /auth/driver/verify-otp. Send in header: Authorization: Bearer <accessToken>.',
         },
       },
     },
@@ -1012,6 +1143,10 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
       { name: 'Auth – Customer', description: 'Customer app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; body tokens)' },
       { name: 'Auth – Vendor', description: 'Vendor app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; Bearer for logout)' },
       { name: 'Auth – Driver', description: 'Driver app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; Bearer for logout)' },
+      {
+        name: 'Driver – KYC',
+        description: 'Driver identity verification (Bearer) via /driver/kyc/status, /driver/kyc/upload, and /driver/kyc/resubmit.',
+      },
       { name: 'Vendor', description: 'Vendor onboarding: status, business-info, address, contact, kyc-documents, submit (Bearer required)' },
       { name: 'Admin', description: 'Admin panel (cookies from /auth/admin/login)' },
       { name: 'App', description: 'Customer and driver app endpoints (Bearer token)' },

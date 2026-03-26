@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import type { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import { Driver } from '../../models/Driver';
@@ -21,6 +22,27 @@ const uploadDriverImages = getUploadMiddleware('drivers').fields([
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
   return { data, total, page, limit, totalPages, hasNext: page < totalPages, hasPrev: page > 1 };
+}
+
+function getIo(req: Request): SocketIOServer | undefined {
+  return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+}
+
+type AdminKycDocumentsShape = {
+  driversLicense: string | null;
+  nationalId: string[];
+  vehiclePhotos: string[];
+};
+
+function attachNormalizedKyc(leanDriver: Record<string, unknown>): void {
+  const raw = leanDriver.kycDocuments as Partial<AdminKycDocumentsShape> | undefined;
+  leanDriver.kycDocuments = {
+    driversLicense: raw?.driversLicense ?? null,
+    nationalId: Array.isArray(raw?.nationalId) ? raw.nationalId : [],
+    vehiclePhotos: Array.isArray(raw?.vehiclePhotos) ? raw.vehiclePhotos : [],
+  };
+  if (leanDriver.kycStatus == null) leanDriver.kycStatus = 'not_submitted';
+  if (leanDriver.kycRejectionReason === undefined) leanDriver.kycRejectionReason = null;
 }
 
 /** GET / — List drivers */
@@ -58,14 +80,23 @@ export const listDrivers = asyncHandler(async (req: Request, res: Response) => {
 
 /** GET /stats/pending-count */
 export const getPendingCount = asyncHandler(async (_req: Request, res: Response) => {
-  const count = await Driver.countDocuments({ approvalStatus: 'pending', status: { $ne: 'deleted' } });
+  // Pending queue should include:
+  // - new drivers waiting for admin approval (approvalStatus=pending)
+  // - drivers who re-uploaded KYC and are waiting for review (kycStatus=pending)
+  const count = await Driver.countDocuments({
+    status: { $ne: 'deleted' },
+    $or: [{ approvalStatus: 'pending' }, { kycStatus: 'pending' }],
+  });
   return sendSuccess(res, { count });
 });
 
-/** GET /pending — Pending approvals queue (list of drivers with approvalStatus pending) */
+/** GET /pending — Pending queue: approval pending OR KYC pending */
 export const getPendingApprovals = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit } = parsePagination(req.query);
-  const filter = { approvalStatus: 'pending', status: { $ne: 'deleted' } };
+  const filter = {
+    status: { $ne: 'deleted' },
+    $or: [{ approvalStatus: 'pending' }, { kycStatus: 'pending' }],
+  };
   const [drivers, total] = await Promise.all([
     Driver.find(filter).select('-password').lean().sort({ createdAt: 1 }).skip((page - 1) * limit).limit(limit),
     Driver.countDocuments(filter),
@@ -85,6 +116,7 @@ export const getDriver = asyncHandler(async (req: Request, res: Response) => {
   }
   const doc = driver as Record<string, unknown>;
   if (typeof doc.rating === 'number') doc.rating = Math.round(doc.rating * 10) / 10;
+  attachNormalizedKyc(doc);
   return sendSuccess(res, driver);
 });
 
@@ -189,8 +221,24 @@ export const approveDriver = asyncHandler(async (req: Request, res: Response) =>
     body: 'Your driver account has been approved. You can now start accepting deliveries.',
     data: { type: 'approval', status: 'approved' },
   });
+
+  const hadPendingKyc = driver.kycStatus === 'pending';
+  if (hadPendingKyc) {
+    driver.kycStatus = 'approved';
+    await driver.save();
+    const io = getIo(req);
+    const driverIdStr = driver._id.toString();
+    io?.to(`driver:${driverIdStr}`).emit('driver:kyc_approved', { kycStatus: 'approved' as const });
+    await sendPushToDriver(driver, {
+      title: 'KYC Approved',
+      body: 'Your identity documents have been verified. You can now go online.',
+      data: { type: 'kyc_approved', kycStatus: 'approved' },
+    });
+  }
+
   const doc = driver.toObject();
   delete (doc as Record<string, unknown>).password;
+  attachNormalizedKyc(doc as Record<string, unknown>);
   return sendSuccess(res, doc);
 });
 
@@ -198,7 +246,7 @@ export const approveDriver = asyncHandler(async (req: Request, res: Response) =>
 export const rejectDriver = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id;
   const adminId = req.user?._id;
-  const { reason } = req.body ?? {};
+  const { reason, kycRejectionReason } = req.body ?? {};
   if (!reason || String(reason).trim().length < 10) {
     throw new AppError({ en: 'Reason required (min 10 chars)', de: 'Begründung erforderlich (min. 10 Zeichen)' }, 400, 'VALIDATION_ERROR');
   }
@@ -224,8 +272,31 @@ export const rejectDriver = asyncHandler(async (req: Request, res: Response) => 
     body: driver.approvalNote || 'Your driver application was not approved.',
     data: { type: 'approval', status: 'rejected' },
   });
+
+  const kycReasonRaw =
+    (kycRejectionReason != null && String(kycRejectionReason).trim()) ||
+    (reason != null && String(reason).trim()) ||
+    null;
+  driver.kycStatus = 'rejected';
+  driver.kycRejectionReason = kycReasonRaw;
+  await driver.save();
+
+  const io = getIo(req);
+  const driverIdStr = driver._id.toString();
+  io?.to(`driver:${driverIdStr}`).emit('driver:kyc_rejected', {
+    kycStatus: 'rejected' as const,
+    kycRejectionReason: driver.kycRejectionReason,
+  });
+  await sendPushToDriver(driver, {
+    title: 'Action Required — KYC Rejected',
+    body:
+      driver.kycRejectionReason?.trim() || 'Your documents were not accepted. Please re-upload.',
+    data: { type: 'kyc_rejected', kycStatus: 'rejected' },
+  });
+
   const doc = driver.toObject();
   delete (doc as Record<string, unknown>).password;
+  attachNormalizedKyc(doc as Record<string, unknown>);
   return sendSuccess(res, doc);
 });
 

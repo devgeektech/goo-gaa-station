@@ -31,6 +31,15 @@ const FcmTokenSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const KycDocumentsSchema = new mongoose.Schema(
+  {
+    driversLicense: { type: String, default: null },
+    nationalId: { type: [String], default: [] },
+    vehiclePhotos: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const DriverSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -87,6 +96,17 @@ const DriverSchema = new mongoose.Schema(
     lastActiveAt: { type: Date, default: null },
     // Phase 8: 0=auth-only, 1=profile saved, 2=vehicle saved
     setupStep: { type: Number, default: 0, min: 0, max: 2 },
+    kycDocuments: {
+      type: KycDocumentsSchema,
+      default: () => ({}),
+    },
+    kycStatus: {
+      type: String,
+      enum: ['not_submitted', 'pending', 'approved', 'rejected'],
+      default: 'not_submitted',
+    },
+    kycRejectionReason: { type: String, default: null },
+    kycSubmittedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -121,6 +141,14 @@ export type DriverDocument = mongoose.Document & {
   approvalStatus: 'pending' | 'approved' | 'rejected';
   status: 'active' | 'blocked' | 'deleted';
   fcmTokens?: Array<{ token: string | null | undefined; device?: string | null }>;
+  kycDocuments?: {
+    driversLicense?: string | null;
+    nationalId?: string[];
+    vehiclePhotos?: string[];
+  };
+  kycStatus?: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+  kycRejectionReason?: string | null;
+  kycSubmittedAt?: Date | null;
 };
 
 export const Driver: mongoose.Model<DriverDocument> =

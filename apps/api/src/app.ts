@@ -47,6 +47,9 @@ app.use(
 // --- Helmet with CSP (scriptSrc unsafe-inline for Swagger UI at /api-docs) ---
 app.use(
   helmet({
+    // Allow the admin web app (different origin) to display uploaded images/docs
+    // via <img src="http://api-host/uploads/..."> and <a href=...>.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -126,7 +129,7 @@ const adminLimiter = rateLimit({
 app.use('/api/v1/admin', adminLimiter);
 
 // --- Static uploads (local storage only) ---
-if (env.STORAGE_PROVIDER === 'local') {
+if ((env.STORAGE_PROVIDER || 'local').toLowerCase() === 'local') {
   const uploadsPath = path.join(process.cwd(), env.UPLOAD_DIR);
   app.use('/uploads', express.static(uploadsPath));
 }

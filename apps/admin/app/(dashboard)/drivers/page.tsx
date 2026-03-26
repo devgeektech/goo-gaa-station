@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Eye, Ban, Trash2, RefreshCcw, CheckCircle, XCircle, Users } from 'lucide-react';
 import {
   searchDrivers,
+  getPendingApprovals,
   getPendingCount,
   getDriver,
   getDriverLocation,
@@ -13,7 +14,7 @@ import {
   updateDriverStatus,
   deleteDriver,
 } from '@/lib/api/drivers.api';
-import type { DriverListItem, DriverDetail, DriverOrderItem } from '@/lib/api/drivers.api';
+import type { DriverListItem, DriverDetail, DriverOrderItem, DriverLocationResponse } from '@/lib/api/drivers.api';
 import { BlockUnblockDialog } from '@/components/customers/BlockUnblockDialog';
 import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { DeleteDriverDialog } from '@/components/drivers/DeleteDriverDialog';
@@ -44,10 +45,14 @@ const VEHICLE_OPTIONS = [
   { value: 'van', label: 'Van' },
 ];
 
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+/** Uploads are served at `{origin}/uploads/...`, not under `/api/v1`. */
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
-  return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
 export default function DriversPage() {
@@ -62,7 +67,7 @@ export default function DriversPage() {
   const [loadingAll, setLoadingAll] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<DriverDetail | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [driverLocation, setDriverLocation] = useState<{ liveLocation?: { coordinates?: number[] }; lastLocationAt?: string; isOnline?: boolean } | null>(null);
+  const [driverLocation, setDriverLocation] = useState<DriverLocationResponse | null>(null);
   const [driverOrders, setDriverOrders] = useState<DriverOrderItem[]>([]);
   const [driverOrdersPagination, setDriverOrdersPagination] = useState({ total: 0, page: 1, totalPages: 1, hasNext: false, hasPrev: false });
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -81,7 +86,7 @@ export default function DriversPage() {
     if (tab === 'pending') {
       setLoadingPending(true);
       Promise.all([
-        searchDrivers({ approvalStatus: 'pending', page: 1, limit: 50 }),
+        getPendingApprovals(1, 50),
         getPendingCount(),
       ])
         .then(([listRes, countRes]) => {
@@ -249,7 +254,7 @@ export default function DriversPage() {
         </div>
         <div className="row">
           <button className="btn" onClick={() => (tab === 'pending' ? setTab('pending') : setTab('all'))} disabled aria-hidden style={{ visibility: 'hidden' }} />
-          <button className="btn btnPrimary" onClick={() => { setTab('pending'); setPendingCount(0); setLoadingPending(true); searchDrivers({ approvalStatus: 'pending' }).then((r) => { setPendingList(r.data); getPendingCount().then((c) => setPendingCount(c.data?.count ?? 0)); }).finally(() => setLoadingPending(false)); }}>
+          <button className="btn btnPrimary" onClick={() => { setTab('pending'); setPendingCount(0); setLoadingPending(true); getPendingApprovals(1, 50).then((r) => { setPendingList(r.data); getPendingCount().then((c) => setPendingCount(c.data?.count ?? 0)); }).finally(() => setLoadingPending(false)); }}>
             <RefreshCcw size={18} /> Refresh
           </button>
         </div>
@@ -290,17 +295,8 @@ export default function DriversPage() {
                       <div className="row" style={{ alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
                         <div className="row" style={{ gap: 16, alignItems: 'center' }}>
                           <div>
-                            <div className="muted" style={{ fontSize: 11 }}>Profile</div>
                             {imgSrc(d.profileImage) ? (
                               <img src={imgSrc(d.profileImage)!} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
-                            ) : (
-                              <div style={{ width: 80, height: 80, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No photo</div>
-                            )}
-                          </div>
-                          <div>
-                            <div className="muted" style={{ fontSize: 11 }}>License</div>
-                            {imgSrc(d.licenseImage) ? (
-                              <img src={imgSrc(d.licenseImage)!} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
                             ) : (
                               <div style={{ width: 80, height: 80, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No photo</div>
                             )}
@@ -310,15 +306,50 @@ export default function DriversPage() {
                           <div style={{ fontWeight: 800 }}>{d.name}</div>
                           <div className="muted">{d.phone}</div>
                           {d.email ? <div className="muted">{d.email}</div> : null}
+                          {d.kycStatus !== 'pending' ? (
+                            <div style={{ marginTop: 10 }}>
+                              <span className="badge" style={{ background: 'var(--border-light)', color: 'var(--text-secondary)' }}>
+                                KYC not submitted yet
+                              </span>
+                            </div>
+                          ) : null}
+                          {d.kycStatus === 'pending' && d.approvalStatus === 'pending' ? (
+                            <div style={{ marginTop: 10 }}>
+                              <span className="badge" style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#ea580c' }}>
+                                Driver uploaded KYC documents — please review and approve accordingly
+                              </span>
+                              {d.kycSubmittedAt ? (
+                                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                                  Submitted {new Date(d.kycSubmittedAt).toLocaleString()}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {d.kycStatus === 'pending' && d.approvalStatus !== 'pending' ? (
+                            <div style={{ marginTop: 10 }}>
+                              <span className="badge" style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#ea580c' }}>
+                                KYC re-submitted — please review documents
+                              </span>
+                              {d.kycSubmittedAt ? (
+                                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                                  Submitted {new Date(d.kycSubmittedAt).toLocaleString()}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                         <div className="row" style={{ gap: 8 }}>
                           <button className="btn" onClick={() => openDetail(d._id)} aria-label="View"><Eye size={18} /></button>
-                          <button className="btn btnPrimary" onClick={() => handleApprove(d._id)} disabled={approveLoadingId === d._id} aria-label="Approve">
-                            <CheckCircle size={18} /> {approveLoadingId === d._id ? '…' : 'Approve'}
-                          </button>
-                          <button className="btn btnDanger" onClick={() => { setActionDriverId(d._id); setRejectModalOpen(true); }} aria-label="Reject">
-                            <XCircle size={18} /> Reject
-                          </button>
+                          {d.kycStatus === 'pending' ? (
+                            <>
+                              <button className="btn btnPrimary" onClick={() => handleApprove(d._id)} disabled={approveLoadingId === d._id} aria-label="Approve">
+                                <CheckCircle size={18} /> {approveLoadingId === d._id ? '…' : 'Approve'}
+                              </button>
+                              <button className="btn btnDanger" onClick={() => { setActionDriverId(d._id); setRejectModalOpen(true); }} aria-label="Reject">
+                                <XCircle size={18} /> Reject
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -369,8 +400,10 @@ export default function DriversPage() {
                   <table>
                     <thead>
                       <tr>
+                        <th>Photo</th>
                         <th>Name</th>
                         <th>Phone</th>
+                        <th>License</th>
                         <th>Approval</th>
                         <th>Status</th>
                         <th>Vehicle</th>
@@ -380,7 +413,7 @@ export default function DriversPage() {
                     </thead>
                     <tbody>
                       {Array.from({ length: 6 }).map((_, i) => (
-                        <tr key={i}><td colSpan={7}><Skeleton height={18} /></td></tr>
+                        <tr key={i}><td colSpan={9}><Skeleton height={18} /></td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -393,8 +426,10 @@ export default function DriversPage() {
                 <table>
                   <thead>
                     <tr>
+                      <th>Photo</th>
                       <th>Name</th>
                       <th>Phone</th>
+                      <th>License</th>
                       <th>Approval</th>
                       <th>Status</th>
                       <th>Vehicle</th>
@@ -405,8 +440,30 @@ export default function DriversPage() {
                   <tbody>
                       {allList.map((d) => (
                         <tr key={d._id} className="clickableRow" onClick={() => openDetail(d._id)}>
+                          <td>
+                            {imgSrc(d.profileImage) ? (
+                              <img
+                                src={imgSrc(d.profileImage)!}
+                                alt=""
+                                style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--border-light)' }} />
+                            )}
+                          </td>
                           <td style={{ fontWeight: 700 }}>{d.name}</td>
                           <td>{d.phone}</td>
+                          <td>
+                            {imgSrc(d.licenseImage) ? (
+                              <img
+                                src={imgSrc(d.licenseImage)!}
+                                alt=""
+                                style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
                           <td>
                             <span className="badge" style={{ background: d.approvalStatus === 'approved' ? 'var(--success-light)' : d.approvalStatus === 'rejected' ? 'var(--danger-light)' : 'var(--warning-light)' }}>{d.approvalStatus}</span>
                           </td>
@@ -453,6 +510,10 @@ export default function DriversPage() {
         onClose={() => { setDetailOpen(false); setSelectedDriver(null); setDriverLocation(null); }}
         onFetchLocation={fetchLocation}
         onFetchOrders={(page) => selectedDriver && fetchOrders(page)}
+        onRefreshDriver={() => {
+          if (!selectedDriver?._id) return;
+          getDriver(selectedDriver._id).then((res) => setSelectedDriver(res.data)).catch(() => {});
+        }}
       />
       <BlockUnblockDialog
         open={blockDialogOpen}
@@ -465,14 +526,14 @@ export default function DriversPage() {
       />
       <RejectDriverModal
         open={rejectModalOpen}
-        driverName={actionDriver?.name}
+        driverName={actionDriver?.name ?? ''}
         onClose={() => { setRejectModalOpen(false); setActionDriverId(null); }}
         onConfirm={handleRejectConfirm}
         loading={rejectLoading}
       />
       <DeleteDriverDialog
         open={deleteDialogOpen}
-        driverName={actionDriver?.name}
+        driverName={actionDriver?.name ?? ''}
         onClose={() => { setDeleteDialogOpen(false); setActionDriverId(null); }}
         onConfirm={handleDeleteConfirm}
         loading={deleteLoading}

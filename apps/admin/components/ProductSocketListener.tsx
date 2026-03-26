@@ -60,6 +60,16 @@ export function ProductSocketListener() {
       store.dispatch(api.util.invalidateTags([{ type: 'VendorProducts', id: String(payload.vendorId) }]));
     });
 
+    socket.on('driver:kyc_submitted', (payload: { driverId?: string; name?: string; phone?: string; submittedAt?: string }) => {
+      const name = (payload?.name ?? '').trim();
+      toast.push({
+        title: name
+          ? `Driver ${name} submitted KYC documents for review`
+          : 'Driver submitted KYC documents for review',
+        variant: 'info',
+      });
+    });
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();

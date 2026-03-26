@@ -12,6 +12,9 @@ export type DriverListItem = {
   vehiclePlate?: string | null;
   approvalStatus?: string;
   approvalNote?: string | null;
+  kycStatus?: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+  kycSubmittedAt?: string | null;
+  kycRejectionReason?: string | null;
   blockReason?: string | null;
   status?: string;
   isAvailable?: boolean;
@@ -20,6 +23,12 @@ export type DriverListItem = {
   totalDeliveries?: number;
   totalEarnings?: number;
   createdAt?: string;
+};
+
+export type DriverKycDocuments = {
+  driversLicense?: string | null;
+  nationalId?: string[];
+  vehiclePhotos?: string[];
 };
 
 export type DriverDetail = DriverListItem & {
@@ -33,6 +42,10 @@ export type DriverDetail = DriverListItem & {
   lastActiveAt?: string | null;
   lastLocationAt?: string | null;
   liveLocation?: { type?: string; coordinates?: number[] };
+  kycStatus?: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+  kycRejectionReason?: string | null;
+  kycSubmittedAt?: string | null;
+  kycDocuments?: DriverKycDocuments;
   approvalHistory?: Array<{
     status: string;
     note?: string | null;
@@ -87,6 +100,12 @@ export async function getPendingCount() {
   return res.data;
 }
 
+export async function getPendingApprovals(page = 1, limit = 50) {
+  const params: Record<string, number> = { page, limit };
+  const res = await apiClient.get<ApiSuccess<DriverListItem[]>>('/admin/drivers/pending', { params });
+  return res.data as ApiSuccess<DriverListItem[]> & Paginated<DriverListItem>;
+}
+
 export async function getDriver(id: string) {
   const res = await apiClient.get<ApiSuccess<DriverDetail>>(`/admin/drivers/${id}`);
   return res.data;
@@ -110,8 +129,10 @@ export async function approveDriver(id: string) {
   return res.data;
 }
 
-export async function rejectDriver(id: string, reason: string) {
-  const res = await apiClient.patch<ApiSuccess<DriverDetail>>(`/admin/drivers/${id}/reject`, { reason });
+export async function rejectDriver(id: string, reason: string, kycRejectionReason?: string) {
+  const body: { reason: string; kycRejectionReason?: string } = { reason };
+  if (kycRejectionReason != null && kycRejectionReason.trim()) body.kycRejectionReason = kycRejectionReason.trim();
+  const res = await apiClient.patch<ApiSuccess<DriverDetail>>(`/admin/drivers/${id}/reject`, body);
   return res.data;
 }
 

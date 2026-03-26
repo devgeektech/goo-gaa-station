@@ -75,7 +75,7 @@ export function CustomerDetailDrawer({
               <div className="grid2">
                 <div className="card" style={{ boxShadow: 'none' }}>
                   <div className="cardBody">
-                    <div className="muted">Profile</div>
+                   
                     <div className="row" style={{ alignItems: 'center', gap: 12, marginTop: 8 }}>
                       {imgSrc(customer.profileImage) ? (
                         <img

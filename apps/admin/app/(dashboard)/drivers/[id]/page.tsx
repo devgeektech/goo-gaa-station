@@ -4,27 +4,43 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { getDriver, getDriverLocation, getDriverOrders } from '@/lib/api/drivers.api';
-import type { DriverDetail, DriverOrderItem } from '@/lib/api/drivers.api';
+import { getDriver, getDriverLocation, getDriverOrders, approveDriver, rejectDriver } from '@/lib/api/drivers.api';
+import type { DriverDetail, DriverOrderItem, DriverLocationResponse } from '@/lib/api/drivers.api';
 import { DriverMap } from '@/components/drivers/DriverMap';
+import { DriverKycCard } from '@/components/drivers/DriverKycCard';
+import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+/** Uploads are served at `{origin}/uploads/...`, not under `/api/v1`. */
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
-  return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
 export default function DriverDetailPage() {
+  const toast = useToast();
   const params = useParams();
   const id = typeof params?.id === 'string' ? params.id : '';
   const [driver, setDriver] = useState<DriverDetail | null>(null);
-  const [location, setLocation] = useState<{ liveLocation?: { coordinates?: number[] }; lastLocationAt?: string; isOnline?: boolean } | null>(null);
+  const [location, setLocation] = useState<DriverLocationResponse | null>(null);
   const [orders, setOrders] = useState<DriverOrderItem[]>([]);
   const [ordersPagination, setOrdersPagination] = useState({ total: 0, page: 1, totalPages: 1, hasNext: false, hasPrev: false });
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
+  const [rejectLoading, setRejectLoading] = useState(false);
+
+  const refreshDriver = () => {
+    if (!id) return;
+    getDriver(id).then((res) => setDriver(res.data)).catch(() => setDriver(null));
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -173,6 +189,28 @@ export default function DriverDetailPage() {
             </div>
           ) : null}
 
+          <DriverKycCard
+            driver={driver}
+            approveLoading={approveLoading}
+            onApprove={
+              driver.kycStatus === 'pending'
+                ? async () => {
+                    setApproveLoading(true);
+                    try {
+                      await approveDriver(driver._id);
+                      toast.push({ title: 'Driver approved', variant: 'success' });
+                      refreshDriver();
+                    } catch (e: unknown) {
+                      toast.push({ title: 'Approve failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+                    } finally {
+                      setApproveLoading(false);
+                    }
+                  }
+                : undefined
+            }
+            onReject={driver.kycStatus === 'pending' ? () => setRejectOpen(true) : undefined}
+          />
+
           <div className="card">
             <div className="cardBody">
               <div style={{ fontWeight: 800 }}>Order history</div>
@@ -219,6 +257,27 @@ export default function DriverDetailPage() {
           </div>
         </div>
       )}
+
+      <RejectDriverModal
+        open={rejectOpen}
+        driverName={driver?.name ?? ''}
+        onClose={() => setRejectOpen(false)}
+        loading={rejectLoading}
+        onConfirm={async (reason) => {
+          if (!driver?._id) return;
+          setRejectLoading(true);
+          try {
+            await rejectDriver(driver._id, reason);
+            toast.push({ title: 'Driver rejected', variant: 'success' });
+            setRejectOpen(false);
+            refreshDriver();
+          } catch (e: unknown) {
+            toast.push({ title: 'Reject failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+          } finally {
+            setRejectLoading(false);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -23,6 +23,13 @@ io.on('connection', (socket) => {
     socket.join('admin');
   });
 
+  /** Driver app: join `driver:<driverId>` for KYC events (`driver:kyc_approved`, `driver:kyc_rejected`). */
+  socket.on('driver:join', (payload: { driverId?: string }) => {
+    const driverId = payload?.driverId;
+    if (!driverId || !mongoose.Types.ObjectId.isValid(driverId)) return;
+    socket.join(`driver:${driverId}`);
+  });
+
   socket.on('driver:location_update', async (payload: { driverId?: string; lat?: number; lng?: number }) => {
     const driverId = payload?.driverId;
     const lat = payload?.lat != null ? Number(payload.lat) : null;

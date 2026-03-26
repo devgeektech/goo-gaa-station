@@ -1,17 +1,25 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import type { DriverDetail, DriverOrderItem } from '@/lib/api/drivers.api';
+import { approveDriver, rejectDriver } from '@/lib/api/drivers.api';
+import { DriverKycCard } from '@/components/drivers/DriverKycCard';
+import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { formatMoney, formatDateTime } from '@/lib/utils/format';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+/** Uploads are served at `{origin}/uploads/...`, not under `/api/v1`. */
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
 
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
-  return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
 export function DriverDetailDrawer({
@@ -24,6 +32,7 @@ export function DriverDetailDrawer({
   onClose,
   onFetchLocation,
   onFetchOrders,
+  onRefreshDriver,
 }: {
   open: boolean;
   driver: DriverDetail | null;
@@ -34,13 +43,28 @@ export function DriverDetailDrawer({
   onClose: () => void;
   onFetchLocation: () => void;
   onFetchOrders: (page?: number) => void;
+  /** Refetch driver detail after KYC approve/reject */
+  onRefreshDriver?: () => void;
 }) {
+  const toast = useToast();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
+  const [rejectLoading, setRejectLoading] = useState(false);
+
   useEffect(() => {
     if (open && driver?._id) {
       onFetchLocation();
       onFetchOrders(1);
     }
   }, [open, driver?._id]);
+
+  useEffect(() => {
+    if (!open) {
+      setRejectOpen(false);
+      setApproveLoading(false);
+      setRejectLoading(false);
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -106,7 +130,7 @@ export function DriverDetailDrawer({
                 <div className="cardBody">
                   <div className="muted" style={{ marginBottom: 8 }}>Photos</div>
                   <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-                    {imgSrc(driver.profileImage) && <div><div className="muted" style={{ fontSize: 11 }}>Profile</div><img src={imgSrc(driver.profileImage)!} alt="Profile" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} /></div>}
+                    {imgSrc(driver.profileImage) && <div><img src={imgSrc(driver.profileImage)!} alt="Profile" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} /></div>}
                     {imgSrc(driver.licenseImage) && <div><div className="muted" style={{ fontSize: 11 }}>License</div><img src={imgSrc(driver.licenseImage)!} alt="License" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} /></div>}
                     {imgSrc(driver.vehicleImage) && <div><div className="muted" style={{ fontSize: 11 }}>Vehicle</div><img src={imgSrc(driver.vehicleImage)!} alt="Vehicle" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} /></div>}
                   </div>
@@ -168,6 +192,32 @@ export function DriverDetailDrawer({
                 </div>
               ) : null}
 
+              <DriverKycCard
+                driver={driver}
+                approveLoading={approveLoading}
+                onApprove={
+                  driver.kycStatus === 'pending'
+                    ? async () => {
+                        setApproveLoading(true);
+                        try {
+                          await approveDriver(driver._id);
+                          toast.push({ title: 'Driver approved', variant: 'success' });
+                          onRefreshDriver?.();
+                        } catch (e: unknown) {
+                          toast.push({
+                            title: 'Approve failed',
+                            description: e instanceof Error ? e.message : 'Error',
+                            variant: 'danger',
+                          });
+                        } finally {
+                          setApproveLoading(false);
+                        }
+                      }
+                    : undefined
+                }
+                onReject={driver.kycStatus === 'pending' ? () => setRejectOpen(true) : undefined}
+              />
+
               <div className="card" style={{ boxShadow: 'none' }}>
                 <div className="cardBody">
                   <div style={{ fontWeight: 800 }}>Order history</div>
@@ -216,6 +266,31 @@ export function DriverDetailDrawer({
           )}
         </div>
       </div>
+
+      <RejectDriverModal
+        open={rejectOpen}
+        driverName={driver?.name ?? ''}
+        onClose={() => setRejectOpen(false)}
+        loading={rejectLoading}
+        onConfirm={async (reason) => {
+          if (!driver?._id) return;
+          setRejectLoading(true);
+          try {
+            await rejectDriver(driver._id, reason);
+            toast.push({ title: 'Driver rejected', variant: 'success' });
+            setRejectOpen(false);
+            onRefreshDriver?.();
+          } catch (e: unknown) {
+            toast.push({
+              title: 'Reject failed',
+              description: e instanceof Error ? e.message : 'Error',
+              variant: 'danger',
+            });
+          } finally {
+            setRejectLoading(false);
+          }
+        }}
+      />
     </div>
   );
 }

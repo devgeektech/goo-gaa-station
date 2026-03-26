@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "DeliverEats Driver",
+    "slug": "driver-app",
+    "version": "1.0.0",
+    "scheme": "delivereats-driver",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.delivereats.driver" },
+    "android": { "package": "com.delivereats.driver" },
+    "plugins": ["expo-router"],
+    "extra": {
+      "apiUrl": "${EXPO_PUBLIC_API_URL}",
+      "socketUrl": "${EXPO_PUBLIC_SOCKET_URL}",
+      "supportEmail": "${EXPO_PUBLIC_SUPPORT_EMAIL}"
+    }
+  }
+}

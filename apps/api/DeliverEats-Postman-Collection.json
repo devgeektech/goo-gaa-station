@@ -362,6 +362,49 @@
       ]
     },
     {
+      "name": "Driver – KYC",
+      "description": "Driver identity verification: GET /api/v1/driver/kyc/status, POST /upload (multipart), PATCH /resubmit. Bearer {{accessToken}} (driver JWT).\n\n**Realtime (Socket.IO):**\n- After successful POST upload, server emits `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Admin UI shows a toast.\n- Admin PATCH approve/reject can emit `driver:kyc_approved` / `driver:kyc_rejected` to room `driver:{driverId}`. Driver app must `emit('driver:join', { driverId })` after connect.\n\n**Upload:** field `driversLicense` ×1; repeat field name `nationalId` and `vehiclePhotos` for multiple files (jpg/png/pdf, 5MB each). On 422, body may include `data.missing`: driversLicense | nationalId | vehiclePhotos.",
+      "item": [
+        {
+          "name": "Get KYC status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/kyc/status",
+            "description": "200: `{ success, data: { kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments: { driversLicense, nationalId[], vehiclePhotos[] } } }`. Use on app launch for routing (not_submitted | pending | approved | rejected)."
+          }
+        },
+        {
+          "name": "Upload KYC documents",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "driversLicense", "type": "file", "src": [], "description": "Exactly one file" },
+                { "key": "nationalId", "type": "file", "src": [], "description": "At least one; add more rows with key nationalId" },
+                { "key": "nationalId", "type": "file", "src": [], "disabled": true, "description": "Optional 2nd national ID file — enable and choose file" },
+                { "key": "vehiclePhotos", "type": "file", "src": [], "description": "At least one vehicle photo/PDF" },
+                { "key": "vehiclePhotos", "type": "file", "src": [], "disabled": true, "description": "Optional 2nd vehicle file — enable and choose file" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/driver/kyc/upload",
+            "description": "200: `{ success, data: { message, kycStatus: 'pending', kycSubmittedAt } }`. Emits `driver:kyc_submitted` to admin. 413: file too large. 422: wrong MIME or missing groups (`data.missing`)."
+          }
+        },
+        {
+          "name": "KYC resubmit (after rejection)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/kyc/resubmit",
+            "description": "Only when kycStatus === rejected. 200: `{ success, data: { kycStatus: 'not_submitted' } }`. Clears kycRejectionReason. Driver app should open document upload with **empty** file selections (no request body)."
+          }
+        }
+      ]
+    },
+    {
       "name": "Driver – Profile",
       "description": "Driver self-service profile management under /api/v1/driver/profile. Requires Bearer {{accessToken}} (Driver auth).",
       "item": [
@@ -904,7 +947,7 @@
     },
     {
       "name": "Admin – Drivers",
-      "description": "Driver management. Requires admin auth (cookies from Admin login).",
+      "description": "Driver management. Requires admin auth (cookies from Admin login).\n\n**KYC side-effects (Socket.IO):** PATCH …/approve: if driver kycStatus was pending → sets kyc approved, emits `driver:kyc_approved` to `driver:{id}` `{ kycStatus: 'approved' }`, FCM to driver. PATCH …/reject: sets kyc rejected + `kycRejectionReason` (from optional `kycRejectionReason` or `reason`), emits `driver:kyc_rejected` with `{ kycStatus, kycRejectionReason }`, FCM. GET driver by id includes `kycStatus`, `kycRejectionReason`, `kycSubmittedAt`, `kycDocuments`.",
       "item": [
         {
           "name": "Pending count",
@@ -939,7 +982,8 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}"
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}",
+            "description": "Includes KYC fields: kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments { driversLicense, nationalId[], vehiclePhotos[] }."
           }
         },
         {
@@ -975,7 +1019,8 @@
           "request": {
             "method": "PATCH",
             "header": [],
-            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/approve"
+            "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/approve",
+            "description": "Sets approvalStatus approved. If kycStatus was pending → sets KYC approved, emits Socket.IO `driver:kyc_approved` to room `driver:{driverId}`, FCM 'KYC Approved' to driver. No body."
           }
         },
         {
@@ -985,10 +1030,10 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Documents could not be verified. Please resubmit clear photos.\"\n}"
+              "raw": "{\n  \"reason\": \"Documents could not be verified. Please resubmit clear photos.\",\n  \"kycRejectionReason\": \"Driver license image is blurry; please re-upload.\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/admin/drivers/{{driverId}}/reject",
-            "description": "reason required, min 10 chars; stored in approvalNote."
+            "description": "`reason` required, min 10 chars (approvalNote). Optional `kycRejectionReason` for driver KYC text; defaults to reason. Also sets kycStatus rejected, emits Socket.IO `driver:kyc_rejected` to `driver:{driverId}` `{ kycStatus, kycRejectionReason }`, FCM to driver."
           }
         },
         {

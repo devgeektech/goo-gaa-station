@@ -335,7 +335,11 @@ export default function OrderDetailPage() {
                       <input className="input" value={driverQuery} onChange={(e) => setDriverQuery(e.target.value)} placeholder="Search drivers" />
                       <button type="button" className="btn" onClick={() => void runDriverSearch(driverQuery)} disabled={driverLoading} aria-label="Search"><Search size={16} /></button>
                     </div>
-                    {driverLoading ? <Skeleton height={42} style={{ marginTop: 10 }} /> : driverResults.length === 0 ? (
+                    {driverLoading ? (
+                      <div style={{ marginTop: 10 }}>
+                        <Skeleton height={42} />
+                      </div>
+                    ) : driverResults.length === 0 ? (
                       <div className="muted" style={{ marginTop: 10, fontSize: 13 }}>No approved active drivers. Click Search to load.</div>
                     ) : (
                       <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflow: 'auto' }}>

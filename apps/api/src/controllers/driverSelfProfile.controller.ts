@@ -30,6 +30,7 @@ function toProfileShape(driver: any) {
     vehicleNumber: driver?.vehicleNumber ?? null,
     status: driver?.status ?? null,
     approvalStatus: driver?.approvalStatus ?? null,
+    isOnline: Boolean(driver?.isOnline),
     rating: driver?.rating ?? 0,
     setupStep: driver?.setupStep ?? 0,
     fcmTokens: Array.isArray(driver?.fcmTokens) ? driver.fcmTokens : [],
@@ -42,7 +43,7 @@ export const getSelfProfile = asyncHandler(async (req: Request, res: Response) =
   if (!id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
   const driver = await Driver.findById(id)
-    .select('name phone email profileImage vehicleType vehicleNumber status approvalStatus rating setupStep fcmTokens')
+    .select('name phone email profileImage vehicleType vehicleNumber status approvalStatus isOnline rating setupStep fcmTokens')
     .lean();
   if (!driver || (driver as { status?: string }).status === 'deleted') {
     throw new AppError({ en: 'Driver not found', de: 'Fahrer nicht gefunden' }, 404, 'NOT_FOUND');

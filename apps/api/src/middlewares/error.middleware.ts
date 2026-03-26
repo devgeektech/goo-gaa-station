@@ -9,7 +9,7 @@ interface ErrorResponse {
   success: false;
   code?: string;
   message: { en: string; de: string };
-  data: null;
+  data: unknown;
   requestId?: string;
 }
 
@@ -28,7 +28,7 @@ export function errorMiddleware(
       success: false,
       code: err.code,
       message: err.messageObj,
-      data: null,
+      data: err.data !== undefined ? err.data : null,
       requestId,
     };
     res.status(err.statusCode).json(body);

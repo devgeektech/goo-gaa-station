@@ -8,17 +8,20 @@ export class AppError extends Error {
   readonly statusCode: number;
   readonly code?: string;
   readonly isOperational = true;
+  readonly data?: unknown;
 
   constructor(
     messageObj: MessageObj,
     statusCode: number,
-    code?: string
+    code?: string,
+    data?: unknown
   ) {
     super(messageObj.en);
     this.name = 'AppError';
     this.messageObj = messageObj;
     this.statusCode = statusCode;
     this.code = code;
+    this.data = data;
     Object.setPrototypeOf(this, AppError.prototype);
   }
 }
