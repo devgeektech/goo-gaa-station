@@ -63,6 +63,8 @@ const VendorSchema = new mongoose.Schema(
       lng: { type: Number, default: null },
       addressLabel: { type: String, enum: ['home', 'work', 'other'], default: null },
     },
+    /** Optional fallback delivery estimate (minutes) when real-time estimation is unavailable. */
+    deliveryTime: { type: Number, default: null, min: 1, max: 1000 },
     status: { type: String, enum: ['active', 'blocked', 'deleted', 'pending'], default: 'active' },
     blockReason: { type: String, default: null },
     categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: [] }],

@@ -61,4 +61,6 @@ export const env = {
   /** SMS for vendor OTP (e.g. Africa's Talking). */
   SMS_PROVIDER: (process.env.SMS_PROVIDER || '').toLowerCase(),
   SMS_API_KEY: process.env.SMS_API_KEY || '',
+  /** Google Maps Distance Matrix API key (used for vendor listing estimated time). */
+  GOOGLE_DISTANCE_MATRIX_API_KEY: process.env.GOOGLE_DISTANCE_MATRIX_API_KEY || '',
 } as const;

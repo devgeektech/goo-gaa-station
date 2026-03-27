@@ -2,10 +2,17 @@ import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Vendor } from '../../models/Vendor';
 import { Product } from '../../models/Product';
+import { User } from '../../models/User';
 import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
+import { getDistanceMatrixEstimates } from '../../services/googleDistanceMatrix.service';
+
+function getFallbackEtaMinutes(vendor: any): number | null {
+  const raw = Number(vendor?.deliveryTime);
+  return Number.isFinite(raw) && raw > 0 ? raw : null;
+}
 
 /** GET /api/v1/app/vendors — List vendors (active only), filter by category, search, optional filters/sort */
 export const listVendors = asyncHandler(async (req: Request, res: Response) => {
@@ -27,7 +34,14 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const minPrice = req.query.minPrice != null && req.query.minPrice !== '' ? Number(req.query.minPrice) : NaN;
   const maxPrice = req.query.maxPrice != null && req.query.maxPrice !== '' ? Number(req.query.maxPrice) : NaN;
   if (!Number.isNaN(minRating) && Vendor.schema.paths.rating) (filter as Record<string, unknown>).rating = { $gte: minRating };
-  if (!Number.isNaN(maxDeliveryTime) && Vendor.schema.paths.deliveryTime) (filter as Record<string, unknown>).deliveryTime = { $lte: maxDeliveryTime };
+  if (!Number.isNaN(maxDeliveryTime) && Vendor.schema.paths.deliveryTime) {
+    // Backward-compatible: keep vendors that don't yet have deliveryTime stored.
+    (filter as Record<string, unknown>).$or = [
+      { deliveryTime: { $lte: maxDeliveryTime } },
+      { deliveryTime: { $exists: false } },
+      { deliveryTime: null },
+    ];
+  }
   if (Vendor.schema.paths.minimumOrder) {
     const cond: Record<string, number> = {};
     if (!Number.isNaN(minPrice)) cond.$gte = minPrice;
@@ -43,7 +57,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 
   const [vendors, total] = await Promise.all([
     Vendor.find(filter)
-      .select('name slug description logo coverImage address categoryIds sortOrder')
+      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime')
       .populate('categoryIds', '_id name slug icon')
       .lean()
       .sort(sort)
@@ -51,6 +65,62 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
       .limit(limit),
     Vendor.countDocuments(filter),
   ]);
+
+  // Optional enhancement: if caller is an authenticated User with a default address,
+  // estimate travel distance/time from customer -> each vendor using Google Distance Matrix.
+  // If anything fails (missing coords or API/key failure), fallback to vendor.deliveryTime.
+  let customerCoords: { lat: number; lng: number } | null = null;
+  if (req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
+    const user = (await (User as any).findById(req.user._id).select('addresses').lean()) as
+      | { addresses?: Array<{ lat?: number | null; lng?: number | null; isDefault?: boolean }> }
+      | null;
+    const addresses = user?.addresses ?? [];
+    const preferred = addresses.find((a) => a?.isDefault) ?? addresses[0];
+    const lat = preferred?.lat;
+    const lng = preferred?.lng;
+    if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
+      customerCoords = { lat, lng };
+    }
+  }
+
+  if (customerCoords) {
+    const destinations = vendors.map((v: any) => ({ lat: v?.address?.lat, lng: v?.address?.lng }));
+    const validDestinations = destinations.map((d) =>
+      typeof d.lat === 'number' && Number.isFinite(d.lat) && typeof d.lng === 'number' && Number.isFinite(d.lng)
+        ? { lat: d.lat, lng: d.lng }
+        : null
+    );
+
+    const mapIndexToDestIndex: number[] = [];
+    const compactDestinations: Array<{ lat: number; lng: number }> = [];
+    for (let i = 0; i < validDestinations.length; i++) {
+      const d = validDestinations[i];
+      if (!d) continue;
+      mapIndexToDestIndex[i] = compactDestinations.length;
+      compactDestinations.push(d);
+    }
+
+    try {
+      const compactResults = await getDistanceMatrixEstimates({ origin: customerCoords, destinations: compactDestinations });
+      for (let i = 0; i < vendors.length; i++) {
+        const destIdx = mapIndexToDestIndex[i];
+        const r = destIdx !== undefined ? compactResults[destIdx] : null;
+        (vendors as any)[i].estimatedTime = r?.durationMinutes ?? getFallbackEtaMinutes((vendors as any)[i]);
+        (vendors as any)[i].distance = r?.distanceText ?? null;
+      }
+    } catch {
+      for (let i = 0; i < vendors.length; i++) {
+        (vendors as any)[i].estimatedTime = getFallbackEtaMinutes((vendors as any)[i]);
+        (vendors as any)[i].distance = null;
+      }
+    }
+  } else {
+    for (let i = 0; i < vendors.length; i++) {
+      (vendors as any)[i].estimatedTime = getFallbackEtaMinutes((vendors as any)[i]);
+      (vendors as any)[i].distance = null;
+    }
+  }
+
   const pages = Math.ceil(total / limit) || 1;
   return sendSuccess(res, { vendors, total, page, pages });
 });
