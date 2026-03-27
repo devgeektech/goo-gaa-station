@@ -154,6 +154,8 @@ export const removeFcmToken = asyncHandler(async (req: Request, res: Response) =
 function normalizeAddressForResponse(addr: Record<string, unknown>): Record<string, unknown> {
   const line1 = (addr.addressLine1 ?? addr.street ?? '').toString().trim();
   const saveAddressType = addr.saveAddressType === 'work' ? 'work' : addr.saveAddressType === 'other' ? 'other' : 'home';
+  /** DB field `isDefault` is the persisted preferred flag; API exposes `preferred` only. */
+  const preferred = Boolean(addr.preferred ?? addr.isDefault);
   return {
     _id: addr._id,
     addressLine1: line1,
@@ -164,8 +166,20 @@ function normalizeAddressForResponse(addr: Record<string, unknown>): Record<stri
     country: addr.country ?? '',
     lat: addr.lat ?? null,
     lng: addr.lng ?? null,
-    isDefault: Boolean(addr.isDefault),
+    preferred,
   };
+}
+
+function addressesSuccessPayload(userAddresses: Record<string, unknown>[] | undefined) {
+  const addresses = (userAddresses || []).map((a) => normalizeAddressForResponse(a));
+  return { addresses };
+}
+
+/** If nothing is preferred after a delete, mark the first remaining row (persisted as isDefault). */
+function ensureAtLeastOnePreferredAddress(user: { addresses?: Array<{ isDefault?: boolean }> }): void {
+  const addrs = user.addresses ?? [];
+  if (!addrs.length) return;
+  if (!addrs.some((a) => a.isDefault)) (addrs[0] as { isDefault: boolean }).isDefault = true;
 }
 
 /** GET /addresses */
@@ -174,8 +188,7 @@ export const getAddresses = asyncHandler(async (req: Request, res: Response) => 
   if (!id) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
   const user = await User.findById(id).select('addresses').lean() as { addresses?: Record<string, unknown>[] } | null;
   if (!user) throw new AppError({ en: MESSAGES.USER.en.notFound, de: MESSAGES.USER.de.notFound }, 404);
-  const list = (user.addresses || []).map((a) => normalizeAddressForResponse(a));
-  return sendSuccess(res, list);
+  return sendSuccess(res, addressesSuccessPayload(user.addresses));
 });
 
 /** POST /addresses — Add address (max 5) */
@@ -195,7 +208,8 @@ export const addAddress = asyncHandler(async (req: Request, res: Response) => {
     );
   }
 
-  const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng, isDefault } = req.body ?? {};
+  const isFirstAddress = addresses.length === 0;
+  const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng } = req.body ?? {};
   if (!addressLine1 || !city || !country) {
     throw new AppError(
       { en: 'addressLine1, city and country are required', de: 'Adresszeile 1, Stadt und Land erforderlich' },
@@ -203,7 +217,13 @@ export const addAddress = asyncHandler(async (req: Request, res: Response) => {
       'VALIDATION_ERROR'
     );
   }
-  const addrType = saveAddressType === 'work' ? 'work' : saveAddressType === 'other' ? 'other' : 'home';
+  const addrType = isFirstAddress
+    ? 'home'
+    : saveAddressType === 'work'
+      ? 'work'
+      : saveAddressType === 'other'
+        ? 'other'
+        : 'home';
   const newAddr = {
     addressLine1: String(addressLine1).trim(),
     addressLine2: addressLine2 != null && String(addressLine2).trim() !== '' ? String(addressLine2).trim() : null,
@@ -213,7 +233,7 @@ export const addAddress = asyncHandler(async (req: Request, res: Response) => {
     country: String(country).trim(),
     lat: lat != null ? Number(lat) : null,
     lng: lng != null ? Number(lng) : null,
-    isDefault: Boolean(isDefault),
+    isDefault: isFirstAddress,
   };
 
   if (newAddr.isDefault && user.addresses?.length) {
@@ -222,12 +242,10 @@ export const addAddress = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  console.log('newAddr', newAddr);
   user.addresses = user.addresses || [];
   user.addresses.push(newAddr as never);
   await user.save();
-  const list = (user.addresses || []).map((a: Record<string, unknown>) => normalizeAddressForResponse(a));
-  return sendSuccess(res, list);
+  return sendSuccess(res, addressesSuccessPayload(user.addresses as unknown as Record<string, unknown>[]));
 });
 
 /** PUT /addresses/:index — Update address by index (legacy) */
@@ -248,16 +266,17 @@ export const updateAddress = asyncHandler(async (req: Request, res: Response) =>
     );
   }
 
-  const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng, isDefault } = req.body ?? {};
+  const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng } = req.body ?? {};
   const addrType = saveAddressType === 'work' ? 'work' : saveAddressType === 'other' ? 'other' : saveAddressType === 'home' ? 'home' : undefined;
-  const updated = addresses.map((a: { toObject?: () => Record<string, unknown>; addressLine1?: string; addressLine2?: string | null; landmark?: string | null; saveAddressType?: string; city?: string; country?: string; lat?: number | null; lng?: number | null; isDefault?: boolean }, i: number) => {
+  const updated = addresses.map((a: { toObject?: () => Record<string, unknown>; addressLine1?: string; addressLine2?: string | null; landmark?: string | null; saveAddressType?: string; city?: string; country?: string; lat?: number | null; lng?: number | null; isDefault?: boolean; _id?: unknown }, i: number) => {
     if (i !== index) {
-      if (isDefault === true) return { ...(a.toObject?.() || a), isDefault: false };
-      return a;
+      const base = (a.toObject?.() || a) as Record<string, unknown>;
+      return { ...base, isDefault: false };
     }
     const prev = a.toObject?.() || a;
     const prevLine1 = prev.addressLine1 ?? (prev as { street?: string }).street ?? '';
     return {
+      ...((a.toObject?.() || a) as Record<string, unknown>),
       addressLine1: addressLine1 !== undefined ? String(addressLine1).trim() : prevLine1,
       addressLine2: addressLine2 !== undefined ? (addressLine2 != null && String(addressLine2).trim() !== '' ? String(addressLine2).trim() : null) : prev.addressLine2,
       landmark: landmark !== undefined ? (landmark != null && String(landmark).trim() !== '' ? String(landmark).trim() : null) : prev.landmark,
@@ -266,13 +285,16 @@ export const updateAddress = asyncHandler(async (req: Request, res: Response) =>
       country: country !== undefined ? String(country).trim() : prev.country,
       lat: lat !== undefined ? (lat != null ? Number(lat) : null) : prev.lat,
       lng: lng !== undefined ? (lng != null ? Number(lng) : null) : prev.lng,
-      isDefault: isDefault !== undefined ? Boolean(isDefault) : prev.isDefault,
+      isDefault: true,
     };
   });
-  user.addresses = updated as never;
+  const normalized = updated.map((row: unknown, i: number) => {
+    const r = row as Record<string, unknown>;
+    return { ...r, isDefault: i === index };
+  });
+  user.addresses = normalized as never;
   await user.save();
-  const list = (user.addresses || []).map((a: Record<string, unknown>) => normalizeAddressForResponse(a));
-  return sendSuccess(res, list);
+  return sendSuccess(res, addressesSuccessPayload(user.addresses as unknown as Record<string, unknown>[]));
 });
 
 /** PATCH /addresses/:id — Edit address by _id */
@@ -291,23 +313,48 @@ export const updateAddressById = asyncHandler(async (req: Request, res: Response
     throw new AppError({ en: 'Address not found', de: 'Adresse nicht gefunden' }, 404, 'NOT_FOUND');
   }
 
-  const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng, isDefault } = req.body ?? {};
-  if (addressLine1 !== undefined) (addr as { addressLine1: string }).addressLine1 = String(addressLine1).trim();
-  if (addressLine2 !== undefined) (addr as { addressLine2?: string | null }).addressLine2 = addressLine2 != null && String(addressLine2).trim() !== '' ? String(addressLine2).trim() : null;
-  if (landmark !== undefined) (addr as { landmark?: string | null }).landmark = landmark != null && String(landmark).trim() !== '' ? String(landmark).trim() : null;
-  if (saveAddressType !== undefined) (addr as { saveAddressType: string }).saveAddressType = saveAddressType === 'work' ? 'work' : saveAddressType === 'other' ? 'other' : 'home';
-  if (city !== undefined) (addr as { city: string }).city = String(city).trim();
-  if (country !== undefined) (addr as { country: string }).country = String(country).trim();
-  if (lat !== undefined) (addr as { lat?: number | null }).lat = lat != null ? Number(lat) : null;
-  if (lng !== undefined) (addr as { lng?: number | null }).lng = lng != null ? Number(lng) : null;
-  if (isDefault === true) {
+  const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng, preferred } = req.body ?? {};
+  const preferredExplicitTrue = preferred === true;
+  let fieldsTouched = false;
+  if (addressLine1 !== undefined) {
+    (addr as { addressLine1: string }).addressLine1 = String(addressLine1).trim();
+    fieldsTouched = true;
+  }
+  if (addressLine2 !== undefined) {
+    (addr as { addressLine2?: string | null }).addressLine2 = addressLine2 != null && String(addressLine2).trim() !== '' ? String(addressLine2).trim() : null;
+    fieldsTouched = true;
+  }
+  if (landmark !== undefined) {
+    (addr as { landmark?: string | null }).landmark = landmark != null && String(landmark).trim() !== '' ? String(landmark).trim() : null;
+    fieldsTouched = true;
+  }
+  if (saveAddressType !== undefined) {
+    (addr as { saveAddressType: string }).saveAddressType = saveAddressType === 'work' ? 'work' : saveAddressType === 'other' ? 'other' : 'home';
+    fieldsTouched = true;
+  }
+  if (city !== undefined) {
+    (addr as { city: string }).city = String(city).trim();
+    fieldsTouched = true;
+  }
+  if (country !== undefined) {
+    (addr as { country: string }).country = String(country).trim();
+    fieldsTouched = true;
+  }
+  if (lat !== undefined) {
+    (addr as { lat?: number | null }).lat = lat != null ? Number(lat) : null;
+    fieldsTouched = true;
+  }
+  if (lng !== undefined) {
+    (addr as { lng?: number | null }).lng = lng != null ? Number(lng) : null;
+    fieldsTouched = true;
+  }
+  if (fieldsTouched || preferredExplicitTrue) {
     for (const a of user.addresses ?? []) {
       (a as { isDefault: boolean }).isDefault = a === addr;
     }
   }
   await user.save();
-  const list = (user.addresses ?? []).map((a: Record<string, unknown>) => normalizeAddressForResponse(a));
-  return sendSuccess(res, list);
+  return sendSuccess(res, addressesSuccessPayload(user.addresses as unknown as Record<string, unknown>[]));
 });
 
 /** DELETE /addresses/:id — Remove address */
@@ -325,21 +372,21 @@ export const deleteAddressById = asyncHandler(async (req: Request, res: Response
   if (!addr) {
     throw new AppError({ en: 'Address not found', de: 'Adresse nicht gefunden' }, 404, 'NOT_FOUND');
   }
-  const isDefault = (addr as { isDefault?: boolean }).isDefault;
-  if (user.addresses?.length === 1 && isDefault) {
+  const wasPreferred = (addr as { isDefault?: boolean }).isDefault;
+  if (user.addresses?.length === 1 && wasPreferred) {
     throw new AppError(
-      { en: 'Cannot remove the only default address', de: 'Die einzige Standardadresse kann nicht entfernt werden' },
+      { en: 'Cannot remove your only saved address', de: 'Die einzige gespeicherte Adresse kann nicht entfernt werden' },
       400,
       'FORBIDDEN'
     );
   }
   user.addresses = user.addresses?.filter((a: { _id?: mongoose.Types.ObjectId }) => a._id?.toString() !== addrId) ?? [];
+  ensureAtLeastOnePreferredAddress(user);
   await user.save();
-  const list = (user.addresses ?? []).map((a: Record<string, unknown>) => normalizeAddressForResponse(a));
-  return sendSuccess(res, list);
+  return sendSuccess(res, addressesSuccessPayload(user.addresses as unknown as Record<string, unknown>[]));
 });
 
-/** PATCH /addresses/:id/default — Set isDefault=true, clear others */
+/** PATCH /addresses/:id/default — Set this address as the only preferred (isDefault in DB), clear others */
 export const setDefaultAddress = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?._id;
   const addrId = req.params.id;
@@ -358,8 +405,7 @@ export const setDefaultAddress = asyncHandler(async (req: Request, res: Response
     (a as { isDefault: boolean }).isDefault = a === addr;
   }
   await user.save();
-  const list = (user.addresses ?? []).map((a: Record<string, unknown>) => normalizeAddressForResponse(a));
-  return sendSuccess(res, list);
+  return sendSuccess(res, addressesSuccessPayload(user.addresses as unknown as Record<string, unknown>[]));
 });
 
 /** DELETE /addresses/:index */
@@ -381,19 +427,19 @@ export const deleteAddress = asyncHandler(async (req: Request, res: Response) =>
   }
 
   const addr = addresses[index];
-  const isDefault = (addr as { isDefault?: boolean }).isDefault;
-  if (addresses.length === 1 && isDefault) {
+  const wasPreferred = (addr as { isDefault?: boolean }).isDefault;
+  if (addresses.length === 1 && wasPreferred) {
     throw new AppError(
-      { en: 'Cannot remove the only default address', de: 'Die einzige Standardadresse kann nicht entfernt werden' },
+      { en: 'Cannot remove your only saved address', de: 'Die einzige gespeicherte Adresse kann nicht entfernt werden' },
       400,
       'FORBIDDEN'
     );
   }
 
   user.addresses = addresses.filter((_: unknown, i: number) => i !== index);
+  ensureAtLeastOnePreferredAddress(user);
   await user.save();
-  const list = (user.addresses || []).map((a: Record<string, unknown>) => normalizeAddressForResponse(a));
-  return sendSuccess(res, list);
+  return sendSuccess(res, addressesSuccessPayload(user.addresses as unknown as Record<string, unknown>[]));
 });
 
 /** GET /order-history — Paginated order history (legacy path) */

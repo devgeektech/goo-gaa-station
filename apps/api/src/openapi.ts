@@ -515,7 +515,6 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       country: { type: 'string', example: 'Germany' },
       lat: { type: 'number' },
       lng: { type: 'number' },
-      isDefault: { type: 'boolean' },
     },
   });
   const updateAddressBody = json({
@@ -529,7 +528,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       country: { type: 'string', example: 'Germany' },
       lat: { type: 'number', example: 52.52 },
       lng: { type: 'number', example: 13.405 },
-      isDefault: { type: 'boolean', example: false },
+      preferred: { type: 'boolean', description: 'Set true to make this the only preferred delivery address' },
     },
   });
   const categoryCreateUpdate = {

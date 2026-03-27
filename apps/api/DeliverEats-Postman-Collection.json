@@ -1138,7 +1138,8 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/api/v1/app/customer/addresses"
+            "url": "{{baseUrl}}/api/v1/app/customer/addresses",
+            "description": "data.addresses[] each has preferred. First saved address is preferred; change with PUT (or PATCH .../default) or by placing an order with deliveryAddress._id."
           }
         },
         {
@@ -1151,10 +1152,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"addressLine1\": \"123 Main St\",\n  \"addressLine2\": \"Apt 4\",\n  \"landmark\": \"Near city mall\",\n  \"saveAddressType\": \"home\",\n  \"city\": \"Berlin\",\n  \"country\": \"Germany\",\n  \"lat\": 52.52,\n  \"lng\": 13.405,\n  \"isDefault\": true\n}"
+              "raw": "{\n  \"addressLine1\": \"123 Main St\",\n  \"addressLine2\": \"Apt 4\",\n  \"landmark\": \"Near city mall\",\n  \"saveAddressType\": \"home\",\n  \"city\": \"Berlin\",\n  \"country\": \"Germany\",\n  \"lat\": 52.52,\n  \"lng\": 13.405\n}"
             },
             "url": "{{baseUrl}}/api/v1/app/customer/addresses",
-            "description": "Body: addressLine1, saveAddressType (home|work|other), city, country (required); addressLine2, landmark, lat, lng, isDefault (optional). Max 5 addresses."
+            "description": "First address becomes home + preferred. Next addresses are not preferred until PUT preferred:true, PATCH default, or order with deliveryAddress._id."
           }
         },
         {
@@ -1170,7 +1171,7 @@
               "raw": "{\n  \"addressLine1\": \"Office Str 2\",\n  \"addressLine2\": \"Floor 3\",\n  \"landmark\": \"Next to bank\",\n  \"saveAddressType\": \"work\",\n  \"city\": \"Berlin\",\n  \"country\": \"Germany\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/app/customer/addresses/{{addressId}}",
-            "description": "Path: id (address _id from GET addresses). Body: addressLine1, addressLine2, landmark, saveAddressType (home|work|other), city, country, lat, lng, isDefault (all optional)."
+            "description": "Path: id. Any updated field or preferred:true makes this the only preferred address. Body fields all optional."
           }
         },
         {

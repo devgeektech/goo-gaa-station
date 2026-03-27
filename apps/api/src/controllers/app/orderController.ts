@@ -8,6 +8,7 @@ import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
+import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const ACTIVE_STATUSES = ['pending', 'placed', 'accepted', 'confirmed', 'preparing', 'picked_up', 'on_the_way'] as const;
@@ -37,7 +38,19 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   if (!deliveryAddress || typeof deliveryAddress !== 'object') {
     throw new AppError({ en: 'deliveryAddress is required', de: 'Lieferadresse erforderlich' }, 400, 'VALIDATION_ERROR');
   }
-  const addr = deliveryAddress as { street?: string; city?: string; country?: string; lat?: number; lng?: number; contactName?: string; contactPhone?: string };
+  const addr = deliveryAddress as {
+    _id?: string;
+    addressId?: string;
+    street?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    country?: string;
+    lat?: number;
+    lng?: number;
+    contactName?: string;
+    contactPhone?: string;
+  };
   const street = addr.street ?? '';
   if (!street || !addr.city || !addr.country) {
     throw new AppError({ en: 'deliveryAddress must have street, city, country', de: 'Adresse: Straße, Stadt, Land erforderlich' }, 400, 'VALIDATION_ERROR');
@@ -130,6 +143,8 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     notes: deliveryInstructions || null,
     deliveryOtp,
   });
+
+  await syncPreferredAddressFromOrderDelivery(String(customerId), addr);
 
   const io = getIo(req);
   if (io) {

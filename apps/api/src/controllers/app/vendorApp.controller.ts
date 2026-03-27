@@ -72,10 +72,10 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   let customerCoords: { lat: number; lng: number } | null = null;
   if (req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
     const user = (await (User as any).findById(req.user._id).select('addresses').lean()) as
-      | { addresses?: Array<{ lat?: number | null; lng?: number | null; isDefault?: boolean }> }
+      | { addresses?: Array<{ lat?: number | null; lng?: number | null; isDefault?: boolean; preferred?: boolean }> }
       | null;
     const addresses = user?.addresses ?? [];
-    const preferred = addresses.find((a) => a?.isDefault) ?? addresses[0];
+    const preferred = addresses.find((a) => a?.isDefault || a?.preferred) ?? addresses[0];
     const lat = preferred?.lat;
     const lng = preferred?.lng;
     if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {

@@ -11,6 +11,7 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { transitionOrderStatus } from '../../services/orderStatus.service';
+import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 function getIo(req: Request): SocketIOServer | undefined {
@@ -35,7 +36,19 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   if (!items || !Array.isArray(items) || items.length === 0) {
     throw new AppError({ en: 'Items are required and must be non-empty', de: 'Artikel erforderlich' }, 400, 'VALIDATION_ERROR');
   }
-  const addr = deliveryAddress as { street?: string; addressLine1?: string; addressLine2?: string; city?: string; country?: string; lat?: number; lng?: number; contactName?: string; contactPhone?: string } | undefined;
+  const addr = deliveryAddress as {
+    _id?: string;
+    addressId?: string;
+    street?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    country?: string;
+    lat?: number;
+    lng?: number;
+    contactName?: string;
+    contactPhone?: string;
+  } | undefined;
   const street = addr?.street ?? (addr?.addressLine1 ? [addr.addressLine1, addr.addressLine2].filter(Boolean).join(', ') : '');
   if (!addr || !street || !addr.city || !addr.country) {
     throw new AppError({ en: 'Delivery address (street or addressLine1, city, country) required', de: 'Lieferadresse erforderlich' }, 400, 'VALIDATION_ERROR');
@@ -140,6 +153,8 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     status: 'pending',
     statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
   });
+
+  if (addr) await syncPreferredAddressFromOrderDelivery(String(customerId), addr);
 
   const io = getIo(req);
   if (io) {
