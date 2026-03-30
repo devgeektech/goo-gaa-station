@@ -8,17 +8,18 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { getDistanceMatrixEstimates } from '../../services/googleDistanceMatrix.service';
+import { haversineKm } from '../../utils/haversine';
 
 function getFallbackEtaMinutes(vendor: any): number | null {
   const raw = Number(vendor?.deliveryTime);
   return Number.isFinite(raw) && raw > 0 ? raw : null;
 }
 
-/** Customer origin for Distance Matrix: optional query `customerLat`/`customerLng` or `lat`/`lng` (e.g. GPS). */
+/** Customer origin for Distance Matrix: optional query `customerLat`/`customerLng` (WGS84). */
 function parseCustomerOriginFromQuery(req: Request): { lat: number; lng: number } | null {
   const q = req.query;
-  const latRaw = q.customerLat ?? q.lat;
-  const lngRaw = q.customerLng ?? q.lng;
+  const latRaw = q.customerLat;
+  const lngRaw = q.customerLng;
   if (latRaw == null || lngRaw == null || latRaw === '' || lngRaw === '') return null;
   const lat = Number(latRaw);
   const lng = Number(lngRaw);
@@ -68,18 +69,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   else if (sortQ === 'recommended') sort = { createdAt: -1, sortOrder: 1, name: 1 };
   else if (sortQ === 'rating' || sortQ === 'deliveryTime') sort = { sortOrder: 1, name: 1 };
 
-  const [vendors, total] = await Promise.all([
-    Vendor.find(filter)
-      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime')
-      .populate('categoryIds', '_id name slug icon')
-      .lean()
-      .sort(sort)
-      .skip((page - 1) * limit)
-      .limit(limit),
-    Vendor.countDocuments(filter),
-  ]);
-
-  // Distance Matrix origin: (1) query customerLat/customerLng or lat/lng, (2) else logged-in user's preferred address.
+  // Distance Matrix origin: (1) query customerLat/customerLng, (2) else logged-in user's preferred address.
   let customerCoords: { lat: number; lng: number } | null = parseCustomerOriginFromQuery(req);
   if (!customerCoords && req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
     const user = (await (User as any).findById(req.user._id).select('addresses').lean()) as
@@ -92,6 +82,42 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
       customerCoords = { lat, lng };
     }
+  }
+
+  // If customer coords are provided, we need to filter/sort by distance BEFORE pagination,
+  // otherwise we can miss vendors that are within the radius but outside the paged slice.
+  const shouldApplyRadius = Boolean(customerCoords);
+
+  let [vendors, total] = await Promise.all([
+    Vendor.find(filter)
+      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime')
+      .populate('categoryIds', '_id name slug icon')
+      .lean()
+      .sort(sort)
+      .skip(shouldApplyRadius ? 0 : (page - 1) * limit)
+      .limit(shouldApplyRadius ? 0 : limit),
+    Vendor.countDocuments(filter),
+  ]);
+
+  // If customer coords are provided, restrict to 30km radius and sort by nearest first.
+  // Uses straight-line (Haversine) distance for fast filtering/sorting.
+  const MAX_RADIUS_KM = 30;
+  if (customerCoords) {
+    const withKm = (vendors as any[])
+      .map((v) => {
+        const lat = v?.address?.lat;
+        const lng = v?.address?.lng;
+        if (typeof lat !== 'number' || !Number.isFinite(lat) || typeof lng !== 'number' || !Number.isFinite(lng)) return null;
+        const km = haversineKm(customerCoords.lat, customerCoords.lng, lat, lng);
+        return { v, km };
+      })
+      .filter(Boolean) as Array<{ v: any; km: number }>;
+
+    const within = withKm.filter((x) => x.km <= MAX_RADIUS_KM).sort((a, b) => a.km - b.km);
+    total = within.length;
+    const start = Math.max(0, (page - 1) * limit);
+    const end = start + limit;
+    vendors = within.slice(start, end).map((x) => x.v);
   }
 
   if (customerCoords) {

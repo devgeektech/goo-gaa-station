@@ -1893,7 +1893,7 @@
     },
     {
       "name": "App – Vendors",
-      "description": "Public vendor listing for app. No auth required. Set vendorId for Get vendor. Query: search, category, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit (default 10). Optional customerLat+customerLng (or lat+lng) for estimatedTime and distance via Google Distance Matrix.",
+      "description": "Public vendor listing for app. No auth required. Set vendorId for Get vendor. Query: search, category, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit (default 10). Optional customerLat+customerLng for estimatedTime and distance via Google Distance Matrix.",
       "item": [
         {
           "name": "List vendors",

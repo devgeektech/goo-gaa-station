@@ -120,6 +120,16 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError({ en: 'Cart is empty', de: 'Warenkorb ist leer' }, 404, 'NOT_FOUND');
   }
 
+  const vendorId = (cart as { vendor: mongoose.Types.ObjectId }).vendor;
+  const vendor = await Vendor.findById(vendorId).lean();
+  if (!vendor || (vendor as { status?: string }).status !== 'active') {
+    throw new AppError({ en: 'Vendor not found or not active', de: 'Anbieter nicht verfügbar' }, 400, 'VALIDATION_ERROR');
+  }
+  const v = vendor as { isOpen?: boolean; minimumOrder?: number };
+  if (v.isOpen === false) {
+    throw new AppError({ en: 'Vendor is currently closed', de: 'Anbieter ist geschlossen' }, 400, 'VENDOR_CLOSED');
+  }
+
   const items = (cart as {
     items: Array<{
       product: { _id: mongoose.Types.ObjectId; name: string; price: number; image?: string | null; isAvailable?: boolean };
@@ -132,12 +142,15 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   const productIds = items.map((i) => i.product?._id ?? i.product).filter(Boolean);
   const products = await Product.find({
     _id: { $in: productIds },
+    vendor: vendorId,
     isDeleted: false,
   }).lean();
   const productMap = new Map(products.map((p: { _id: mongoose.Types.ObjectId }) => [p._id.toString(), p] as const));
 
   for (const item of items) {
-    const pid = (item.product as { _id?: mongoose.Types.ObjectId })?._id?.toString() ?? (item.product as unknown as mongoose.Types.ObjectId).toString();
+    const pid =
+      (item.product as { _id?: mongoose.Types.ObjectId })?._id?.toString() ??
+      (item.product as unknown as mongoose.Types.ObjectId).toString();
     const product = productMap.get(pid);
     if (!product) {
       throw new AppError({ en: 'A cart item is no longer available', de: 'Ein Artikel ist nicht mehr verfügbar' }, 422, 'VALIDATION_ERROR');
@@ -147,195 +160,85 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  const byVendor = new Map<string, typeof items>();
-  for (const item of items) {
-    const pid = (item.product as { _id?: mongoose.Types.ObjectId })?._id?.toString() ?? (item.product as unknown as mongoose.Types.ObjectId).toString();
-    const p = productMap.get(pid) as { vendor: mongoose.Types.ObjectId };
-    const vid = String(p.vendor);
-    if (!byVendor.has(vid)) byVendor.set(vid, []);
-    byVendor.get(vid)!.push(item);
-  }
-
-  const vendorKeys = [...byVendor.keys()].sort();
-  const cartSubtotal = (cart as { subtotal: number }).subtotal;
+  const subtotal = (cart as { subtotal: number }).subtotal;
+  const deliveryFee = DELIVERY_FEE;
   const pointsAvailable = (customerForAddress as { points?: number })?.points ?? 0;
-  const totalDiscount = Math.min(usePoints, pointsAvailable, Math.floor(cartSubtotal * 0.1));
+  const discountFromPoints = Math.min(usePoints, pointsAvailable, Math.floor(subtotal * 0.1));
+  const discount = discountFromPoints;
+  const totalAmount = Math.max(0, subtotal + deliveryFee - discount);
 
-  const groupSubtotals = vendorKeys.map((vk) => byVendor.get(vk)!.reduce((s, i) => s + i.price * i.qty, 0));
-  const groupDiscounts: number[] = [];
-  let allocated = 0;
-  for (let i = 0; i < vendorKeys.length; i++) {
-    if (i === vendorKeys.length - 1) {
-      groupDiscounts.push(Math.max(0, totalDiscount - allocated));
-    } else {
-      const d = Math.floor(totalDiscount * (groupSubtotals[i] / cartSubtotal));
-      groupDiscounts.push(d);
-      allocated += d;
-    }
+  const minimumOrder = v.minimumOrder != null ? Number(v.minimumOrder) : 0;
+  if (minimumOrder > 0 && totalAmount < minimumOrder) {
+    throw new AppError({ en: `Minimum order is ${minimumOrder}`, de: `Mindestbestellwert ${minimumOrder}` }, 400, 'MINIMUM_ORDER');
   }
 
-  const deliveryAddressDoc = {
-    street,
-    city: addr.city,
-    country: addr.country,
-    lat: addr.lat ?? null,
-    lng: addr.lng ?? null,
-    contactName: addr.contactName ?? null,
-    contactPhone: addr.contactPhone ?? null,
-  };
-  const notes = (body.deliveryInstructions as string) ?? null;
+  const orderNumber = await getNextOrderNumber();
+  const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
-  async function validateVendorAndTotals(
-    vendorIdObj: mongoose.Types.ObjectId,
-    groupSubtotal: number,
-    groupDiscount: number
-  ): Promise<void> {
-    const vendorDoc = await Vendor.findById(vendorIdObj).lean();
-    if (!vendorDoc || (vendorDoc as { status?: string }).status !== 'active') {
-      throw new AppError({ en: 'Vendor not found or not active', de: 'Anbieter nicht verfügbar' }, 400, 'VALIDATION_ERROR');
-    }
-    const vd = vendorDoc as { isOpen?: boolean; minimumOrder?: number };
-    if (vd.isOpen === false) {
-      throw new AppError({ en: 'Vendor is currently closed', de: 'Anbieter ist geschlossen' }, 400, 'VENDOR_CLOSED');
-    }
-    const totalAmount = Math.max(0, groupSubtotal + DELIVERY_FEE - groupDiscount);
-    const minimumOrder = vd.minimumOrder != null ? Number(vd.minimumOrder) : 0;
-    if (minimumOrder > 0 && totalAmount < minimumOrder) {
-      throw new AppError({ en: `Minimum order is ${minimumOrder}`, de: `Mindestbestellwert ${minimumOrder}` }, 400, 'MINIMUM_ORDER');
-    }
+  const orderItems = items.map((i) => {
+    const price = i.price;
+    const qty = i.qty;
+    return {
+      name: i.name,
+      qty,
+      unitPrice: price,
+      image: i.image ?? null,
+      subtotal: price * qty,
+      itemId:
+        (i.product as { _id?: mongoose.Types.ObjectId })?._id?.toString() ??
+        (i.product as unknown as mongoose.Types.ObjectId).toString(),
+    };
+  });
+
+  const order = await Order.create({
+    orderNumber,
+    customerId: customerIdObj,
+    vendorId,
+    items: orderItems,
+    subtotal,
+    deliveryFee,
+    discount,
+    total: totalAmount,
+    status: 'pending',
+    statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
+    paymentStatus: 'pending',
+    paymentMethod: 'wifipay',
+    deliveryAddress: {
+      street,
+      city: addr.city,
+      country: addr.country,
+      lat: addr.lat ?? null,
+      lng: addr.lng ?? null,
+      contactName: addr.contactName ?? null,
+      contactPhone: addr.contactPhone ?? null,
+    },
+    notes: (body.deliveryInstructions as string) ?? null,
+    deliveryOtp,
+  });
+
+  await syncPreferredAddressFromOrderDelivery(String(customerId), addr);
+
+  await User.findByIdAndUpdate(customerIdObj, {
+    $inc: { totalOrders: 1, points: -discount },
+    ...(discount > 0 && User.schema.paths.pointsHistory
+      ? { $push: { pointsHistory: { amount: -discount, reason: 'Order discount', reference: order._id.toString(), createdAt: new Date() } } }
+      : {}),
+  });
+
+  await Cart.deleteOne({ customer: customerIdObj });
+
+  const io = getIo(req);
+  if (io) {
+    io.to('admin').emit('order:new', { orderId: order._id, orderNumber, vendorId, customerId, totalAmount: order.total, paymentMethod: order.paymentMethod });
+    io.to(`vendor:${vendorId}`).emit('order:new', { orderId: order._id, orderNumber, vendorId, customerId, totalAmount: order.total, paymentMethod: order.paymentMethod });
   }
 
-  function buildOrderItems(groupItems: typeof items) {
-    return groupItems.map((i) => {
-      const price = i.price;
-      const qty = i.qty;
-      return {
-        name: i.name,
-        qty,
-        unitPrice: price,
-        image: i.image ?? null,
-        subtotal: price * qty,
-        itemId: (i.product as { _id?: mongoose.Types.ObjectId })?._id?.toString() ?? (i.product as unknown as mongoose.Types.ObjectId).toString(),
-      };
-    });
-  }
-
-  if (vendorKeys.length === 1) {
-    const vendorId = new mongoose.Types.ObjectId(vendorKeys[0]);
-    await validateVendorAndTotals(vendorId, cartSubtotal, totalDiscount);
-
-    const orderNumber = await getNextOrderNumber();
-    const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
-    const orderItems = buildOrderItems(items);
-    const totalAmount = Math.max(0, cartSubtotal + DELIVERY_FEE - totalDiscount);
-
-    const order = await Order.create({
-      orderNumber,
-      customerId: customerIdObj,
-      vendorId,
-      items: orderItems,
-      subtotal: cartSubtotal,
-      deliveryFee: DELIVERY_FEE,
-      discount: totalDiscount,
-      total: totalAmount,
-      status: 'pending',
-      statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
-      paymentStatus: 'pending',
-      paymentMethod: 'wifipay',
-      deliveryAddress: deliveryAddressDoc,
-      notes,
-      deliveryOtp,
-    });
-
-    await syncPreferredAddressFromOrderDelivery(String(customerId), addr);
-
-    await User.findByIdAndUpdate(customerIdObj, {
-      $inc: { totalOrders: 1, points: -totalDiscount },
-      ...(totalDiscount > 0 && User.schema.paths.pointsHistory
-        ? { $push: { pointsHistory: { amount: -totalDiscount, reason: 'Order discount', reference: order._id.toString(), createdAt: new Date() } } }
-        : {}),
-    });
-
-    await Cart.deleteOne({ customer: customerIdObj });
-
-    const io = getIo(req);
-    if (io) {
-      io.to('admin').emit('order:new', { orderId: order._id, orderNumber, vendorId, customerId, totalAmount: order.total, paymentMethod: order.paymentMethod });
-      io.to(`vendor:${vendorId}`).emit('order:new', { orderId: order._id, orderNumber, vendorId, customerId, totalAmount: order.total, paymentMethod: order.paymentMethod });
-    }
-
-    return sendSuccess(
-      res,
-      {
-        _id: order._id,
-        orderNumber: order.orderNumber,
-        displayOrderId: toDisplayOrderId({ orderNumber: order.orderNumber, _id: order._id }),
-        status: order.status,
-        deliveryOtp: order.deliveryOtp,
-        items: orderItems.map((i) => ({
-          ...i,
-          quantity: i.qty,
-          lineTotal: i.subtotal,
-        })),
-        subtotal: order.subtotal,
-        deliveryFee: order.deliveryFee,
-        discount: order.discount,
-        grandTotal: order.total,
-        totalAmount: order.total,
-        totals: {
-          subtotal: order.subtotal,
-          deliveryFee: order.deliveryFee,
-          discount: order.discount,
-          grandTotal: order.total,
-        },
-        deliveryAddress: order.deliveryAddress,
-        paymentStatus: order.paymentStatus,
-        paymentMethod: order.paymentMethod,
-        createdAt: order.createdAt,
-      },
-      201
-    );
-  }
-
-  const createdOrders: any[] = [];
-  const orderPayloads: Array<Record<string, unknown>> = [];
-
-  for (let gi = 0; gi < vendorKeys.length; gi++) {
-    const vendorId = new mongoose.Types.ObjectId(vendorKeys[gi]);
-    const groupItems = byVendor.get(vendorKeys[gi])!;
-    const groupSubtotal = groupSubtotals[gi];
-    const groupDiscount = groupDiscounts[gi];
-    await validateVendorAndTotals(vendorId, groupSubtotal, groupDiscount);
-
-    const orderNumber = await getNextOrderNumber();
-    const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
-    const orderItems = buildOrderItems(groupItems);
-    const totalAmount = Math.max(0, groupSubtotal + DELIVERY_FEE - groupDiscount);
-
-    const order = await Order.create({
-      orderNumber,
-      customerId: customerIdObj,
-      vendorId,
-      items: orderItems,
-      subtotal: groupSubtotal,
-      deliveryFee: DELIVERY_FEE,
-      discount: groupDiscount,
-      total: totalAmount,
-      status: 'pending',
-      statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
-      paymentStatus: 'pending',
-      paymentMethod: 'wifipay',
-      deliveryAddress: deliveryAddressDoc,
-      notes,
-      deliveryOtp,
-    });
-    createdOrders.push(order);
-
-    orderPayloads.push({
+  return sendSuccess(
+    res,
+    {
       _id: order._id,
       orderNumber: order.orderNumber,
       displayOrderId: toDisplayOrderId({ orderNumber: order.orderNumber, _id: order._id }),
-      vendorId,
       status: order.status,
       deliveryOtp: order.deliveryOtp,
       items: orderItems.map((i) => ({
@@ -358,70 +261,6 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       createdAt: order.createdAt,
-    });
-  }
-
-  await syncPreferredAddressFromOrderDelivery(String(customerId), addr);
-
-  const firstOrder = createdOrders[0];
-  await User.findByIdAndUpdate(customerIdObj, {
-    $inc: { totalOrders: createdOrders.length, points: -totalDiscount },
-    ...(totalDiscount > 0 && User.schema.paths.pointsHistory
-      ? {
-          $push: {
-            pointsHistory: {
-              amount: -totalDiscount,
-              reason: 'Order discount',
-              reference: firstOrder._id.toString(),
-              createdAt: new Date(),
-            },
-         },
-        }
-      : {}),
-  });
-
-  await Cart.deleteOne({ customer: customerIdObj });
-
-  const io = getIo(req);
-  if (io) {
-    for (let i = 0; i < createdOrders.length; i++) {
-      const order = createdOrders[i];
-      const vn = vendorKeys[i];
-      io.to('admin').emit('order:new', {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        vendorId: vn,
-        customerId,
-        totalAmount: order.total,
-        paymentMethod: order.paymentMethod,
-      });
-      io.to(`vendor:${vn}`).emit('order:new', {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        vendorId: vn,
-        customerId,
-        totalAmount: order.total,
-        paymentMethod: order.paymentMethod,
-      });
-    }
-  }
-
-  const combinedSubtotal = orderPayloads.reduce((s, o) => s + Number((o as { subtotal?: number }).subtotal ?? 0), 0);
-  const combinedDeliveryFee = orderPayloads.reduce((s, o) => s + Number((o as { deliveryFee?: number }).deliveryFee ?? 0), 0);
-  const combinedDiscount = orderPayloads.reduce((s, o) => s + Number((o as { discount?: number }).discount ?? 0), 0);
-  const combinedGrand = orderPayloads.reduce((s, o) => s + Number((o as { grandTotal?: number }).grandTotal ?? 0), 0);
-
-  return sendSuccess(
-    res,
-    {
-      orders: orderPayloads,
-      orderCount: orderPayloads.length,
-      combinedTotals: {
-        subtotal: combinedSubtotal,
-        deliveryFee: combinedDeliveryFee,
-        discount: combinedDiscount,
-        grandTotal: combinedGrand,
-      },
     },
     201
   );

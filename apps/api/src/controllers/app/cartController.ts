@@ -109,7 +109,26 @@ export const setCart = asyncHandler(async (req: Request, res: Response) => {
 
   const customerIdObj = new mongoose.Types.ObjectId(customerId);
 
-  // Merge into existing cart so caller can send multiple items
+  // SINGLE-VENDOR ENFORCEMENT:
+  // If a cart already exists and belongs to another vendor, block switching vendors.
+  const existing = await (Cart as any).findOne({ customer: customerIdObj }).select('vendor').lean();
+  if (existing?.vendor && String((existing as { vendor: mongoose.Types.ObjectId }).vendor) !== String(vendorIdObj)) {
+    const existingVendor = await (Vendor as any)
+      .findById((existing as { vendor: mongoose.Types.ObjectId }).vendor)
+      .select('name')
+      .lean();
+    const existingName = (existingVendor as { name?: string })?.name ?? 'another restaurant';
+    throw new AppError(
+      {
+        en: `Your cart already contains items from ${existingName}. Clear your cart to add items from this restaurant.`,
+        de: `Ihr Warenkorb enthält bereits Artikel von ${existingName}. Leeren Sie den Warenkorb, um Artikel dieses Anbieters hinzuzufügen.`,
+      },
+      409,
+      'VENDOR_CONFLICT'
+    );
+  }
+
+  // Merge into existing cart (same vendor) so caller can send multiple items
   // and subsequent calls can append items instead of overwriting.
   const cartDoc = await (Cart as any).findOne({ customer: customerIdObj });
   const cartToSave = cartDoc ?? new (Cart as any)({ customer: customerIdObj, vendor: vendorIdObj, items: [], subtotal: 0 });
