@@ -7,6 +7,7 @@ export type DistanceMatrixResult = {
 
 type GoogleDistanceMatrixResponse = {
   status?: string;
+  error_message?: string;
   rows?: Array<{
     elements?: Array<{
       status?: string;
@@ -16,40 +17,57 @@ type GoogleDistanceMatrixResponse = {
   }>;
 };
 
+/** Google allows at most 25 destination points per Distance Matrix request (single origin). */
+const MAX_DESTINATIONS_PER_REQUEST = 25;
+
 export async function getDistanceMatrixEstimates(args: {
   origin: { lat: number; lng: number };
   destinations: Array<{ lat: number; lng: number }>;
 }): Promise<Array<DistanceMatrixResult | null>> {
-  // Fallback-only mode for now (no Google key configured yet).
-  // When key is ready, uncomment the "live estimation" block below.
   const key = env.GOOGLE_DISTANCE_MATRIX_API_KEY;
-  void key;
-  void args.origin;
-  return args.destinations.map(() => null);
+  if (!key || args.destinations.length === 0) {
+    return args.destinations.map(() => null);
+  }
 
-  /*
-  // Live estimation (enable later):
-  const key = env.GOOGLE_DISTANCE_MATRIX_API_KEY;
-  if (!key) return args.destinations.map(() => null);
-  if (args.destinations.length === 0) return [];
+  const out: Array<DistanceMatrixResult | null> = [];
+  for (let offset = 0; offset < args.destinations.length; offset += MAX_DESTINATIONS_PER_REQUEST) {
+    const chunk = args.destinations.slice(offset, offset + MAX_DESTINATIONS_PER_REQUEST);
+    const chunkResults = await fetchDistanceMatrixChunk(args.origin, chunk, key);
+    out.push(...chunkResults);
+  }
+  return out;
+}
 
-  const origin = `${args.origin.lat},${args.origin.lng}`;
-  const destinations = args.destinations.map((d) => `${d.lat},${d.lng}`).join('|');
+async function fetchDistanceMatrixChunk(
+  origin: { lat: number; lng: number },
+  destinations: Array<{ lat: number; lng: number }>,
+  key: string
+): Promise<Array<DistanceMatrixResult | null>> {
+  const originStr = `${origin.lat},${origin.lng}`;
+  const destStr = destinations.map((d) => `${d.lat},${d.lng}`).join('|');
 
   const url = new URL('https://maps.googleapis.com/maps/api/distancematrix/json');
-  url.searchParams.set('origins', origin);
-  url.searchParams.set('destinations', destinations);
+  url.searchParams.set('origins', originStr);
+  url.searchParams.set('destinations', destStr);
   url.searchParams.set('mode', 'driving');
+  url.searchParams.set('units', 'metric');
   url.searchParams.set('key', key);
 
   const resp = await fetch(url.toString(), { method: 'GET' });
-  if (!resp.ok) return args.destinations.map(() => null);
+  if (!resp.ok) return destinations.map(() => null);
 
   const json = (await resp.json()) as GoogleDistanceMatrixResponse;
-  const elements = json.rows?.[0]?.elements ?? [];
-  if (!Array.isArray(elements) || elements.length === 0) return args.destinations.map(() => null);
+  if (json.status && json.status !== 'OK') {
+    if (process.env.NODE_ENV === 'development' && json.error_message) {
+      console.warn('[Distance Matrix]', json.status, json.error_message);
+    }
+    return destinations.map(() => null);
+  }
 
-  return args.destinations.map((_, idx) => {
+  const elements = json.rows?.[0]?.elements ?? [];
+  if (!Array.isArray(elements) || elements.length === 0) return destinations.map(() => null);
+
+  return destinations.map((_, idx) => {
     const el = elements[idx];
     if (!el || el.status !== 'OK') return null;
     const distanceText = el.distance?.text;
@@ -57,6 +75,4 @@ export async function getDistanceMatrixEstimates(args: {
     if (!distanceText || durationSec == null || !Number.isFinite(durationSec)) return null;
     return { distanceText, durationMinutes: Math.max(1, Math.ceil(durationSec / 60)) };
   });
-  */
 }
-

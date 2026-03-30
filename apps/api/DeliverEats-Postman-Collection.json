@@ -1893,7 +1893,7 @@
     },
     {
       "name": "App – Vendors",
-      "description": "Public vendor listing for app. No auth required. Set vendorId for Get vendor. Query: search, category, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit (default 10).",
+      "description": "Public vendor listing for app. No auth required. Set vendorId for Get vendor. Query: search, category, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit (default 10). Optional customerLat+customerLng (or lat+lng) for estimatedTime and distance via Google Distance Matrix.",
       "item": [
         {
           "name": "List vendors",
@@ -1913,10 +1913,12 @@
                 { "key": "minRating", "value": "4", "disabled": true, "description": "Minimum rating (1-5)" },
                 { "key": "maxDeliveryTime", "value": "45", "disabled": true, "description": "Max delivery time (minutes)" },
                 { "key": "minPrice", "value": "5", "disabled": true, "description": "Minimum order amount" },
-                { "key": "maxPrice", "value": "50", "disabled": true, "description": "Maximum order amount" }
+                { "key": "maxPrice", "value": "50", "disabled": true, "description": "Maximum order amount" },
+                { "key": "customerLat", "value": "30.6798", "disabled": true, "description": "Customer latitude (WGS84); with customerLng enables ETA/distance" },
+                { "key": "customerLng", "value": "76.7297", "disabled": true, "description": "Customer longitude" }
               ]
             },
-            "description": "Returns { data: { vendors, total, page, pages } }. Categories populated with _id, name, slug, icon."
+            "description": "Returns { data: { vendors, total, page, pages } }. Categories populated with _id, name, slug, icon. Pass customerLat+customerLng (enable in Postman) for estimatedTime and distance when GOOGLE_DISTANCE_MATRIX_API_KEY is set."
           }
         },
         {

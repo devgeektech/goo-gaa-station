@@ -14,6 +14,19 @@ function getFallbackEtaMinutes(vendor: any): number | null {
   return Number.isFinite(raw) && raw > 0 ? raw : null;
 }
 
+/** Customer origin for Distance Matrix: optional query `customerLat`/`customerLng` or `lat`/`lng` (e.g. GPS). */
+function parseCustomerOriginFromQuery(req: Request): { lat: number; lng: number } | null {
+  const q = req.query;
+  const latRaw = q.customerLat ?? q.lat;
+  const lngRaw = q.customerLng ?? q.lng;
+  if (latRaw == null || lngRaw == null || latRaw === '' || lngRaw === '') return null;
+  const lat = Number(latRaw);
+  const lng = Number(lngRaw);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+}
+
 /** GET /api/v1/app/vendors — List vendors (active only), filter by category, search, optional filters/sort */
 export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit } = parsePagination(req.query, 10);
@@ -66,11 +79,9 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     Vendor.countDocuments(filter),
   ]);
 
-  // Optional enhancement: if caller is an authenticated User with a default address,
-  // estimate travel distance/time from customer -> each vendor using Google Distance Matrix.
-  // If anything fails (missing coords or API/key failure), fallback to vendor.deliveryTime.
-  let customerCoords: { lat: number; lng: number } | null = null;
-  if (req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
+  // Distance Matrix origin: (1) query customerLat/customerLng or lat/lng, (2) else logged-in user's preferred address.
+  let customerCoords: { lat: number; lng: number } | null = parseCustomerOriginFromQuery(req);
+  if (!customerCoords && req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
     const user = (await (User as any).findById(req.user._id).select('addresses').lean()) as
       | { addresses?: Array<{ lat?: number | null; lng?: number | null; isDefault?: boolean; preferred?: boolean }> }
       | null;
