@@ -1293,10 +1293,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deliveryAddress\": \"123 Main St, Berlin\",\n  \"usePoints\": false,\n  \"deliveryInstructions\": \"Ring the bell\"\n}"
+              "raw": "{\n  \"deliveryAddressId\": \"{{addressId}}\",\n  \"usePoints\": 0,\n  \"deliveryInstructions\": \"Ring the bell\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/app/orders",
-            "description": "Cart-based: deliveryAddress required; usePoints, deliveryInstructions optional. Or send vendorId + items + deliveryAddress for direct order."
+            "description": "Cart-based order. Send deliveryAddressId (preferred saved address id). Optional: usePoints, deliveryInstructions. API also accepts deliveryAddress object as fallback."
           }
         },
         {

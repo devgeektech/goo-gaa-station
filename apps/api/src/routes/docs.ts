@@ -134,7 +134,7 @@ export const ROUTES = [
   { method: 'DELETE', path: '/api/v1/app/customer/addresses/:id', auth: true, description: 'Delete address by id (MongoDB address _id)' },
   { method: 'GET', path: '/api/v1/app/customer/order-history', auth: true, description: 'Customer order history (paginated)' },
   { method: 'DELETE', path: '/api/v1/app/customer/account', auth: true, description: 'Delete account (soft delete, invalidate tokens)' },
-  { method: 'POST', path: '/api/v1/app/orders', auth: true, description: 'Place order (customer)' },
+  { method: 'POST', path: '/api/v1/app/orders', auth: true, description: 'Place order (customer); cart-based with deliveryAddressId preferred, returns items, totals, OTP, displayOrderId' },
   { method: 'GET', path: '/api/v1/app/orders', auth: true, description: 'List my orders (customer)' },
   { method: 'GET', path: '/api/v1/app/orders/:id', auth: true, description: 'Get order (customer)' },
   { method: 'PATCH', path: '/api/v1/app/orders/:id/cancel', auth: true, description: 'Cancel order (customer)' },

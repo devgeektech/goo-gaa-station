@@ -21,19 +21,31 @@ function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
 }
 
+function toDisplayOrderId(order: { orderNumber?: string | number | null; _id?: unknown }): string {
+  const rawNumber = order.orderNumber != null ? String(order.orderNumber) : '';
+  const compact = rawNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (compact.length >= 6) return `#RDY-${compact.slice(-6)}`;
+  const idSuffix = String(order._id ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(-6);
+  return `#RDY-${(compact + idSuffix).slice(-6).padStart(6, '0')}`;
+}
+
 /** POST / — Place order from cart: load cart, validate vendor + products, create order, update customer, delete cart, emit */
 export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user?._id;
   if (!customerId) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
   const body = req.body ?? {};
+  const deliveryAddressId = body.deliveryAddressId != null ? String(body.deliveryAddressId).trim() : '';
   const deliveryAddress = body.deliveryAddress;
   const usePoints = Math.max(0, Math.floor(Number(body.usePoints) || 0));
 
-  if (!deliveryAddress || typeof deliveryAddress !== 'object') {
-    throw new AppError({ en: 'deliveryAddress is required', de: 'Lieferadresse erforderlich' }, 400, 'VALIDATION_ERROR');
+  const customerIdObj = new mongoose.Types.ObjectId(customerId);
+  const customerForAddress = await User.findById(customerIdObj).select('addresses points');
+  if (!customerForAddress) {
+    throw new AppError({ en: 'Customer not found', de: 'Kunde nicht gefunden' }, 404, 'NOT_FOUND');
   }
-  const addr = deliveryAddress as {
+
+  let addr: {
     _id?: string;
     addressId?: string;
     street?: string;
@@ -46,12 +58,63 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     contactName?: string;
     contactPhone?: string;
   };
-  const street = addr.street ?? (addr.addressLine1 ?? '');
+
+  if (deliveryAddressId) {
+    if (!mongoose.Types.ObjectId.isValid(deliveryAddressId)) {
+      throw new AppError({ en: 'Valid deliveryAddressId is required', de: 'Gültige deliveryAddressId erforderlich' }, 400, 'VALIDATION_ERROR');
+    }
+    const saved = customerForAddress.addresses?.id(deliveryAddressId) as
+      | {
+          _id?: mongoose.Types.ObjectId;
+          addressLine1?: string;
+          addressLine2?: string | null;
+          city?: string;
+          country?: string;
+          lat?: number | null;
+          lng?: number | null;
+        }
+      | undefined;
+    if (!saved) {
+      throw new AppError({ en: 'Saved delivery address not found', de: 'Gespeicherte Lieferadresse nicht gefunden' }, 404, 'NOT_FOUND');
+    }
+    addr = {
+      _id: saved._id?.toString(),
+      addressId: saved._id?.toString(),
+      addressLine1: saved.addressLine1 ?? '',
+      addressLine2: saved.addressLine2 ?? undefined,
+      city: saved.city ?? '',
+      country: saved.country ?? '',
+      lat: saved.lat ?? undefined,
+      lng: saved.lng ?? undefined,
+    };
+  } else {
+    if (!deliveryAddress || typeof deliveryAddress !== 'object') {
+      throw new AppError(
+        { en: 'deliveryAddressId (preferred) or deliveryAddress object is required', de: 'deliveryAddressId oder deliveryAddress erforderlich' },
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+    addr = deliveryAddress as {
+      _id?: string;
+      addressId?: string;
+      street?: string;
+      addressLine1?: string;
+      addressLine2?: string;
+      city?: string;
+      country?: string;
+      lat?: number;
+      lng?: number;
+      contactName?: string;
+      contactPhone?: string;
+    };
+  }
+
+  const street = addr.street ?? [addr.addressLine1, addr.addressLine2].filter(Boolean).join(', ');
   if (!street || !addr.city || !addr.country) {
     throw new AppError({ en: 'deliveryAddress must have street, city, country', de: 'Adresse erforderlich' }, 400, 'VALIDATION_ERROR');
   }
 
-  const customerIdObj = new mongoose.Types.ObjectId(customerId);
   const cart = await Cart.findOne({ customer: customerIdObj }).populate('items.product').lean();
   if (!cart || !(cart as { items?: unknown[] }).items?.length) {
     throw new AppError({ en: 'Cart is empty', de: 'Warenkorb ist leer' }, 404, 'NOT_FOUND');
@@ -89,8 +152,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
 
   const subtotal = (cart as { subtotal: number }).subtotal;
   const deliveryFee = DELIVERY_FEE;
-  const user = await User.findById(customerIdObj).select('points').lean();
-  const pointsAvailable = (user as { points?: number })?.points ?? 0;
+  const pointsAvailable = (customerForAddress as { points?: number })?.points ?? 0;
   const discountFromPoints = Math.min(usePoints, pointsAvailable, Math.floor(subtotal * 0.1));
   const discount = discountFromPoints;
   const totalAmount = Math.max(0, subtotal + deliveryFee - discount);
@@ -161,7 +223,33 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
 
   return sendSuccess(
     res,
-    { _id: order._id, orderNumber, status: order.status, totalAmount: order.total, deliveryOtp },
+    {
+      _id: order._id,
+      orderNumber: order.orderNumber,
+      displayOrderId: toDisplayOrderId({ orderNumber: order.orderNumber, _id: order._id }),
+      status: order.status,
+      deliveryOtp: order.deliveryOtp,
+      items: orderItems.map((i) => ({
+        ...i,
+        quantity: i.qty,
+        lineTotal: i.subtotal,
+      })),
+      subtotal: order.subtotal,
+      deliveryFee: order.deliveryFee,
+      discount: order.discount,
+      grandTotal: order.total,
+      totalAmount: order.total,
+      totals: {
+        subtotal: order.subtotal,
+        deliveryFee: order.deliveryFee,
+        discount: order.discount,
+        grandTotal: order.total,
+      },
+      deliveryAddress: order.deliveryAddress,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      createdAt: order.createdAt,
+    },
     201
   );
 });
@@ -212,6 +300,11 @@ export const getOrder = asyncHandler(async (req: Request, res: Response) => {
     const d = out.driverId as { liveLocation?: unknown };
     (out.driverId as Record<string, unknown>).currentLocation = d.liveLocation ?? null;
   }
+  out.displayOrderId = toDisplayOrderId({
+    orderNumber: (out as { orderNumber?: string | number }).orderNumber,
+    _id: (out as { _id?: unknown })._id,
+  });
+  out.grandTotal = (out as { total?: number }).total ?? null;
   return sendSuccess(res, out);
 });
 
