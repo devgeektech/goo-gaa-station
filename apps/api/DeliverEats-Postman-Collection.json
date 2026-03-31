@@ -571,6 +571,65 @@
       ]
     },
     {
+      "name": "Vendor – Profile",
+      "description": "Vendor self-service profile (Phase 9). Requires Bearer {{vendorAccessToken}}. authVendor + requireApproved.",
+      "item": [
+        {
+          "name": "Get profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/profile"
+          }
+        },
+        {
+          "name": "Update profile (multipart)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "My Restaurant", "type": "text", "disabled": true },
+                { "key": "phone", "value": "+252612345678", "type": "text", "disabled": true },
+                { "key": "deliveryTime", "value": "30", "type": "text", "disabled": true },
+                { "key": "minimumOrder", "value": "10", "type": "text", "disabled": true },
+                { "key": "address", "value": "{\"street\":\"123 Main St\",\"city\":\"Berlin\",\"lat\":52.52,\"lng\":13.405}", "type": "text", "disabled": true },
+                { "key": "logo", "type": "file", "src": [], "disabled": true, "description": "image/*, max 2MB" },
+                { "key": "coverImage", "type": "file", "src": [], "disabled": true, "description": "image/*, max 5MB" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/profile"
+          }
+        },
+        {
+          "name": "Toggle open/closed",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/profile/toggle",
+            "description": "Flips vendor.isOpen (manual override). Emits vendor:availability_changed to admin room."
+          }
+        },
+        {
+          "name": "Update operating hours",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operatingHours\": [\n    { \"day\": \"mon\", \"isOpen\": true, \"from\": \"09:00\", \"to\": \"22:00\" },\n    { \"day\": \"tue\", \"isOpen\": true, \"from\": \"09:00\", \"to\": \"22:00\" },\n    { \"day\": \"wed\", \"isOpen\": true, \"from\": \"09:00\", \"to\": \"22:00\" },\n    { \"day\": \"thu\", \"isOpen\": true, \"from\": \"09:00\", \"to\": \"22:00\" },\n    { \"day\": \"fri\", \"isOpen\": true, \"from\": \"09:00\", \"to\": \"22:00\" },\n    { \"day\": \"sat\", \"isOpen\": true, \"from\": \"09:00\", \"to\": \"22:00\" },\n    { \"day\": \"sun\", \"isOpen\": false, \"from\": null, \"to\": null }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/vendor/profile/operating-hours",
+            "description": "Replaces full 7-day operatingHours array. Returns 422 on validation errors."
+          }
+        }
+      ]
+    },
+    {
       "name": "Vendor – Products",
       "description": "Phase 4: Product management. Requires vendor Bearer (authVendor + requireApproved). Store must be approved. Set productId from list/get. Multipart for create/update.",
       "item": [

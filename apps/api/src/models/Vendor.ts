@@ -65,6 +65,10 @@ const VendorSchema = new mongoose.Schema(
     },
     /** Optional fallback delivery estimate (minutes) when real-time estimation is unavailable. */
     deliveryTime: { type: Number, default: null, min: 1, max: 1000 },
+    /** Global manual availability toggle (independent of schedule). */
+    globalToggle: { type: Boolean, default: true },
+    /** Effective open/closed flag used by app/vendor flows (manual override). */
+    isOpen: { type: Boolean, default: true },
     status: { type: String, enum: ['active', 'blocked', 'deleted', 'pending'], default: 'active' },
     blockReason: { type: String, default: null },
     categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: [] }],

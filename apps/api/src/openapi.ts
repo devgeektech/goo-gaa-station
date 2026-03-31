@@ -873,6 +873,58 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     }),
     'PATCH /api/v1/driver/profile/status': driverStatusBody,
     'POST /api/v1/driver/kyc/upload': driverKycUploadBody,
+    'PATCH /api/v1/vendor/profile': {
+      content: {
+        'multipart/form-data': {
+          schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', example: 'My Restaurant' },
+              phone: { type: 'string', example: '+252612345678', description: 'Unique phone (E.164)' },
+              logo: { type: 'string', format: 'binary', description: 'image/*, max 2MB' },
+              coverImage: { type: 'string', format: 'binary', description: 'image/*, max 5MB' },
+              deliveryTime: { type: 'number', example: 30, description: 'Minutes (min 1)' },
+              minimumOrder: { type: 'number', example: 10, description: 'Min 0' },
+              address: {
+                type: 'string',
+                example: '{"street":"123 Main St","city":"Berlin","lat":52.52,"lng":13.405}',
+                description: 'JSON string: { street, city, lat, lng }',
+              },
+            },
+          },
+        },
+      },
+    },
+    'PATCH /api/v1/vendor/profile/operating-hours': json({
+      type: 'object',
+      required: ['operatingHours'],
+      properties: {
+        operatingHours: {
+          type: 'array',
+          minItems: 7,
+          maxItems: 7,
+          items: {
+            type: 'object',
+            required: ['day', 'isOpen'],
+            properties: {
+              day: { type: 'string', enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], example: 'mon' },
+              isOpen: { type: 'boolean', example: true },
+              from: { type: 'string', example: '09:00', nullable: true },
+              to: { type: 'string', example: '22:00', nullable: true },
+            },
+          },
+          example: [
+            { day: 'mon', isOpen: true, from: '09:00', to: '22:00' },
+            { day: 'tue', isOpen: true, from: '09:00', to: '22:00' },
+            { day: 'wed', isOpen: true, from: '09:00', to: '22:00' },
+            { day: 'thu', isOpen: true, from: '09:00', to: '22:00' },
+            { day: 'fri', isOpen: true, from: '09:00', to: '22:00' },
+            { day: 'sat', isOpen: true, from: '09:00', to: '22:00' },
+            { day: 'sun', isOpen: false, from: null, to: null },
+          ],
+        },
+      },
+    }),
     'PATCH /api/v1/vendor/onboarding/business-info': {
       description: 'Vendor onboarding step 2. **Required:** `storeName` only. Optional: `description`, `operatingHours` (JSON string), `logo`. The `storeType` field is **not** accepted; vendor categories are not set from this endpoint.',
       content: {
