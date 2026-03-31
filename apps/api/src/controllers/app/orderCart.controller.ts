@@ -13,6 +13,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { mapOrderStatusForCustomer, toCustomerOrderStatus } from '../../utils/customerOrderStatus';
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
+import { initiatePayment } from '../../services/wifipay.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const DELIVERY_FEE = 2.0;
@@ -67,10 +68,24 @@ function toDisplayOrderId(order: { orderNumber?: string | number | null; _id?: u
 
 /** POST / — Place order from cart: load cart, validate vendor + products, create order, update customer, delete cart, emit */
 export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
+  // TODO: To activate WifiPay online payment:
+  //   1. Set WifiPay credentials in env.
+  //   2. Remove the temporary 503 guard below.
+  //   3. Uncomment the WIFIPAY_START/WIFIPAY_END block in this function.
+  //   4. Keep "payment success before order create" behavior for online payments.
   const customerId = req.user?._id;
   if (!customerId) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
   const body = req.body ?? {};
+  const paymentMethod = body.paymentMethod != null ? String(body.paymentMethod).trim().toLowerCase() : 'cash';
+  const paymentPhone = body.paymentPhone != null ? String(body.paymentPhone).trim() : '';
+  if (paymentMethod === 'online') {
+    throw new AppError(
+      { en: 'Online payment (WifiPay) is not yet available. Please use cash or wallet.', de: 'Online-Zahlung noch nicht verfügbar. Bitte Barzahlung oder Wallet verwenden.' },
+      503,
+      'PAYMENT_UNAVAILABLE'
+    );
+  }
   const deliveryAddressId = body.deliveryAddressId != null ? String(body.deliveryAddressId).trim() : '';
   const deliveryAddress = body.deliveryAddress;
   const usePoints = Math.max(0, Math.floor(Number(body.usePoints) || 0));
@@ -210,6 +225,8 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
 
   const orderNumber = await getNextOrderNumber();
   const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
+  let paymentStatus: 'pending' | 'paid' = 'pending';
+  let wifipayRef: string | null = null;
 
   const orderItems = items.map((i) => {
     const price = i.price;
@@ -226,6 +243,45 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     };
   });
 
+  /* WIFIPAY_START
+  if (paymentMethod === 'online') {
+    if (!paymentPhone) {
+      throw new AppError(
+        { en: 'paymentPhone is required for online payment', de: 'paymentPhone ist für Online-Zahlung erforderlich' },
+        422,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    let wifiPayResult;
+    try {
+      wifiPayResult = await initiatePayment({
+        phone: paymentPhone,
+        amount: totalAmount,
+        currency: 'USD',
+        orderId: String(orderNumber),
+      });
+    } catch {
+      throw new AppError(
+        { en: 'Payment failed. Please try again or use a different method.', de: 'Zahlung fehlgeschlagen. Bitte erneut versuchen.' },
+        402,
+        'PAYMENT_FAILED'
+      );
+    }
+
+    if (!wifiPayResult?.reference) {
+      throw new AppError(
+        { en: 'Payment was declined by WifiPay.', de: 'Zahlung wurde von WifiPay abgelehnt.' },
+        402,
+        'PAYMENT_DECLINED'
+      );
+    }
+
+    paymentStatus = 'paid';
+    wifipayRef = wifiPayResult.reference;
+  }
+  WIFIPAY_END */
+
   const order = await Order.create({
     orderNumber,
     customerId: customerIdObj,
@@ -237,8 +293,9 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     total: totalAmount,
     status: 'pending',
     statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
-    paymentStatus: 'pending',
+    paymentStatus,
     paymentMethod: 'wifipay',
+    wifipayRef,
     deliveryAddress: {
       street,
       city: addr.city,
