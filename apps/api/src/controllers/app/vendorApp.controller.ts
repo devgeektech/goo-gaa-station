@@ -15,6 +15,41 @@ function getFallbackEtaMinutes(vendor: any): number | null {
   return Number.isFinite(raw) && raw > 0 ? raw : null;
 }
 
+function getCurrentDayKey(now: Date): 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' {
+  const days: Array<'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'> = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  return days[now.getDay()];
+}
+
+function toMinutes(hhmm: string): number | null {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isInteger(hh) || !Number.isInteger(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return hh * 60 + mm;
+}
+
+function isVendorAvailableNow(vendor: any, now: Date): boolean {
+  // 1) Global availability
+  if (vendor?.isOpen !== true) return false;
+
+  // 2) Operating-hours toggle for today + 3) time window validation
+  const dayKey = getCurrentDayKey(now);
+  const todays = Array.isArray(vendor?.operatingHours)
+    ? vendor.operatingHours.find((x: any) => x?.day === dayKey)
+    : null;
+  if (!todays || todays?.isOpen !== true) return false;
+
+  const fromMin = toMinutes(String(todays?.from ?? ''));
+  const toMin = toMinutes(String(todays?.to ?? ''));
+  if (fromMin == null || toMin == null) return false;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  // Supports same-day and overnight windows.
+  if (fromMin <= toMin) return nowMin >= fromMin && nowMin <= toMin;
+  return nowMin >= fromMin || nowMin <= toMin;
+}
+
 /** Customer origin for Distance Matrix: optional query `customerLat`/`customerLng` (WGS84). */
 function parseCustomerOriginFromQuery(req: Request): { lat: number; lng: number } | null {
   const q = req.query;
@@ -35,7 +70,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const categoryId = req.query.category as string | undefined;
   const sortQ = String(req.query.sort || 'recommended').trim();
 
-  const filter: Record<string, unknown> = { status: 'active' };
+  const filter: Record<string, unknown> = { status: 'active', isOpen: true };
   if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
     filter.categoryIds = new mongoose.Types.ObjectId(categoryId);
   }
@@ -90,7 +125,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 
   let [vendors, total] = await Promise.all([
     Vendor.find(filter)
-      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime')
+      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours')
       .populate('categoryIds', '_id name slug icon')
       .lean()
       .sort(sort)
@@ -98,6 +133,14 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
       .limit(shouldApplyRadius ? 0 : limit),
     Vendor.countDocuments(filter),
   ]);
+
+  // Availability checks for customer list:
+  // - global isOpen === true
+  // - today's operating-hours toggle isOpen === true
+  // - current time within from/to
+  const now = new Date();
+  vendors = (vendors as any[]).filter((v) => isVendorAvailableNow(v, now));
+  total = vendors.length;
 
   // If customer coords are provided, restrict to 30km radius and sort by nearest first.
   // Uses straight-line (Haversine) distance for fast filtering/sorting.
