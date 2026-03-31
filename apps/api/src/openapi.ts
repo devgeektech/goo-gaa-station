@@ -92,6 +92,15 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...discoveryFilterParams,
       ...discoveryPaginationParams,
     ],
+    'GET /api/v1/app/orders': [
+      query(
+        'status',
+        { type: 'string', enum: ['active', 'completed', 'delivered', 'cancelled'], example: 'active' },
+        false,
+        'Filter: active (in-progress), completed (delivered+cancelled), delivered, cancelled. Omit for all.'
+      ),
+      ...paginationParams,
+    ],
     'GET /api/v1/admin/vendors/:id/products': [
       query('category', { type: 'string' }, false, 'Category ObjectId filter'),
       query('isAvailable', { type: 'string', enum: ['true', 'false'] }, false, 'Filter by stock'),

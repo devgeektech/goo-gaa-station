@@ -1305,15 +1305,16 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/app/orders?page=1&limit=20",
+              "raw": "{{baseUrl}}/api/v1/app/orders?page=1&limit=20&status=active",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "app", "orders"],
               "query": [
                 { "key": "page", "value": "1" },
                 { "key": "limit", "value": "20" },
-                { "key": "status", "value": "", "disabled": true }
+                { "key": "status", "value": "active", "disabled": true }
               ]
-            }
+            },
+            "description": "Lists customer orders. Optional query: status=active|completed|delivered|cancelled. Omit status for All."
           }
         },
         {

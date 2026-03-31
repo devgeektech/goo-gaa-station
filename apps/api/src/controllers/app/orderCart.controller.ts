@@ -11,6 +11,7 @@ import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
+import { mapOrderStatusForCustomer, toCustomerOrderStatus } from '../../utils/customerOrderStatus';
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
@@ -239,7 +240,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
       _id: order._id,
       orderNumber: order.orderNumber,
       displayOrderId: toDisplayOrderId({ orderNumber: order.orderNumber, _id: order._id }),
-      status: order.status,
+      status: toCustomerOrderStatus(order.status),
       deliveryOtp: order.deliveryOtp,
       items: orderItems.map((i) => ({
         ...i,
@@ -266,7 +267,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   );
 });
 
-/** GET / — Paginated order history; status filter: active | delivered | cancelled */
+/** GET / — Paginated order history; status filter: all(default) | active | completed | delivered | cancelled */
 export const getOrders = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user?._id;
   if (!customerId) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
@@ -275,6 +276,7 @@ export const getOrders = asyncHandler(async (req: Request, res: Response) => {
   const statusQ = String(req.query.status || '').trim();
   const filter: Record<string, unknown> = { customerId: new mongoose.Types.ObjectId(customerId) };
   if (statusQ === 'active') filter.status = { $in: ACTIVE_STATUSES };
+  else if (statusQ === 'completed') filter.status = { $in: ['delivered', 'cancelled'] };
   else if (statusQ === 'delivered') filter.status = 'delivered';
   else if (statusQ === 'cancelled') filter.status = 'cancelled';
 
@@ -283,10 +285,11 @@ export const getOrders = asyncHandler(async (req: Request, res: Response) => {
     Order.countDocuments(filter),
   ]);
   const pages = Math.ceil(total / limit) || 1;
-  return sendSuccess(res, { orders, total, page, pages });
+  const ordersForApp = orders.map((o) => mapOrderStatusForCustomer({ ...o } as Record<string, unknown>));
+  return sendSuccess(res, { orders: ordersForApp, total, page, pages });
 });
 
-/** GET /:id — Single order; populate vendor (name, logo, phone, address), driver (name, phone, profileImage, vehicleType, liveLocation); strip deliveryOtp unless picked_up|on_the_way */
+/** GET /:id — Single order; populate vendor (name, logo, phone, address), driver (name, phone, profileImage, vehicleType, liveLocation); includes deliveryOtp (same as place-order response) */
 export const getOrder = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user?._id;
   const id = req.params.id;
@@ -300,14 +303,10 @@ export const getOrder = asyncHandler(async (req: Request, res: Response) => {
     .populate('driverId', 'name phone profileImage vehicleType liveLocation')
     .lean();
   if (!order) throw new AppError({ en: 'Order not found', de: 'Bestellung nicht gefunden' }, 404, 'NOT_FOUND');
-  const o = order as { customerId?: unknown; status?: string; deliveryOtp?: string | null };
-  if (String(o.customerId) !== customerId) {
+  if (String((order as { customerId?: unknown }).customerId) !== customerId) {
     throw new AppError({ en: 'Forbidden', de: 'Verboten' }, 403, 'FORBIDDEN');
   }
   const out = { ...order } as Record<string, unknown>;
-  if (o.status !== 'picked_up' && o.status !== 'on_the_way') {
-    delete out.deliveryOtp;
-  }
   if (out.driverId && typeof out.driverId === 'object' && out.driverId !== null) {
     const d = out.driverId as { liveLocation?: unknown };
     (out.driverId as Record<string, unknown>).currentLocation = d.liveLocation ?? null;
@@ -317,7 +316,7 @@ export const getOrder = asyncHandler(async (req: Request, res: Response) => {
     _id: (out as { _id?: unknown })._id,
   });
   out.grandTotal = (out as { total?: number }).total ?? null;
-  return sendSuccess(res, out);
+  return sendSuccess(res, mapOrderStatusForCustomer(out));
 });
 
 /** POST /:id/cancel — Cancel order (pending|accepted only); restore points if discount > 0 */
@@ -355,7 +354,11 @@ export const cancelOrder = asyncHandler(async (req: Request, res: Response) => {
     io.to(`vendor:${order.vendorId}`).emit('order:cancelled', { orderId: order._id, orderNumber: order.orderNumber, status: 'cancelled' });
   }
 
-  return sendSuccess(res, { _id: order._id, orderNumber: order.orderNumber, status: order.status });
+  return sendSuccess(res, {
+    _id: order._id,
+    orderNumber: order.orderNumber,
+    status: toCustomerOrderStatus(order.status),
+  });
 });
 
 /** POST /:id/rate — Rate delivered order; recalc vendor.rating from order.rating.food */
@@ -447,5 +450,5 @@ export const trackOrder = asyncHandler(async (req: Request, res: Response) => {
   if (o.status === 'picked_up' || o.status === 'on_the_way') {
     out.deliveryOtp = o.deliveryOtp ?? null;
   }
-  return sendSuccess(res, out);
+  return sendSuccess(res, mapOrderStatusForCustomer(out));
 });
