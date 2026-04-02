@@ -71,6 +71,14 @@ if (env.NODE_ENV === 'development') {
 // --- Request ID ---
 app.use(requestIdMiddleware);
 
+function getAuthRateLimitKey(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null;
+  const phone = (body as { phone?: unknown }).phone;
+  if (typeof phone !== 'string') return null;
+  const normalized = phone.trim().replace(/\s/g, '');
+  return normalized.length > 0 ? normalized : null;
+}
+
 // --- Rate limits ---
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -83,6 +91,22 @@ app.use(globalLimiter);
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  keyGenerator: (req) => {
+    const phoneKey = getAuthRateLimitKey(req.body);
+    if (phoneKey) return `auth:phone:${phoneKey}`;
+    return `auth:ip:${req.ip ?? 'unknown'}`;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const resetTime = (req as Request & { rateLimit?: { resetTime?: number } }).rateLimit?.resetTime;
+    const waitMinutes = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 60000)) : 15;
+    res.status(429).json({
+      success: false,
+      message: `Too many requests. Please try again after ${waitMinutes} minute(s).`,
+      waitMinutes,
+    });
+  },
 });
 app.use('/api/v1/auth', authLimiter);
 
