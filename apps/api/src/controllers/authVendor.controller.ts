@@ -151,7 +151,8 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
     const newAttempts = (vendor.phoneOtpAttempts ?? 0) + 1;
     const clearOtp = newAttempts >= MAX_OTP_ATTEMPTS ? { phoneOtp: null, phoneOtpExpiry: null, phoneOtpAttempts: 0 } : { phoneOtpAttempts: newAttempts };
     await Vendor.findByIdAndUpdate(vendor._id, { $set: clearOtp }, { runValidators: false });
-    throw new AppError({ en: 'Invalid OTP', de: 'Ungültiger OTP' }, 401, 'INVALID_OTP');
+    // OTP validation errors should not be reported as auth-token errors (401).
+    throw new AppError({ en: 'Invalid OTP', de: 'Ungültiger OTP' }, 400, 'INVALID_OTP');
   }
 
   await Vendor.findByIdAndUpdate(

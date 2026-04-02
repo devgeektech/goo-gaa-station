@@ -112,11 +112,14 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...paginationParams,
     ],
     'GET /api/v1/vendor/orders': [
-      query('status', { type: 'string', enum: ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled', 'rejected'] }, false, 'Filter by order status'),
+      query('status', { type: 'string', enum: ['pending', 'vendor_notified', 'accepted', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] }, false, 'Filter by order status'),
       ...paginationParams,
     ],
+    'GET /api/v1/vendor/orders/new': [...paginationParams],
+    'GET /api/v1/vendor/orders/current': [...paginationParams],
+    'GET /api/v1/vendor/orders/completed': [...paginationParams],
     'GET /api/v1/admin/orders': [
-      query('status', { type: 'string', enum: ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled', 'rejected'] }, false, 'Filter by status'),
+      query('status', { type: 'string', enum: ['pending', 'vendor_notified', 'accepted', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] }, false, 'Filter by status'),
       query('vendorId', { type: 'string' }, false, 'Filter by vendor ObjectId'),
       query('customerId', { type: 'string' }, false, 'Filter by customer ObjectId'),
       query('driverId', { type: 'string' }, false, 'Filter by driver ObjectId'),
@@ -454,6 +457,75 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
         },
       },
     },
+    'GET /api/v1/vendor/orders/new': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  orders: { type: 'array', items: { type: 'object' } },
+                  total: { type: 'integer' },
+                  page: { type: 'integer' },
+                  pages: { type: 'integer' },
+                },
+              },
+            },
+          },
+          example: { success: true, data: { orders: [], total: 0, page: 1, pages: 0 } },
+        },
+      },
+    },
+    'GET /api/v1/vendor/orders/current': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  orders: { type: 'array', items: { type: 'object' } },
+                  total: { type: 'integer' },
+                  page: { type: 'integer' },
+                  pages: { type: 'integer' },
+                },
+              },
+            },
+          },
+          example: { success: true, data: { orders: [], total: 0, page: 1, pages: 0 } },
+        },
+      },
+    },
+    'GET /api/v1/vendor/orders/completed': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  orders: { type: 'array', items: { type: 'object' } },
+                  total: { type: 'integer' },
+                  page: { type: 'integer' },
+                  pages: { type: 'integer' },
+                },
+              },
+            },
+          },
+          example: { success: true, data: { orders: [], total: 0, page: 1, pages: 0 } },
+        },
+      },
+    },
     'GET /api/v1/driver/kyc/status': {
       description: 'Success — use for app routing (not_submitted | pending | approved | rejected)',
       content: {
@@ -587,7 +659,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     type: 'object',
     required: ['status'],
     properties: {
-      status: { type: 'string', enum: ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'], example: 'confirmed' },
+      status: { type: 'string', enum: ['pending', 'vendor_notified', 'accepted', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'], example: 'accepted' },
       note: { type: 'string', example: 'Order confirmed by restaurant', description: 'Optional note' },
     },
   });
@@ -1225,7 +1297,22 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     'PATCH /api/v1/app/driver/orders/:id/status': json({
       type: 'object',
       required: ['status'],
-      properties: { status: { type: 'string', enum: ['picked_up', 'out_for_delivery', 'delivered'], example: 'picked_up' } },
+      properties: { status: { type: 'string', enum: ['picked_up', 'on_the_way', 'delivered'], example: 'picked_up' } },
+    }),
+    'PATCH /api/v1/driver/orders/:id/status': json({
+      type: 'object',
+      required: ['status'],
+      properties: { status: { type: 'string', enum: ['picked_up', 'on_the_way', 'delivered'], example: 'picked_up' } },
+    }),
+    'PATCH /api/v1/app/driver/orders/:id/deliver': json({
+      type: 'object',
+      required: ['otp'],
+      properties: { otp: { type: 'string', example: '1234', description: '4-digit delivery OTP' } },
+    }),
+    'PATCH /api/v1/driver/orders/:id/deliver': json({
+      type: 'object',
+      required: ['otp'],
+      properties: { otp: { type: 'string', example: '1234', description: '4-digit delivery OTP' } },
     }),
     'POST /api/v1/payment/initiate': json({
       type: 'object',
@@ -1247,7 +1334,8 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     'PATCH /api/v1/vendor/orders/:id/status': orderStatus,
     'PATCH /api/v1/vendor/orders/:id/reject': json({
       type: 'object',
-      properties: { note: { type: 'string', example: 'Cannot fulfill this order', description: 'Optional rejection reason' } },
+      required: ['reason'],
+      properties: { reason: { type: 'string', example: 'Cannot fulfill this order', description: 'Required rejection reason' } },
     }),
   };
   return map[opKey];
@@ -1297,19 +1385,19 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
           ? 'Auth – Vendor'
           : r.path.includes('/auth/driver')
             ? 'Auth – Driver'
-            : r.path.includes('/driver/kyc')
-              ? 'Driver – KYC'
+            : r.path.includes('/app/driver/')
+              ? 'Driver'
               : r.path.includes('/driver/')
-                ? 'App'
-            : r.path.includes('/vendor/')
-              ? 'Vendor'
-              : r.path.includes('/admin/')
-                ? 'Admin'
-                : r.path.includes('/app/')
-                  ? 'App'
-                  : r.path.includes('payment')
-                    ? 'Payment'
-                    : 'General';
+                ? 'Driver'
+                : r.path.includes('/vendor/')
+                  ? 'Vendor'
+                  : r.path.includes('/admin/')
+                    ? 'Admin'
+                    : r.path.includes('/app/')
+                      ? 'App – Customer'
+                      : r.path.includes('payment')
+                        ? 'Payment'
+                        : 'General';
     operation.tags = [tag];
     (paths[pathKey] as Record<string, unknown>)[method] = operation;
   }
@@ -1319,7 +1407,7 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
     info: {
       title: 'DeliverEats API',
       description:
-        'Backend API: Admin (cookies). Customer auth: /auth/customer (phone OTP, Bearer). Vendor auth: /auth/vendor (phone OTP, Bearer). Driver auth: /auth/driver (phone OTP, Bearer). Driver KYC: /driver/kyc/status, /driver/kyc/upload, /driver/kyc/resubmit. Realtime: driver:kyc_submitted to admin room; driver:kyc_approved and driver:kyc_rejected to driver:{driverId} room (client must emit driver:join with driverId). Vendor onboarding, app orders, payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
+        'Backend API: Admin (cookies). **App – Customer:** /app/cart, /app/orders, /app/customer, discovery. **Driver:** /driver/setup, /driver/kyc, /driver/profile, /driver/orders (Bearer from /auth/driver/verify-otp). Legacy paths under /app/driver/*. **Auth:** /auth/customer, /auth/vendor, /auth/driver (phone OTP). **Vendor:** /vendor/*. Realtime: driver:kyc_submitted → admin; driver:kyc_approved / driver:kyc_rejected → driver:{driverId} (emit driver:join). Payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
       version: '1.0.0',
       contact: { name: 'API Team' },
     },
@@ -1348,12 +1436,16 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
       { name: 'Auth – Vendor', description: 'Vendor app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; Bearer for logout)' },
       { name: 'Auth – Driver', description: 'Driver app: send-otp, verify-otp, resend-otp, refresh, logout (phone OTP; Bearer for logout)' },
       {
-        name: 'Driver – KYC',
-        description: 'Driver identity verification (Bearer) via /driver/kyc/status, /driver/kyc/upload, and /driver/kyc/resubmit.',
+        name: 'Driver',
+        description:
+          'Driver app (Bearer from /auth/driver/verify-otp): setup (/driver/setup), KYC (/driver/kyc), profile (/driver/profile), orders (/driver/orders/*). Duplicates under /app/driver/*.',
       },
       { name: 'Vendor', description: 'Vendor onboarding: status, business-info, address, contact, kyc-documents, submit (Bearer required)' },
       { name: 'Admin', description: 'Admin panel (cookies from /auth/admin/login)' },
-      { name: 'App', description: 'Customer and driver app endpoints (Bearer token)' },
+      {
+        name: 'App – Customer',
+        description: 'Customer app: cart, orders, profile & addresses, vendor/category discovery (Bearer from /auth/customer/verify-otp).',
+      },
       { name: 'Payment', description: 'Payment (WifiPay)' },
     ],
   };

@@ -1,13 +1,15 @@
 {
   "info": {
     "name": "DeliverEats API",
-    "description": "DeliverEats API: Auth – Admin (cookies), Auth – Customer (/auth/customer, phone OTP, Bearer {{accessToken}}), Auth – Vendor (/auth/vendor, phone OTP, Bearer {{vendorAccessToken}}), Vendor – Onboarding (/vendor/onboarding, Bearer {{vendorAccessToken}}), Vendor – Products (Phase 4: /vendor/categories, /vendor/products), Admin, App (customer/driver), Payment. Set baseUrl. Variables: accessToken, refreshToken, vendorAccessToken, vendorRefreshToken, userId, customerId, vendorId, categoryId, categorySlug, itemId, productId, driverId, orderId, transactionId, paymentReference. OpenAPI: GET {{baseUrl}}/api/openapi.json. Swagger: {{baseUrl}}/api-docs.",
+    "description": "DeliverEats API — grouped like Swagger: **Health & Info**; **Auth – Admin / Customer / Vendor / Driver** (OTP); **Driver – Setup, KYC, Profile, Orders** (Bearer {{driverAccessToken}} from driver verify-otp); **Vendor – …**; **App – Customer profile / Cart / Products / orders** (Bearer {{accessToken}}); **Admin**; **Payment**. Variables: accessToken + refreshToken (customer), driverAccessToken + driverRefreshToken (driver), vendorAccessToken + vendorRefreshToken (vendor), orderId, vendorId, … OpenAPI: {{baseUrl}}/api/openapi.json · Swagger: {{baseUrl}}/api-docs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5000" },
     { "key": "accessToken", "value": "" },
     { "key": "refreshToken", "value": "" },
+    { "key": "driverAccessToken", "value": "" },
+    { "key": "driverRefreshToken", "value": "" },
     { "key": "userId", "value": "" },
     { "key": "driverId", "value": "" },
     { "key": "orderId", "value": "" },
@@ -242,7 +244,7 @@
     },
     {
       "name": "Auth – Driver",
-      "description": "Driver app: phone-only auth under /api/v1/auth/driver. Send OTP (5/hour per phone), verify OTP (returns accessToken, refreshToken, isNewDriver, approvalStatus), resend, refresh, logout (Bearer required; optional body: refreshToken, fcmToken).",
+      "description": "Driver app: /api/v1/auth/driver. After verify-otp, copy **accessToken** → `driverAccessToken` and **refreshToken** → `driverRefreshToken` (keeps customer `accessToken` separate). Send OTP (5/h/phone), verify OTP, resend, refresh, logout.",
       "item": [
         {
           "name": "Driver send-otp",
@@ -267,7 +269,7 @@
               "raw": "{\n  \"phone\": \"+252688889999\",\n  \"otp\": \"1234\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/driver/verify-otp",
-            "description": "Verify OTP. Returns accessToken, refreshToken, isNewDriver, approvalStatus. In dev use otp 1234."
+            "description": "Verify OTP. Returns accessToken, refreshToken, isNewDriver, approvalStatus. In dev use otp 1234. Paste tokens into collection variables **driverAccessToken** and **driverRefreshToken** for Driver – * folders."
           }
         },
         {
@@ -290,10 +292,10 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+              "raw": "{\n  \"refreshToken\": \"{{driverRefreshToken}}\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/driver/refresh",
-            "description": "Refresh tokens. Body: refreshToken from verify-otp. Returns new accessToken, refreshToken, expiresIn."
+            "description": "Refresh tokens. Body: driverRefreshToken. Returns new accessToken, refreshToken — update driverAccessToken / driverRefreshToken."
           }
         },
         {
@@ -301,12 +303,12 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"fcmToken\": \"\"\n}"
+              "raw": "{\n  \"refreshToken\": \"{{driverRefreshToken}}\",\n  \"fcmToken\": \"\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/driver/logout",
             "description": "Logout. Requires Bearer token. Optional body: refreshToken (invalidate), fcmToken (remove from driver.fcmTokens)."
@@ -316,13 +318,13 @@
     },
     {
       "name": "Driver – Setup",
-      "description": "Driver profile setup flow under /api/v1/driver/setup. Requires Bearer {{accessToken}}. Step 1: profile-info (multipart). Step 2: vehicle-info (JSON).",
+      "description": "Driver profile setup under /api/v1/driver/setup. Bearer {{driverAccessToken}} (from Auth – Driver verify-otp). Step 1: profile-info (multipart). Step 2: vehicle-info (JSON).",
       "item": [
         {
           "name": "Get setup status",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/setup/status"
           }
         },
@@ -331,7 +333,7 @@
           "description": "Multipart/form-data. `name` required. `phone` optional. `profileImage` optional (max 2MB, image/*).",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -349,7 +351,7 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
@@ -363,13 +365,13 @@
     },
     {
       "name": "Driver – KYC",
-      "description": "Driver identity verification: GET /api/v1/driver/kyc/status, POST /upload (multipart), PATCH /resubmit. Bearer {{accessToken}} (driver JWT).\n\n**Realtime (Socket.IO):**\n- After successful POST upload, server emits `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Admin UI shows a toast.\n- Admin PATCH approve/reject can emit `driver:kyc_approved` / `driver:kyc_rejected` to room `driver:{driverId}`. Driver app must `emit('driver:join', { driverId })` after connect.\n\n**Upload:** field `driversLicense` ×1; repeat field name `nationalId` and `vehiclePhotos` for multiple files (jpg/png/pdf, 5MB each). On 422, body may include `data.missing`: driversLicense | nationalId | vehiclePhotos.",
+      "description": "Driver identity verification: GET /api/v1/driver/kyc/status, POST /upload (multipart), PATCH /resubmit. Bearer {{driverAccessToken}}.\n\n**Realtime (Socket.IO):**\n- After successful POST upload, server emits `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Admin UI shows a toast.\n- Admin PATCH approve/reject can emit `driver:kyc_approved` / `driver:kyc_rejected` to room `driver:{driverId}`. Driver app must `emit('driver:join', { driverId })` after connect.\n\n**Upload:** field `driversLicense` ×1; repeat field name `nationalId` and `vehiclePhotos` for multiple files (jpg/png/pdf, 5MB each). On 422, body may include `data.missing`: driversLicense | nationalId | vehiclePhotos.",
       "item": [
         {
           "name": "Get KYC status",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/kyc/status",
             "description": "200: `{ success, data: { kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments: { driversLicense, nationalId[], vehiclePhotos[] } } }`. Use on app launch for routing (not_submitted | pending | approved | rejected)."
           }
@@ -378,7 +380,7 @@
           "name": "Upload KYC documents",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -397,7 +399,7 @@
           "name": "KYC resubmit (after rejection)",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/kyc/resubmit",
             "description": "Only when kycStatus === rejected. 200: `{ success, data: { kycStatus: 'not_submitted' } }`. Clears kycRejectionReason. Driver app should open document upload with **empty** file selections (no request body)."
           }
@@ -406,13 +408,13 @@
     },
     {
       "name": "Driver – Profile",
-      "description": "Driver self-service profile management under /api/v1/driver/profile. Requires Bearer {{accessToken}} (Driver auth).",
+      "description": "Driver self-service profile under /api/v1/driver/profile. Bearer {{driverAccessToken}}.",
       "item": [
         {
           "name": "Get my profile",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/profile"
           }
         },
@@ -421,7 +423,7 @@
           "description": "All fields optional: name, phone, profileImage (max 2MB), vehicleType, vehicleNumber.",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -440,7 +442,7 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
@@ -455,7 +457,7 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
@@ -471,7 +473,7 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
@@ -479,6 +481,83 @@
               "raw": "{\n  \"status\": \"online\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/driver/profile/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Driver – Orders",
+      "description": "Driver order APIs under /api/v1/driver/orders/*. Bearer {{driverAccessToken}}. Driver must be approved, active, and online for available/accept.",
+      "item": [
+        {
+          "name": "Get available orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/available"
+          }
+        },
+        {
+          "name": "Get active order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/active"
+          }
+        },
+        {
+          "name": "Get delivery history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/driver/orders/history?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "driver", "orders", "history"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept order",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/accept"
+          }
+        },
+        {
+          "name": "Pickup order",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/pickup"
+          }
+        },
+        {
+          "name": "Mark enroute",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/enroute"
+          }
+        },
+        {
+          "name": "Deliver order (OTP)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"1234\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/deliver"
           }
         }
       ]
@@ -742,9 +821,60 @@
               "query": [
                 { "key": "page", "value": "1" },
                 { "key": "limit", "value": "20" },
-                { "key": "status", "value": "", "disabled": true, "description": "pending | confirmed | preparing | ready | out_for_delivery | delivered | cancelled | rejected" }
+                { "key": "status", "value": "", "disabled": true, "description": "pending | vendor_notified | accepted | preparing | ready | picked_up | on_the_way | delivered | cancelled" }
               ]
             }
+          }
+        },
+        {
+          "name": "New orders (tab)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/orders/new?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "orders", "new"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Orders waiting for vendor response (status=vendor_notified). Includes remainingTime."
+          }
+        },
+        {
+          "name": "Current orders (tab)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/orders/current?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "orders", "current"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Active accepted/in-progress orders."
+          }
+        },
+        {
+          "name": "Completed orders (tab)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/orders/completed?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "orders", "completed"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Delivered and cancelled orders."
           }
         },
         {
@@ -754,6 +884,30 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/vendor/orders/{{orderId}}",
             "description": "403 if order does not belong to this vendor."
+          }
+        },
+        {
+          "name": "Accept order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/vendor/orders/{{orderId}}/accept",
+            "description": "Accept vendor_notified order before deadline."
+          }
+        },
+        {
+          "name": "Mark order ready",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/vendor/orders/{{orderId}}/ready",
+            "description": "Move order preparing -> ready for pickup."
           }
         },
         {
@@ -782,10 +936,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"note\": \"Cannot fulfill this order\"\n}"
+              "raw": "{\n  \"reason\": \"Cannot fulfill this order\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/vendor/orders/{{orderId}}/reject",
-            "description": "Only for pending orders."
+            "description": "Reject vendor_notified order before deadline."
           }
         }
       ]
@@ -1420,67 +1574,6 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
             "url": "{{baseUrl}}/api/v1/app/orders/{{orderId}}/track"
-          }
-        }
-      ]
-    },
-    {
-      "name": "App – Driver orders",
-      "description": "Driver order endpoints. Use Bearer {{accessToken}} from App login (driver). Driver must be approved, active and online for available/accept.",
-      "item": [
-        {
-          "name": "Get available orders",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/api/v1/app/driver/orders/available"
-          }
-        },
-        {
-          "name": "Get active order",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/api/v1/app/driver/orders/active"
-          }
-        },
-        {
-          "name": "Get delivery history",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/app/driver/orders/history?page=1&limit=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "app", "driver", "orders", "history"],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "20" }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Accept order",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/api/v1/app/driver/orders/{{orderId}}/accept"
-          }
-        },
-        {
-          "name": "Update order status",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"picked_up\",\n  \"note\": \"Collected from restaurant\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/app/driver/orders/{{orderId}}/status"
           }
         }
       ]

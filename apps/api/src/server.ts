@@ -7,6 +7,8 @@ import { connectDatabase } from './config/database';
 import app from './app';
 import { env } from './config/env';
 import { Driver } from './models/Driver';
+import { startVendorResponseTimeoutWorker } from './workers/vendorResponseTimeout.worker';
+import { registerVendorSocket } from './sockets/vendorSocket';
 
 const server = http.createServer(app);
 
@@ -21,6 +23,15 @@ app.set('io', io);
 io.on('connection', (socket) => {
   socket.on('admin:join', () => {
     socket.join('admin');
+  });
+
+  registerVendorSocket(socket);
+
+  /** Customer app: join `customer:<customerId>` for order notifications. */
+  socket.on('customer:join', (payload: { customerId?: string }) => {
+    const customerId = payload?.customerId;
+    if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) return;
+    socket.join(`customer:${customerId}`);
   });
 
   /** Driver app: join `driver:<driverId>` for KYC events (`driver:kyc_approved`, `driver:kyc_rejected`). */
@@ -61,6 +72,7 @@ const wifipayMode = env.WIFIPAY_API_URL && env.WIFIPAY_API_KEY ? 'enabled' : 'di
 
 async function start(): Promise<void> {
   await connectDatabase();
+  startVendorResponseTimeoutWorker(io);
   server.listen(env.PORT, () => {
     console.log('--- DeliverEats API ---');
     console.log(`Node env:    ${env.NODE_ENV}`);

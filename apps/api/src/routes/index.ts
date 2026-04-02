@@ -94,6 +94,7 @@ v1Router.use('/app/products', productsAppRoutes);
 v1Router.use('/app/cart', cartRoutes);
 v1Router.use('/app/driver', driverProfileRoutes);
 v1Router.use('/app/driver/orders', driverOrderRoutes);
+v1Router.use('/driver/orders', driverOrderRoutes);
 
 router.use('/v1', v1Router);
 

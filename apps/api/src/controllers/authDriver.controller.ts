@@ -151,7 +151,8 @@ export const driverVerifyOtp = asyncHandler(async (req: Request, res: Response) 
     }
     await driver.save();
 
-    throw new AppError({ en: 'Invalid OTP', de: 'Ungültiger OTP' }, 401, 'INVALID_OTP');
+    // OTP validation errors should not be reported as auth-token errors (401).
+    throw new AppError({ en: 'Invalid OTP', de: 'Ungültiger OTP' }, 400, 'INVALID_OTP');
   }
 
   // Correct OTP

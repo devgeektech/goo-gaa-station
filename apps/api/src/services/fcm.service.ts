@@ -11,6 +11,11 @@ import { User } from '../models/User';
 import { Driver } from '../models/Driver';
 import { Vendor } from '../models/Vendor';
 
+// Mongoose model typing in this repo is loose; cast for service usage.
+const UserModel = User as any;
+const DriverModel = Driver as any;
+const VendorModel = Vendor as any;
+
 let firebaseAdmin: typeof import('firebase-admin') | null = null;
 
 function getFirebaseAdmin(): typeof import('firebase-admin') | null {
@@ -130,37 +135,37 @@ export async function sendToMultiple(
 /** Remove invalid FCM tokens from User document. */
 export async function removeInvalidTokensFromUser(userId: string, tokens: string[]): Promise<void> {
   if (tokens.length === 0) return;
-  const user = await User.findById(userId).select('fcmToken fcmTokens').lean() as UserWithTokens | null;
+  const user = (await UserModel.findById(userId).select('fcmToken fcmTokens').lean()) as UserWithTokens | null;
   if (!user) return;
   const set = new Set(tokens);
   const legacyMatch = user.fcmToken && set.has(user.fcmToken);
   const filtered = (user.fcmTokens ?? []).filter((t: { token: string }) => !set.has(t.token));
   const update: { fcmToken?: null; fcmTokens?: typeof filtered } = { fcmTokens: filtered };
   if (legacyMatch) update.fcmToken = null;
-  await User.findByIdAndUpdate(userId, update);
+  await UserModel.findByIdAndUpdate(userId, update);
 }
 
 /** Remove invalid FCM tokens from Driver document. */
 export async function removeInvalidTokensFromDriver(driverId: string, tokens: string[]): Promise<void> {
   if (tokens.length === 0) return;
-  const driver = await Driver.findById(driverId).select('fcmToken fcmTokens').lean() as DriverWithTokens | null;
+  const driver = (await DriverModel.findById(driverId).select('fcmToken fcmTokens').lean()) as DriverWithTokens | null;
   if (!driver) return;
   const set = new Set(tokens);
   const legacyMatch = driver.fcmToken && set.has(driver.fcmToken);
   const filtered = (driver.fcmTokens ?? []).filter((t: { token: string }) => !set.has(t.token));
   const update: { fcmToken?: null; fcmTokens?: typeof filtered } = { fcmTokens: filtered };
   if (legacyMatch) update.fcmToken = null;
-  await Driver.findByIdAndUpdate(driverId, update);
+  await DriverModel.findByIdAndUpdate(driverId, update);
 }
 
 /** Remove invalid FCM tokens from Vendor document. */
 export async function removeInvalidTokensFromVendor(vendorId: string, tokens: string[]): Promise<void> {
   if (tokens.length === 0) return;
-  const vendor = await Vendor.findById(vendorId).select('fcmTokens').lean() as VendorWithTokens | null;
+  const vendor = (await VendorModel.findById(vendorId).select('fcmTokens').lean()) as VendorWithTokens | null;
   if (!vendor) return;
   const set = new Set(tokens);
   const filtered = (vendor.fcmTokens ?? []).filter((t: { token: string }) => !set.has(t.token));
-  await Vendor.findByIdAndUpdate(vendorId, { fcmTokens: filtered });
+  await VendorModel.findByIdAndUpdate(vendorId, { fcmTokens: filtered });
 }
 
 // --- Legacy helpers (DriverWithTokens / UserWithTokens) ---

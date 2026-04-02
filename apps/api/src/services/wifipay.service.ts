@@ -7,6 +7,11 @@ import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { MESSAGES } from '../constants/messages';
 
+// Mongoose model typing in this repo is loose; cast for service usage.
+const OrderModel = Order as any;
+const TransactionModel = Transaction as any;
+const UserModel = User as any;
+
 export interface WebhookPayload {
   reference?: string;
   status?: string;
@@ -148,7 +153,7 @@ export async function handleWebhook(
     return { handled: true };
   }
 
-  const transaction = await Transaction.findOne({ wifipayRef: reference });
+  const transaction = await TransactionModel.findOne({ wifipayRef: reference });
   if (!transaction) {
     return { handled: true };
   }
@@ -164,9 +169,9 @@ export async function handleWebhook(
     transaction.wifipayRawResponse = payload;
     await transaction.save();
 
-    const order = await Order.findByIdAndUpdate(transaction.orderId, { paymentStatus: 'paid' }, { new: true });
+    const order = await OrderModel.findByIdAndUpdate(transaction.orderId, { paymentStatus: 'paid' }, { new: true });
     if (order?.customerId) {
-      await User.findByIdAndUpdate(order.customerId, { $inc: { totalSpent: order.total } });
+      await UserModel.findByIdAndUpdate(order.customerId, { $inc: { totalSpent: order.total } });
     }
     return { handled: true, status: 'success', order: order ?? undefined, reference };
   }
@@ -176,7 +181,7 @@ export async function handleWebhook(
     transaction.failureReason = payload.failureReason || 'Webhook FAILED';
     transaction.wifipayRawResponse = payload;
     await transaction.save();
-    await Order.findByIdAndUpdate(transaction.orderId, { paymentStatus: 'failed' });
+    await OrderModel.findByIdAndUpdate(transaction.orderId, { paymentStatus: 'failed' });
     return { handled: true, status: 'failed', reference };
   }
 

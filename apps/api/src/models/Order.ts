@@ -1,10 +1,12 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import { VENDOR_RESPONSE_WINDOW_MS } from '../constants/vendorResponse';
 
-const ORDER_STATUSES = ['pending', 'placed', 'accepted', 'confirmed', 'preparing', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] as const;
+const ORDER_STATUSES = ['pending', 'vendor_notified', 'placed', 'accepted', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] as const;
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'] as const;
 const PAYMENT_METHODS = ['wifipay'] as const;
 const CANCELLED_BY = ['customer', 'driver', 'admin', 'system'] as const;
+const VENDOR_RESPONSE_STATUSES = ['pending', 'accepted', 'rejected', 'timeout'] as const;
 
 const OrderItemSchema = new mongoose.Schema(
   {
@@ -67,6 +69,12 @@ const OrderSchema = new mongoose.Schema(
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: 'pending' },
     paymentMethod: { type: String, enum: PAYMENT_METHODS, default: 'wifipay' },
     wifipayRef: { type: String, default: null },
+    vendorResponseDeadline: { type: Date, required: true, default: () => new Date(Date.now() + VENDOR_RESPONSE_WINDOW_MS) },
+    vendorResponseStatus: { type: String, enum: VENDOR_RESPONSE_STATUSES, default: 'pending' },
+    vendorRespondedAt: { type: Date, default: null },
+    driver_assigned: { type: Boolean, default: false },
+    driverAssignmentDeadline: { type: Date, default: null },
+    notifiedDriverIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Driver' }],
     status: { type: String, enum: ORDER_STATUSES, default: 'pending' },
     statusHistory: [StatusHistoryItemSchema],
     pickupAddress: { type: AddressSchema, default: null },
@@ -87,12 +95,15 @@ const OrderSchema = new mongoose.Schema(
 );
 
 OrderSchema.index({ status: 1 });
+OrderSchema.index({ vendorId: 1, status: 1 });
 OrderSchema.index({ paymentStatus: 1 });
 OrderSchema.index({ customerId: 1 });
 OrderSchema.index({ driverId: 1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ wifipayRef: 1 }, { sparse: true, unique: false });
 OrderSchema.index({ customerId: 1, status: 1 });
+OrderSchema.index({ vendorResponseDeadline: 1 });
+OrderSchema.index({ driver_assigned: 1, driverAssignmentDeadline: 1, status: 1 });
 
 OrderSchema.pre('save', function (next) {
   if (this.isNew && !this.orderNumber) {

@@ -5,8 +5,18 @@ import Constants from 'expo-constants';
 const SOCKET_URL = Constants.expoConfig?.extra?.socketUrl ?? process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:5000';
 
 export type VendorSocketEvents = {
+  vendorId?: string | null;
   onApproved: () => void;
   onRejected: () => void;
+  onNewOrder?: (order: {
+    orderId: string;
+    orderNumber: string;
+    items: Array<{ name: string; qty: number; unitPrice: number; subtotal: number; itemId?: string | null }>;
+    totalAmount: number;
+    paymentMethod: string;
+    vendorResponseDeadline: string;
+    remainingSeconds: number;
+  }) => void;
 };
 
 /**
@@ -42,6 +52,13 @@ export function useVendorSocket(accessToken: string | null, handlers: VendorSock
     socket.on('vendor:rejected', () => {
       handlersRef.current.onRejected();
     });
+    socket.on('order:new', (order) => {
+      handlersRef.current.onNewOrder?.(order);
+    });
+    const vendorId = handlersRef.current.vendorId;
+    if (vendorId) {
+      socket.emit('vendor:join', { vendorId });
+    }
 
     socketRef.current = socket;
     return () => {

@@ -14,6 +14,8 @@ import { parsePagination } from '../../utils/pagination';
 import { mapOrderStatusForCustomer, toCustomerOrderStatus } from '../../utils/customerOrderStatus';
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import { initiatePayment } from '../../services/wifipay.service';
+import { sendToMultiple } from '../../services/fcm.service';
+import { VENDOR_RESPONSE_WINDOW_MS } from '../../constants/vendorResponse';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const DELIVERY_FEE = 2.0;
@@ -309,6 +311,21 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     deliveryOtp,
   });
 
+  const vendorNotifyAt = new Date();
+  const vendorResponseDeadline = new Date(vendorNotifyAt.getTime() + VENDOR_RESPONSE_WINDOW_MS);
+  order.status = 'vendor_notified';
+  (order as unknown as { vendorResponseDeadline: Date }).vendorResponseDeadline = vendorResponseDeadline;
+  (order as unknown as { vendorResponseStatus: 'pending' | 'accepted' | 'rejected' | 'timeout' }).vendorResponseStatus = 'pending';
+  const history = (order as unknown as { statusHistory?: Array<Record<string, unknown>> }).statusHistory ?? [];
+  history.push({
+    status: 'vendor_notified',
+    timestamp: vendorNotifyAt,
+    updatedBy: 'system',
+    changedByModel: 'System',
+  });
+  (order as unknown as { statusHistory: typeof history }).statusHistory = history;
+  await order.save();
+
   await syncPreferredAddressFromOrderDelivery(String(customerId), addr);
 
   await User.findByIdAndUpdate(customerIdObj, {
@@ -321,9 +338,37 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   await Cart.deleteOne({ customer: customerIdObj });
 
   const io = getIo(req);
+  const remainingSeconds = Math.max(0, Math.ceil(VENDOR_RESPONSE_WINDOW_MS / 1000));
+  const newOrderRealtimePayload = {
+    orderId: order._id,
+    orderNumber: order.orderNumber,
+    items: orderItems,
+    totalAmount: order.total,
+    paymentMethod: order.paymentMethod,
+    vendorResponseDeadline: vendorResponseDeadline.toISOString(),
+    remainingSeconds,
+  };
   if (io) {
-    io.to('admin').emit('order:new', { orderId: order._id, orderNumber, vendorId, customerId, totalAmount: order.total, paymentMethod: order.paymentMethod });
-    io.to(`vendor:${vendorId}`).emit('order:new', { orderId: order._id, orderNumber, vendorId, customerId, totalAmount: order.total, paymentMethod: order.paymentMethod });
+    io.to('admin').emit('order:new', { ...newOrderRealtimePayload, vendorId });
+    io.to(`vendor:${vendorId}`).emit('order:new', newOrderRealtimePayload);
+  }
+
+  try {
+    const vendorDoc = await Vendor.findById(vendorId).select('fcmTokens').lean();
+    const tokens =
+      ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
+        .map((t) => t?.token ?? '')
+        .filter(Boolean);
+    if (tokens.length > 0) {
+      const itemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
+      await sendToMultiple(tokens as string[], {
+        title: 'New Order Received! 🔔',
+        body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
+        data: { screen: 'NewOrders', orderId: String(order._id), vendorId: String(vendorId) },
+      });
+    }
+  } catch {
+    // Do not fail order placement if vendor push fails.
   }
 
   return sendSuccess(
