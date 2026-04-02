@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Order } from '../../models/Order';
 import { Driver } from '../../models/Driver';
 import { User } from '../../models/User';
+import { Vendor } from '../../models/Vendor';
 import { AppError } from '../../utils/AppError';
 import { MESSAGES } from '../../constants/messages';
 import { sendSuccess } from '../../utils/response';
@@ -169,6 +170,27 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
       await sendToMultiple(tokens as string[], {
         title: 'Your order is being prepared! Driver assigned.',
         body: 'Your order is being prepared! Driver assigned.',
+        data: { screen: 'OrderDetail', orderId: String(updated._id) },
+      });
+    }
+  } catch {
+    // best effort
+  }
+
+  // Notify vendor when the FIRST driver accepts this delivery request.
+  // This endpoint updates the order atomically; only the first successful accept sends this notification.
+  try {
+    const vendorDoc = await Vendor.findById(updated.vendorId).select('fcmTokens').lean();
+    const tokens =
+      ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
+        .map((t) => t?.token ?? '')
+        .filter(Boolean);
+
+    if (tokens.length > 0) {
+      const driverName = driver.name ?? 'Driver';
+      await sendToMultiple(tokens as string[], {
+        title: 'Driver accepted your delivery request',
+        body: `${driverName} accepted your delivery request. Preparing for pickup.`,
         data: { screen: 'OrderDetail', orderId: String(updated._id) },
       });
     }
