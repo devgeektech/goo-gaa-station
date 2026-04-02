@@ -59,7 +59,8 @@ export function ApplicationStatus() {
     const s = io(SOCKET_URL, { transports: ['websocket'] });
     socketRef.current = s;
     s.on('connect', () => {
-      s.emit('driver:join', { driverId });
+      // Socket server validates this JWT on `driver:join`.
+      s.emit('driver:join', { driverId, accessToken });
     });
     const onUpdate = () => {
       load().catch(() => {});

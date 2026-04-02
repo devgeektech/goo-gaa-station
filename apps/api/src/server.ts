@@ -1,6 +1,7 @@
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 
 import './config/env';
 import { connectDatabase } from './config/database';
@@ -35,36 +36,71 @@ io.on('connection', (socket) => {
   });
 
   /** Driver app: join `driver:<driverId>` for KYC events (`driver:kyc_approved`, `driver:kyc_rejected`). */
-  socket.on('driver:join', (payload: { driverId?: string }) => {
-    const driverId = payload?.driverId;
-    if (!driverId || !mongoose.Types.ObjectId.isValid(driverId)) return;
-    socket.join(`driver:${driverId}`);
+  socket.on('driver:join', (payload: { driverId?: string; accessToken?: string; token?: string }) => {
+    const token = payload?.accessToken ?? payload?.token ?? (socket.handshake.auth?.token as string | undefined);
+    if (!token) return;
+
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET) as { _id?: string; model?: string; type?: 'access' | 'refresh' };
+      if (decoded.model !== 'Driver' || !decoded._id) return;
+      if (decoded.type !== undefined && decoded.type !== 'access') return;
+
+      const driverId = decoded._id;
+      if (payload?.driverId && payload.driverId !== driverId) return;
+      if (!mongoose.Types.ObjectId.isValid(driverId)) return;
+
+      socket.data.driverId = driverId;
+      socket.join(`driver:${driverId}`);
+    } catch {
+      // ignore invalid JWT
+    }
   });
 
   socket.on('driver:location_update', async (payload: { driverId?: string; lat?: number; lng?: number }) => {
     const driverId = payload?.driverId;
     const lat = payload?.lat != null ? Number(payload.lat) : null;
     const lng = payload?.lng != null ? Number(payload.lng) : null;
+    const now = new Date();
     if (!driverId || !mongoose.Types.ObjectId.isValid(driverId) || lat == null || lng == null) return;
+
+    // Best-effort sanity-check: if join was validated, enforce the same driverId on updates.
+    const joinedDriverId = socket.data?.driverId as string | undefined;
+    if (joinedDriverId && joinedDriverId !== driverId) return;
+
     try {
       await Driver.findByIdAndUpdate(driverId, {
+        currentLocation: { lat, lng, updatedAt: now },
         liveLocation: { type: 'Point', coordinates: [lng, lat] },
-        lastLocationAt: new Date(),
+        lastLocationAt: now,
+        isOnline: true,
+        lastActiveAt: now,
       });
       io.to('admin').emit('driver:location_update', {
         driverId,
         lat,
         lng,
         coordinates: [lng, lat],
-        timestamp: new Date().toISOString(),
+        timestamp: now.toISOString(),
       });
     } catch {
       // ignore
     }
   });
 
-  socket.on('disconnect', () => {
-    // no-op
+  socket.on('disconnect', async () => {
+    const driverId = socket.data?.driverId as string | undefined;
+    if (!driverId) return;
+
+    try {
+      const driver = await Driver.findById(driverId).select('isOnline').lean();
+      if (!driver?.isOnline) return; // only mark offline when we were online
+
+      await Driver.findByIdAndUpdate(driverId, {
+        isOnline: false,
+      });
+    } catch {
+      // ignore
+    }
   });
 });
 

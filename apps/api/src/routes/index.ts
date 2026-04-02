@@ -36,6 +36,7 @@ import productsAppRoutes from './app/productsApp.routes';
 import cartRoutes from './app/cart.routes';
 import driverProfileRoutes from './app/driverProfile.routes';
 import driverOrderRoutes from './app/driverOrder.routes';
+import driverOrderListRoutes from './driver/orders';
 import paymentRoutes from './payment.routes';
 
 const router = Router();
@@ -95,6 +96,7 @@ v1Router.use('/app/cart', cartRoutes);
 v1Router.use('/app/driver', driverProfileRoutes);
 v1Router.use('/app/driver/orders', driverOrderRoutes);
 v1Router.use('/driver/orders', driverOrderRoutes);
+v1Router.use('/driver/orders', authDriver, driverOrderListRoutes);
 
 router.use('/v1', v1Router);
 

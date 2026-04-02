@@ -487,8 +487,24 @@
     },
     {
       "name": "Driver – Orders",
-      "description": "Driver order APIs under /api/v1/driver/orders/*. Bearer {{driverAccessToken}}. Driver must be approved, active, and online for available/accept.",
+      "description": "Driver order APIs under /api/v1/driver/orders/*. Bearer {{driverAccessToken}}. Includes New/Active/Completed tabs, accept/reject flow, and status updates.",
       "item": [
+        {
+          "name": "Get new orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/driver/orders/new?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "driver", "orders", "new"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
         {
           "name": "Get available orders",
           "request": {
@@ -498,11 +514,27 @@
           }
         },
         {
-          "name": "Get active order",
+          "name": "Get active orders",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/orders/active"
+          }
+        },
+        {
+          "name": "Get completed orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/driver/orders/completed?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "driver", "orders", "completed"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
           }
         },
         {
@@ -522,11 +554,27 @@
           }
         },
         {
-          "name": "Accept order",
+          "name": "Accept order (POST)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/accept"
+          }
+        },
+        {
+          "name": "Accept order (PATCH legacy)",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/accept"
+          }
+        },
+        {
+          "name": "Reject order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/reject"
           }
         },
         {

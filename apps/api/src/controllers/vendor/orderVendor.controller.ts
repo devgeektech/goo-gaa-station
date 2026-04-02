@@ -309,7 +309,10 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   }
 
   await Order.findByIdAndUpdate(acceptedOrder._id, {
-    $set: { notifiedDriverIds: nearbyDrivers.map((d) => (d as { _id: unknown })._id) },
+    $set: {
+      notifiedDriverIds: nearbyDrivers.map((d) => (d as { _id: unknown })._id),
+      broadcastedToDrivers: nearbyDrivers.map((d) => (d as { _id: unknown })._id),
+    },
   });
 
   const updated = await Order.findById(acceptedOrder._id).populate('customerId', 'name phone').lean();

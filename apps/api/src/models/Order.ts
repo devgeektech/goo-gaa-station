@@ -73,8 +73,11 @@ const OrderSchema = new mongoose.Schema(
     vendorResponseStatus: { type: String, enum: VENDOR_RESPONSE_STATUSES, default: 'pending' },
     vendorRespondedAt: { type: Date, default: null },
     driver_assigned: { type: Boolean, default: false },
+    driverAcceptedAt: { type: Date, default: null },
     driverAssignmentDeadline: { type: Date, default: null },
     notifiedDriverIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Driver' }],
+    broadcastedToDrivers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Driver' }],
+    rejectedByDrivers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Driver' }],
     status: { type: String, enum: ORDER_STATUSES, default: 'pending' },
     statusHistory: [StatusHistoryItemSchema],
     pickupAddress: { type: AddressSchema, default: null },
@@ -104,6 +107,12 @@ OrderSchema.index({ wifipayRef: 1 }, { sparse: true, unique: false });
 OrderSchema.index({ customerId: 1, status: 1 });
 OrderSchema.index({ vendorResponseDeadline: 1 });
 OrderSchema.index({ driver_assigned: 1, driverAssignmentDeadline: 1, status: 1 });
+OrderSchema.index({ broadcastedToDrivers: 1, driverAssignmentDeadline: 1, status: 1 });
+
+// Phase 12 indexes
+OrderSchema.index({ driverId: 1, status: 1 });
+OrderSchema.index({ broadcastedToDrivers: 1, status: 1 });
+OrderSchema.index({ driverId: 1, status: 1, updatedAt: -1 });
 
 OrderSchema.pre('save', function (next) {
   if (this.isNew && !this.orderNumber) {

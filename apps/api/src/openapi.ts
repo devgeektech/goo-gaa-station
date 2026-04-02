@@ -118,6 +118,12 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
     'GET /api/v1/vendor/orders/new': [...paginationParams],
     'GET /api/v1/vendor/orders/current': [...paginationParams],
     'GET /api/v1/vendor/orders/completed': [...paginationParams],
+    'GET /api/v1/driver/orders/new': [...paginationParams],
+    'GET /api/v1/driver/orders/completed': [...paginationParams],
+    'GET /api/v1/driver/orders/history': [...paginationParams],
+    'GET /api/v1/app/driver/orders/new': [...paginationParams],
+    'GET /api/v1/app/driver/orders/completed': [...paginationParams],
+    'GET /api/v1/app/driver/orders/history': [...paginationParams],
     'GET /api/v1/admin/orders': [
       query('status', { type: 'string', enum: ['pending', 'vendor_notified', 'accepted', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] }, false, 'Filter by status'),
       query('vendorId', { type: 'string' }, false, 'Filter by vendor ObjectId'),

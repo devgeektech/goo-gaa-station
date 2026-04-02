@@ -82,6 +82,12 @@ const DriverSchema = new mongoose.Schema(
       type: { type: String, enum: ['Point'], default: 'Point' },
       coordinates: { type: [Number], default: [0, 0] },
     },
+    // Phase 12.2: latest GPS location (lat/lng + timestamp).
+    currentLocation: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      updatedAt: { type: Date, default: null },
+    },
     lastLocationAt: { type: Date, default: null },
     currentOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
     deliveryZones: [String],
@@ -118,6 +124,10 @@ DriverSchema.index({ status: 1 });
 DriverSchema.index({ approvalStatus: 1, status: 1 });
 DriverSchema.index({ liveLocation: '2dsphere' });
 
+// Phase 12 indexes
+DriverSchema.index({ status: 1, approvalStatus: 1 });
+DriverSchema.index({ 'currentLocation.updatedAt': -1 });
+
 DriverSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password as string, SALT_ROUNDS);
@@ -132,6 +142,8 @@ export type DriverDocument = mongoose.Document & {
   name: string;
   email?: string | null;
   phone: string;
+  isOnline?: boolean;
+  isAvailable?: boolean;
   phoneOtp?: string | null;
   phoneOtpExpiry?: Date | null;
   phoneOtpAttempts?: number;
@@ -149,6 +161,7 @@ export type DriverDocument = mongoose.Document & {
   kycStatus?: 'not_submitted' | 'pending' | 'approved' | 'rejected';
   kycRejectionReason?: string | null;
   kycSubmittedAt?: Date | null;
+  currentLocation?: { lat: number | null; lng: number | null; updatedAt: Date | null };
 };
 
 export const Driver: mongoose.Model<DriverDocument> =
