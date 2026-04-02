@@ -35,6 +35,21 @@ function withRemainingTime<T extends Record<string, unknown>>(order: T): T & { r
   } as T & { remainingTime: number };
 }
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function kmToMiles(km: number): number {
+  return km * 0.621371;
+}
+
 /** GET / — List orders for vendor; filter by ?status=; paginate; populate customer */
 export const getVendorOrders = asyncHandler(async (req: Request, res: Response) => {
   const vendorId = (req as Request & { vendor?: { _id: unknown } }).vendor?._id;
@@ -279,7 +294,29 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
     return sendSuccess(res, updatedCancelled ?? cancelled ?? acceptedOrder.toObject?.() ?? acceptedOrder);
   }
 
-  const notifyPayload = {
+  const vendorAddress = (vendor as { address?: { lat?: number; lng?: number } } | null)?.address ?? null;
+  const deliveryAddress = acceptedOrder.deliveryAddress ?? null;
+  const vendorToCustomerKm =
+    Number.isFinite(Number(vendorAddress?.lat)) &&
+    Number.isFinite(Number(vendorAddress?.lng)) &&
+    Number.isFinite(Number((deliveryAddress as { lat?: number } | null)?.lat)) &&
+    Number.isFinite(Number((deliveryAddress as { lng?: number } | null)?.lng))
+      ? haversineKm(
+        Number(vendorAddress?.lat),
+        Number(vendorAddress?.lng),
+        Number((deliveryAddress as { lat?: number } | null)?.lat),
+        Number((deliveryAddress as { lng?: number } | null)?.lng)
+      )
+      : null;
+  const vendorToCustomerMiles = vendorToCustomerKm != null ? Math.round(kmToMiles(vendorToCustomerKm) * 100) / 100 : null;
+  const estimatedTimeMinutes = Number.isFinite(Number(acceptedOrder.estimatedDeliveryTime))
+    ? Number(acceptedOrder.estimatedDeliveryTime)
+    : null;
+  const itemCount = Array.isArray(acceptedOrder.items)
+    ? acceptedOrder.items.reduce((sum, item: { qty?: number }) => sum + (Number(item?.qty) || 0), 0)
+    : 0;
+
+  const baseNotifyPayload = {
     orderId: acceptedOrder._id,
     orderNumber: acceptedOrder.orderNumber,
     vendorName: (vendor as { name?: string } | null)?.name ?? 'Vendor',
@@ -287,10 +324,37 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
     deliveryAddress: acceptedOrder.deliveryAddress ?? null,
     totalAmount: acceptedOrder.total,
     assignmentDeadline: assignmentDeadline.toISOString(),
+    pickup: {
+      name: (vendor as { name?: string } | null)?.name ?? 'Pickup',
+      address: vendorAddress,
+    },
+    dropoff: {
+      address: deliveryAddress,
+      distanceMilesFromPickup: vendorToCustomerMiles,
+    },
+    totalMiles: vendorToCustomerMiles,
+    timing: {
+      estimatedMinutes: estimatedTimeMinutes,
+    },
+    itemCount,
   };
   for (const driver of nearbyDrivers) {
     const driverId = String((driver as { _id?: unknown })._id ?? '');
     if (!driverId) continue;
+    const driverToPickupKm = Number((driver as { distanceKm?: number }).distanceKm);
+    const driverToPickupMiles = Number.isFinite(driverToPickupKm) ? Math.round(kmToMiles(driverToPickupKm) * 100) / 100 : null;
+    const notifyPayload = {
+      ...baseNotifyPayload,
+      pickup: {
+        ...baseNotifyPayload.pickup,
+        distanceMilesFromDriver: driverToPickupMiles,
+      },
+      totalMiles:
+        driverToPickupMiles != null && vendorToCustomerMiles != null
+          ? Math.round((driverToPickupMiles + vendorToCustomerMiles) * 100) / 100
+          : baseNotifyPayload.totalMiles,
+    };
+
     if (io) io.to(`driver:${driverId}`).emit('order:driver_request', notifyPayload);
     const tokens = ((driver as { fcmTokens?: Array<{ token?: string | null }> }).fcmTokens ?? [])
       .map((t) => t?.token ?? '')

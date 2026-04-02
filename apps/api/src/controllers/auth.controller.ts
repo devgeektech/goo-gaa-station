@@ -288,10 +288,7 @@ export const appSendOtp = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  const otp =
-    env.NODE_ENV === 'development'
-      ? TEMP_OTP_DEV
-      : String(Math.floor(1000 + Math.random() * 9000));
+  const otp = String(Math.floor(1000 + Math.random() * 9000));
   const otpHash = hashOtp(otp);
   await OTP.findOneAndUpdate(
     { phone: normalizedPhone, role: roleStr },
@@ -347,10 +344,7 @@ export const appResendOtp = asyncHandler(async (req: Request, res: Response) => 
     }
   }
 
-  const otp =
-    env.NODE_ENV === 'development'
-      ? TEMP_OTP_DEV
-      : String(Math.floor(1000 + Math.random() * 9000));
+  const otp = String(Math.floor(1000 + Math.random() * 9000));
   const otpHash = hashOtp(otp);
   await OTP.findOneAndUpdate(
     { phone: normalizedPhone, role: roleStr },
