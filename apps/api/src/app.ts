@@ -83,6 +83,15 @@ app.use(globalLimiter);
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  handler: (req, res) => {
+    const resetTime = (req as Request & { rateLimit?: { resetTime?: number } }).rateLimit?.resetTime;
+    const waitMinutes = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 60000)) : 15;
+    res.status(429).json({
+      success: false,
+      message: `Too many requests. Please try again after ${waitMinutes} minute(s).`,
+      waitMinutes,
+    });
+  },
 });
 app.use('/api/v1/auth', authLimiter);
 
@@ -98,7 +107,11 @@ const customerOtpLimiter = rateLimit({
   handler: (req, res) => {
     const resetTime = (req as Request & { rateLimit?: { resetTime?: number } }).rateLimit?.resetTime;
     const waitMinutes = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 60000)) : 60;
-    res.status(429).json({ success: false, message: 'Too many OTP requests', waitMinutes });
+    res.status(429).json({
+      success: false,
+      message: `Too many OTP requests. Please try again after ${waitMinutes} minute(s).`,
+      waitMinutes,
+    });
   },
 });
 app.use('/api/v1/auth/customer/send-otp', customerOtpLimiter);
@@ -116,7 +129,11 @@ const vendorOtpLimiter = rateLimit({
   handler: (req, res) => {
     const resetTime = (req as Request & { rateLimit?: { resetTime?: number } }).rateLimit?.resetTime;
     const waitMinutes = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 60000)) : 60;
-    res.status(429).json({ success: false, message: 'Too many OTP requests', waitMinutes });
+    res.status(429).json({
+      success: false,
+      message: `Too many OTP requests. Please try again after ${waitMinutes} minute(s).`,
+      waitMinutes,
+    });
   },
 });
 app.use('/api/v1/auth/vendor/send-otp', vendorOtpLimiter);
