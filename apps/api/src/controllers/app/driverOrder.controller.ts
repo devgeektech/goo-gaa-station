@@ -66,6 +66,7 @@ export const getAvailableOrders = asyncHandler(async (req: Request, res: Respons
 export const getNewOrders = asyncHandler(async (req: Request, res: Response) => {
   const driverId = req.driver?._id?.toString?.() ?? req.user?._id;
   if (!driverId) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
+  const io = getIo(req);
 
   const { page, limit } = parsePagination(req.query, 20);
   const now = new Date();
@@ -135,7 +136,15 @@ export const getNewOrders = asyncHandler(async (req: Request, res: Response) => 
     };
   });
 
-  return sendSuccess(res, cards, 200, toPaginated(cards, total, page, limit));
+  const pagination = toPaginated(cards, total, page, limit);
+
+  // New-tab sync channel: when client fetches /new, also push same snapshot over socket.
+  // This enables frontend to bind list state to one event stream.
+  if (io) {
+    io.to(`driver:${driverId}`).emit('driver:orders:new_snapshot', pagination);
+  }
+
+  return sendSuccess(res, cards, 200, pagination);
 });
 
 /** PATCH|POST /:id/accept */
