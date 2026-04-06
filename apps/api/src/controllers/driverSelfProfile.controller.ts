@@ -37,19 +37,28 @@ function toProfileShape(driver: any) {
   };
 }
 
-/** GET /api/v1/driver/profile */
+const SENSITIVE_DRIVER_KEYS = ['password', 'refreshToken', 'phoneOtp', 'phoneOtpExpiry', 'phoneOtpAttempts'] as const;
+
+function sanitizeDriverForSelfResponse(doc: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...doc };
+  for (const k of SENSITIVE_DRIVER_KEYS) {
+    delete out[k];
+  }
+  return out;
+}
+
+/** GET /api/v1/driver/profile — full logged-in driver document (secrets stripped). */
 export const getSelfProfile = asyncHandler(async (req: Request, res: Response) => {
   const id = req.driver?._id;
   if (!id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
-  const driver = await Driver.findById(id)
-    .select('name phone email profileImage vehicleType vehicleNumber status approvalStatus isOnline rating setupStep fcmTokens')
-    .lean();
+  const driver = await Driver.findById(id).lean();
   if (!driver || (driver as { status?: string }).status === 'deleted') {
     throw new AppError({ en: 'Driver not found', de: 'Fahrer nicht gefunden' }, 404, 'NOT_FOUND');
   }
 
-  return sendSuccess(res, toProfileShape(driver));
+  const full = sanitizeDriverForSelfResponse(driver as Record<string, unknown>);
+  return sendSuccess(res, full);
 });
 
 /** PATCH /api/v1/driver/profile (multipart) */

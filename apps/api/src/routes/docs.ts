@@ -3,6 +3,19 @@ import type { Request, Response } from 'express';
 /** Machine-readable route map for API consumers (e.g. mobile). GET /api/docs */
 export const ROUTES = [
   { method: 'GET', path: '/api/health', auth: false, description: 'Health check' },
+  {
+    method: 'GET',
+    path: '/api/v1/test/socket/emit',
+    auth: false,
+    description:
+      'Dev only (404 in production): broadcasts Socket.IO event `test:ping` to all connected clients — use to verify Postman Socket.IO without JWT or room join.',
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/test/socket/emit',
+    auth: false,
+    description: 'Same as GET /test/socket/emit — dev-only `test:ping` broadcast.',
+  },
   { method: 'GET', path: '/api/v1', auth: false, description: 'API v1 welcome' },
   { method: 'POST', path: '/api/v1/auth/admin/login', auth: false, description: 'Admin login (sets cookies)' },
   { method: 'POST', path: '/api/v1/auth/admin/refresh', auth: false, description: 'Admin refresh (cookie)' },
@@ -39,11 +52,44 @@ export const ROUTES = [
     auth: true,
     description: 'Driver KYC: reset after rejection to not_submitted (re-upload via POST /upload); 200 → client clears file state',
   },
-  { method: 'GET', path: '/api/v1/driver/profile', auth: true, description: 'Driver self profile: get profile (name, phone, email, profileImage, vehicleType, vehicleNumber, status, approvalStatus, rating, setupStep, fcmTokens)' },
+  {
+    method: 'GET',
+    path: '/api/v1/driver/profile',
+    auth: true,
+    description:
+      'Driver self profile: full logged-in driver document (KYC, location, wallet, bankAccount, etc.); secrets omitted (password, OTP, refresh token).',
+  },
   { method: 'PATCH', path: '/api/v1/driver/profile', auth: true, description: 'Driver self profile: update profile (multipart optional: name, phone, profileImage, vehicleType, vehicleNumber)' },
   { method: 'POST', path: '/api/v1/driver/profile/fcm-token', auth: true, description: 'Driver self profile: register FCM token (body: token required, device optional; max 5)' },
   { method: 'DELETE', path: '/api/v1/driver/profile/fcm-token', auth: true, description: 'Driver self profile: remove FCM token (body: token required)' },
   { method: 'PATCH', path: '/api/v1/driver/profile/status', auth: true, description: "Driver self profile: set status online/offline (body: { status: 'online'|'offline' }); approved only; emits driver:status_changed to admin room" },
+  {
+    method: 'PATCH',
+    path: '/api/v1/driver/location',
+    auth: true,
+    description:
+      'Driver live GPS update — body { lat, lng, heading? }; persists location and emits socket `driver:location` to customer & vendor rooms when the driver has an active order (preparing|ready|picked_up|on_the_way). Bearer required. Complements socket event `driver:location_update`.',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/driver/notifications',
+    auth: true,
+    description:
+      'Driver in-app notifications — paginated list (query: page, limit, unreadOnly=true). Response data: notifications, unreadCount, pagination.',
+  },
+  {
+    method: 'PATCH',
+    path: '/api/v1/driver/notifications/read-all',
+    auth: true,
+    description: 'Driver notifications: mark all as read for the authenticated driver; returns data.updated (MongoDB modified count).',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/driver/orders/:id/detail',
+    auth: true,
+    description:
+      'Driver delivery order detail — map, pickup, dropoff, line items, earnings; only if this driver is assigned to the order or was targeted for assignment (broadcast/notify list).',
+  },
   { method: 'GET', path: '/api/v1/vendor/onboarding/status', auth: true, description: 'Vendor onboarding: get status (onboardingStep, approvalStatus, submittedAt, name)' },
   { method: 'PATCH', path: '/api/v1/vendor/onboarding/business-info', auth: true, description: 'Vendor onboarding Step 2: business info (multipart: storeName, description, operatingHours JSON, logo)' },
   { method: 'PATCH', path: '/api/v1/vendor/onboarding/address', auth: true, description: 'Vendor onboarding Step 3: address (addressLine1, addressLine2, landmark, lat, lng, addressLabel)' },
@@ -111,6 +157,13 @@ export const ROUTES = [
   { method: 'PATCH', path: '/api/v1/vendor/orders/:id/accept', auth: true, description: 'Vendor: accept order (vendor_notified only, before deadline)' },
   { method: 'PATCH', path: '/api/v1/vendor/orders/:id/ready', auth: true, description: 'Vendor: mark order ready for pickup (preparing -> ready)' },
   { method: 'PATCH', path: '/api/v1/vendor/orders/:id/reject', auth: true, description: 'Vendor: reject order (vendor_notified only, before deadline); body: reason' },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/test/nearby-drivers',
+    auth: true,
+    description:
+      'TEMPORARY (remove later): same nearby-driver list as order accept — query radiusKm (1–50, default 5); requires vendor address lat/lng.',
+  },
   { method: 'GET', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor self profile (authVendor + requireApproved)' },
   { method: 'PATCH', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor update profile (multipart, all optional): name, phone (unique), logo (2MB), coverImage (5MB), deliveryTime, minimumOrder, address JSON' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/toggle', auth: true, description: 'Vendor: toggle isOpen (manual override); emits vendor:availability_changed to admin' },

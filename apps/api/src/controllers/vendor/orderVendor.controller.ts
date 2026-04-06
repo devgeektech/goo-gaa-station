@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Order } from '../../models/Order';
+import { DriverNotification } from '../../models/DriverNotification';
 import { User } from '../../models/User';
 import { Vendor } from '../../models/Vendor';
 import { Driver } from '../../models/Driver';
@@ -355,7 +356,16 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
           : baseNotifyPayload.totalMiles,
     };
 
-    if (io) io.to(`driver:${driverId}`).emit('order:driver_request', notifyPayload);
+    if (io) {
+      const room = `driver:${driverId}`;
+      io.to(room).emit('order:driver_request', notifyPayload);
+      // eslint-disable-next-line no-console -- debug: verify Socket.IO emit when testing driver Postman/client
+      console.log('[Socket.IO] order:driver_request →', {
+        room,
+        orderId: String(acceptedOrder._id),
+        orderNumber: acceptedOrder.orderNumber,
+      });
+    }
     const tokens = ((driver as { fcmTokens?: Array<{ token?: string | null }> }).fcmTokens ?? [])
       .map((t) => t?.token ?? '')
       .filter(Boolean);
@@ -371,6 +381,22 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
       }
     }
   }
+
+  // ── Persist in-app new_order notifications for each nearby driver ──────
+  const notifDocs = nearbyDrivers.map((d) => ({
+    driver: (d as { _id: mongoose.Types.ObjectId })._id,
+    type: 'new_order' as const,
+    title: 'New Order Available',
+    body: 'A new delivery request is nearby. Tap to view details and accept it.',
+    orderId: acceptedOrder._id,
+    read: false,
+    data: {
+      estimatedPayout: acceptedOrder.deliveryFee ?? 0,
+      orderNumber: acceptedOrder.orderNumber,
+    },
+  }));
+  await DriverNotification.insertMany(notifDocs, { ordered: false });
+  // ── End notification persistence ────────────────────────────────────
 
   await Order.findByIdAndUpdate(acceptedOrder._id, {
     $set: {
