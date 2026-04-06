@@ -58,6 +58,10 @@ export const env = {
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || '',
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || '',
   TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM || '',
+  /** Optional: if set, send with MessagingServiceSid instead of From (WhatsApp sender attached to that service in Console). */
+  TWILIO_MESSAGING_SERVICE_SID: process.env.TWILIO_MESSAGING_SERVICE_SID || '',
+  /** Optional: Twilio SMS-capable number (E.164). If set, same OTP is also sent via SMS after WhatsApp (recommended when sandbox WhatsApp does not deliver). */
+  TWILIO_SMS_FROM: process.env.TWILIO_SMS_FROM || '',
   /** SMS for vendor OTP (e.g. Africa's Talking). */
   SMS_PROVIDER: (process.env.SMS_PROVIDER || '').toLowerCase(),
   SMS_API_KEY: process.env.SMS_API_KEY || '',
