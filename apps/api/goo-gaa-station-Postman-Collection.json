@@ -1999,6 +1999,28 @@
           }
         },
         {
+          "name": "Approve vendor",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/approve",
+            "description": "Approve vendor application (vendor must be pending). Emits vendor:approved and sends FCM to vendor."
+          }
+        },
+        {
+          "name": "Reject vendor",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"KYC documents could not be verified. Please re-upload clear copies.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/vendors/{{vendorId}}/reject",
+            "description": "Reject vendor application. Body requires reason (min 10 chars). Emits vendor:rejected and sends FCM to vendor."
+          }
+        },
+        {
           "name": "Delete vendor",
           "request": {
             "method": "DELETE",
