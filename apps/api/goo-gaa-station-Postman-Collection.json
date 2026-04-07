@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "DeliverEats API",
-    "description": "DeliverEats API — grouped like Swagger: **Health & Info**; **Auth – Admin / Customer / Vendor / Driver** (OTP); **Driver – Setup, KYC, Profile, Orders, live location & notifications** (Bearer {{driverAccessToken}}); **Realtime – Socket.IO** (reference payloads + connect URL); **Vendor – …**; **App – Customer** (Bearer {{accessToken}}); **Admin**; **Payment**. Variables: accessToken + refreshToken (customer), driverAccessToken + driverRefreshToken (driver), … **socketIoUrl** = `ws://` + host (e.g. `ws://localhost:5000`) for Postman **New → Socket.IO**. OpenAPI: {{baseUrl}}/api/openapi.json · Swagger: {{baseUrl}}/api-docs.",
+    "name": "Goo-Gaa Station API",
+    "description": "Goo-Gaa Station API — grouped like Swagger: **Health & Info**; **Auth – Admin / Customer / Vendor / Driver** (OTP); **Driver – Setup, KYC, Profile, Orders, live location & notifications** (Bearer {{driverAccessToken}}); **Realtime – Socket.IO** (reference payloads + connect URL); **Vendor – …**; **App – Customer** (Bearer {{accessToken}}); **Admin**; **Payment**. Variables: accessToken + refreshToken (customer), driverAccessToken + driverRefreshToken (driver), … **socketIoUrl** = `ws://` + host (e.g. `ws://localhost:5000`) for Postman **New → Socket.IO**. OpenAPI: {{baseUrl}}/api/openapi.json · Swagger: {{baseUrl}}/api-docs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -86,7 +86,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@delivereats.com\",\n  \"password\": \"Admin@123!\"\n}"
+              "raw": "{\n  \"email\": \"admin@deliveryapp.com\",\n  \"password\": \"Admin@123!\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/admin/login"
           }
@@ -828,6 +828,15 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/vendor/onboarding/submit",
             "description": "Submit application. 422 if steps 2–5 not complete; emits vendor:new_submission to admin room and FCM to admins."
+          }
+        },
+        {
+          "name": "POST resubmit (after rejection)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/resubmit",
+            "description": "Vendor onboarding: resubmit after rejection; resets approvalStatus=none, step=4, emits vendor:new_submission."
           }
         }
       ]

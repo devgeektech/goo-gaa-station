@@ -45,7 +45,7 @@ export default function LoginPage() {
       </button>
       <div className="card loginCard">
         <div style={{ marginBottom: 8 }}>
-          <h1 className="loginTitle">DeliverEats Admin</h1>
+          <h1 className="loginTitle">Goo-Gaa Station Admin</h1>
           <p className="muted" style={{ marginTop: 8, fontSize: 14 }}>
             Sign in with your admin account
           </p>
@@ -61,7 +61,7 @@ export default function LoginPage() {
               className="input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@delivereats.com"
+              placeholder="admin@deliveryapp.com"
               required
               autoComplete="email"
             />

@@ -161,7 +161,7 @@ app.use(
   swaggerUi.setup(null, {
     swaggerOptions: { url: '/api/openapi.json' },
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Goo Gaa Station API',
+    customSiteTitle: 'Goo-Gaa Station API',
   })
 );
 

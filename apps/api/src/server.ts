@@ -110,7 +110,7 @@ async function start(): Promise<void> {
   await connectDatabase();
   startVendorResponseTimeoutWorker(io);
   server.listen(env.PORT, () => {
-    console.log('--- DeliverEats API ---');
+    console.log('--- Goo-Gaa Station API ---');
     console.log(`Node env:    ${env.NODE_ENV}`);
     console.log(`Port:        ${env.PORT}`);
     console.log('DB:          connected');

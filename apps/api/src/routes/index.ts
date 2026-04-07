@@ -65,7 +65,7 @@ router.get('/openapi.json', openApiHandler);
 /** Mount v1 API routes (auth, users, orders, etc.) under /api/v1 */
 const v1Router = Router();
 v1Router.get('/', (_req, res) => {
-  res.json({ message: 'DeliverEats API v1' });
+  res.json({ message: 'Goo-Gaa Station API v1' });
 });
 v1Router.use('/test/socket', testSocketRoutes);
 v1Router.use('/auth', authRoutes);

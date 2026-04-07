@@ -98,7 +98,7 @@ export const getPendingApprovals = asyncHandler(async (req: Request, res: Respon
     $or: [{ approvalStatus: 'pending' }, { kycStatus: 'pending' }],
   };
   const [drivers, total] = await Promise.all([
-    Driver.find(filter).select('-password').lean().sort({ createdAt: 1 }).skip((page - 1) * limit).limit(limit),
+    Driver.find(filter).select('-password').lean().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     Driver.countDocuments(filter),
   ]);
   return sendSuccess(res, drivers, 200, toPaginated(drivers, total, page, limit));

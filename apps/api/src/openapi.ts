@@ -1577,7 +1577,7 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
   return {
     openapi: '3.0.3',
     info: {
-      title: 'DeliverEats API',
+      title: 'Goo-Gaa Station API',
       description:
         'Backend API: Admin (cookies). **App – Customer:** /app/cart, /app/orders, /app/customer, discovery. **Driver:** /driver/setup, /driver/kyc, /driver/profile, /driver/location, /driver/notifications, /driver/orders (Bearer from /auth/driver/verify-otp). Legacy paths under /app/driver/*. **Auth:** /auth/customer, /auth/vendor, /auth/driver (phone OTP). **Vendor:** /vendor/*. **Realtime (Socket.IO v4):** connect with Postman Socket.IO or `ws://host/socket.io/?EIO=4&transport=websocket`; client events e.g. `admin:join`, `customer:join`, `vendor:join`, `driver:join` (JWT), `driver:location_update`. Server emits order/driver events to rooms `vendor:{id}`, `customer:{id}`, `driver:{id}`, `admin`. Payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
       version: '1.0.0',
