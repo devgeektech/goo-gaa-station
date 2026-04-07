@@ -13,8 +13,15 @@ import { registerVendorSocket } from './sockets/vendorSocket';
 
 const server = http.createServer(app);
 
+const allowedOrigins = env.ALLOWED_ORIGINS.length > 0 ? env.ALLOWED_ORIGINS : [env.CLIENT_ORIGIN];
 const io = new SocketIOServer(server, {
-  cors: { origin: env.CLIENT_ORIGIN },
+  cors: {
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+      else cb(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  },
 });
 
 // Attach io to app for use in routes (e.g. req.app.get('io'))

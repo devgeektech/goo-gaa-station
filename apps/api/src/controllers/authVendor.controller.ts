@@ -16,7 +16,6 @@ import {
   verifyRefreshToken,
   type AccessPayload,
 } from '../services/auth.service';
-import { sendOtp } from '../services/smsService';
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const MAX_OTP_ATTEMPTS = 5;
@@ -96,7 +95,8 @@ export const vendorSendOtp = asyncHandler(async (req: Request, res: Response) =>
     { runValidators: false }
   );
 
-  await sendOtp(normalizedPhone, otp);
+  // Twilio WhatsApp OTP disabled by request.
+  // await sendOtp(normalizedPhone, otp);
   if (process.env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP sent (dev)', otp });
   }
@@ -200,7 +200,8 @@ export const vendorResendOtp = asyncHandler(async (req: Request, res: Response) 
     { runValidators: false }
   );
 
-  await sendOtp(normalizedPhone, otp);
+  // Twilio WhatsApp OTP disabled by request.
+  // await sendOtp(normalizedPhone, otp);
   if (process.env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP resent (dev)', otp });
   }

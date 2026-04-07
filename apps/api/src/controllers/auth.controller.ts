@@ -22,7 +22,6 @@ import {
   verifyRefreshToken,
   type AccessPayload,
 } from '../services/auth.service';
-import { sendOtp } from '../services/smsService';
 import { logAuthFailure } from '../utils/securityLog';
 
 function getClientIp(req: Request): string {
@@ -34,10 +33,12 @@ function getClientIp(req: Request): string {
   return req.ip ?? req.socket?.remoteAddress ?? 'unknown';
 }
 
+const isProd = env.NODE_ENV === 'production';
+const cookieSameSite = isProd ? ('none' as const) : ('lax' as const);
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  secure: isProd,
+  sameSite: cookieSameSite,
 };
 const ACCESS_MAX_AGE = 15 * 60 * 1000;       // 15 min
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -295,7 +296,8 @@ export const appSendOtp = asyncHandler(async (req: Request, res: Response) => {
     { upsert: true, new: true }
   );
 
-  await sendOtp(normalizedPhone, otp);
+  // Twilio WhatsApp OTP disabled by request.
+  // await sendOtp(normalizedPhone, otp);
 
   if (env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP sent (dev)', otp });
@@ -350,7 +352,8 @@ export const appResendOtp = asyncHandler(async (req: Request, res: Response) => 
     { upsert: true, new: true }
   );
 
-  await sendOtp(normalizedPhone, otp);
+  // Twilio WhatsApp OTP disabled by request.
+  // await sendOtp(normalizedPhone, otp);
 
   if (env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP resent (dev)', otp });

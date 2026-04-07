@@ -7,7 +7,6 @@ import { Driver, type DriverDocument } from '../models/Driver';
 import { AppError } from '../utils/AppError';
 import { sendSuccess } from '../utils/response';
 import { asyncHandler } from '../utils/asyncHandler';
-import { sendOtp } from '../services/smsService';
 import { env } from '../config/env';
 import {
   deleteRefreshToken,
@@ -105,7 +104,8 @@ export const driverSendOtp = asyncHandler(async (req: Request, res: Response) =>
   driver.phoneOtpAttempts = 0;
   await driver.save();
 
-  await sendOtp(normalizedPhone, otp);
+  // Twilio WhatsApp OTP disabled by request.
+  // await sendOtp(normalizedPhone, otp);
 
   // In dev, smsService already logs OTP to console (per repo behavior).
   if (env.NODE_ENV === 'development') {
@@ -210,7 +210,8 @@ export const driverResendOtp = asyncHandler(async (req: Request, res: Response) 
   driver.phoneOtpAttempts = 0;
   await driver.save();
 
-  await sendOtp(normalizedPhone, otp);
+  // Twilio WhatsApp OTP disabled by request.
+  // await sendOtp(normalizedPhone, otp);
 
   if (env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP resent (dev)', otp });
