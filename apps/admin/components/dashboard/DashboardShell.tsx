@@ -129,8 +129,8 @@ export function DashboardShell({ children }: PropsWithChildren) {
 
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebarHeader">
-          <Link href="/" className="sidebarBrand" aria-label="DeliverEats Admin home" onClick={closeSidebar}>
-            DeliverEats Admin
+          <Link href="/" className="sidebarBrand" aria-label="Goo-Gaa Station Admin home" onClick={closeSidebar}>
+            Goo-Gaa Station Admin
           </Link>
         </div>
         <nav className="sidebarNav" aria-label="Main">

@@ -31,7 +31,11 @@ const phoneOtpLimiter = rateLimit({
   handler: (req, res) => {
     const resetTime = (req as Request & { rateLimit?: { resetTime?: number } }).rateLimit?.resetTime;
     const waitMinutes = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 60000)) : 60;
-    res.status(429).json({ success: false, message: 'Too many OTP requests', waitMinutes });
+    res.status(429).json({
+      success: false,
+      message: `Too many OTP requests. Please try again after ${waitMinutes} minute(s).`,
+      waitMinutes,
+    });
   },
 });
 

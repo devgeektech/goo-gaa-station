@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "DeliverEats API",
-    "description": "DeliverEats API — grouped like Swagger: **Health & Info**; **Auth – Admin / Customer / Vendor / Driver** (OTP); **Driver – Setup, KYC, Profile, Orders** (Bearer {{driverAccessToken}} from driver verify-otp); **Vendor – …**; **App – Customer profile / Cart / Products / orders** (Bearer {{accessToken}}); **Admin**; **Payment**. Variables: accessToken + refreshToken (customer), driverAccessToken + driverRefreshToken (driver), vendorAccessToken + vendorRefreshToken (vendor), orderId, vendorId, … OpenAPI: {{baseUrl}}/api/openapi.json · Swagger: {{baseUrl}}/api-docs.",
+    "name": "Goo-Gaa Station API",
+    "description": "Goo-Gaa Station API — grouped like Swagger: **Health & Info**; **Auth – Admin / Customer / Vendor / Driver** (OTP); **Driver – Setup, KYC, Profile, Orders, live location & notifications** (Bearer {{driverAccessToken}}); **Realtime – Socket.IO** (reference payloads + connect URL); **Vendor – …**; **App – Customer** (Bearer {{accessToken}}); **Admin**; **Payment**. Variables: accessToken + refreshToken (customer), driverAccessToken + driverRefreshToken (driver), … **socketIoUrl** = `ws://` + host (e.g. `ws://localhost:5000`) for Postman **New → Socket.IO**. OpenAPI: {{baseUrl}}/api/openapi.json · Swagger: {{baseUrl}}/api-docs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -23,7 +23,8 @@
     { "key": "categorySlug", "value": "burgers" },
     { "key": "vendorAccessToken", "value": "" },
     { "key": "vendorRefreshToken", "value": "" },
-    { "key": "productId", "value": "" }
+    { "key": "productId", "value": "" },
+    { "key": "socketIoUrl", "value": "ws://localhost:5000", "description": "Postman Socket.IO: Server URL (no path; Engine.IO v4). Use wss:// in production with HTTPS." }
   ],
   "item": [
     {
@@ -62,6 +63,15 @@
             "url": "{{baseUrl}}/api/openapi.json",
             "description": "OpenAPI 3.0 JSON for Swagger UI, Postman import, or codegen."
           }
+        },
+        {
+          "name": "Test Socket.IO broadcast (dev only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/test/socket/emit",
+            "description": "No auth. Development only (404 in production). Connect Postman Socket.IO to {{socketIoUrl}}, add Events listener for **test:ping**, then send this request — you should see an incoming test:ping message."
+          }
         }
       ]
     },
@@ -76,7 +86,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@delivereats.com\",\n  \"password\": \"Admin@123!\"\n}"
+              "raw": "{\n  \"email\": \"admin@deliveryapp.com\",\n  \"password\": \"Admin@123!\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/admin/login"
           }
@@ -487,8 +497,24 @@
     },
     {
       "name": "Driver – Orders",
-      "description": "Driver order APIs under /api/v1/driver/orders/*. Bearer {{driverAccessToken}}. Driver must be approved, active, and online for available/accept.",
+      "description": "Driver order APIs under /api/v1/driver/orders/*. Bearer {{driverAccessToken}}. Includes New/Active/Completed tabs, accept/reject flow, and status updates.",
       "item": [
+        {
+          "name": "Get new orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/driver/orders/new?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "driver", "orders", "new"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
         {
           "name": "Get available orders",
           "request": {
@@ -498,11 +524,27 @@
           }
         },
         {
-          "name": "Get active order",
+          "name": "Get active orders",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/orders/active"
+          }
+        },
+        {
+          "name": "Get completed orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/driver/orders/completed?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "driver", "orders", "completed"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
           }
         },
         {
@@ -522,11 +564,36 @@
           }
         },
         {
-          "name": "Accept order",
+          "name": "Get order detail (delivery screen)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/detail",
+            "description": "Delivery screen: map, pickup, dropoff, items, earnings. Driver must be assigned or in broadcast/notified list for this order."
+          }
+        },
+        {
+          "name": "Accept order (POST)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/accept"
+          }
+        },
+        {
+          "name": "Accept order (PATCH legacy)",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/accept"
+          }
+        },
+        {
+          "name": "Reject order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/reject"
           }
         },
         {
@@ -558,6 +625,122 @@
               "raw": "{\n  \"otp\": \"1234\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/deliver"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Driver – Live location & notifications",
+      "description": "Update GPS (`PATCH /driver/location`) and manage in-app notifications (`GET` list, `PATCH …/read-all`). Bearer {{driverAccessToken}}.",
+      "item": [
+        {
+          "name": "PATCH live location (REST + socket driver:location)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 52.52,\n  \"lng\": 13.405,\n  \"heading\": 90\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/driver/location",
+            "description": "Persists GPS; if driver has an active order (preparing|ready|picked_up|on_the_way), emits `driver:location` to customer & vendor rooms. Complements socket event `driver:location_update`."
+          }
+        },
+        {
+          "name": "GET notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/driver/notifications?page=1&limit=20&unreadOnly=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "driver", "notifications"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "unreadOnly", "value": "false", "description": "Set to true to list only unread" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH mark all notifications read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/notifications/read-all"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Realtime – Socket.IO",
+      "description": "**Testing in Postman:** New → Socket.IO → Server URL = **{{socketIoUrl}}** (same host as API; `ws://` for http, `wss://` for https). Postman uses WebSocket transport (EIO=4); long-polling fallback is not supported. After **Connect**, use **Events** to emit client events below. Listen for server events in the **Messages** panel.\n\n**Rooms (server joins you when you emit join):** `admin`, `vendor:{vendorId}`, `customer:{customerId}`, `driver:{driverId}`.\n\nSee each sub-request **Description** for example JSON payloads.",
+      "item": [
+        {
+          "name": "00 – Connect (read me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health",
+            "description": "### Postman Socket.IO setup\n1. **New** → **Socket.IO**.\n2. **Server URL:** `{{socketIoUrl}}` (e.g. `ws://localhost:5000`). Do not append `/socket.io` manually — Postman adds it.\n3. **Connect**. If it fails, confirm the API server is running and CORS allows your origin.\n4. **Emit** tab: event name + JSON body from the requests below.\n5. **Listen** to server events: `order:new`, `order:driver_request`, `driver:location`, `order:status_changed`, etc.\n\n### Auth\n- **`driver:join`** requires `accessToken` in payload (JWT from driver verify-otp). Server verifies JWT and joins `driver:{id}`.\n- **`customer:join`** / **`vendor:join`** only need a valid Mongo ObjectId string."
+          }
+        },
+        {
+          "name": "Emit – admin:join",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "**Event:** `admin:join`  \n**Payload:** `{}` (empty object)  \n**Effect:** Joins room `admin`.  \n**You may receive:** `order:new`, `order:accepted`, `driver:kyc_submitted`, `driver:status_changed`, `driver:location_update`, etc."
+          }
+        },
+        {
+          "name": "Emit – customer:join",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "**Event:** `customer:join`  \n**Example payload:**\n```json\n{\n  \"customerId\": \"{{customerId}}\"\n}\n```\n**Effect:** Joins room `customer:{customerId}`.  \n**You may receive:** `order:accepted`, `order:status_updated`, `driver:location`, `order:delivered`, …"
+          }
+        },
+        {
+          "name": "Emit – vendor:join",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "**Event:** `vendor:join`  \n**Example payload:**\n```json\n{\n  \"vendorId\": \"{{vendorId}}\"\n}\n```\n**Effect:** Joins room `vendor:{vendorId}`.  \n**You may receive:** `order:new`, `order:driver_assigned`, `order:ready_for_pickup`, `driver:location`, …"
+          }
+        },
+        {
+          "name": "Emit – driver:join",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "**Event:** `driver:join`  \n**Example payload:**\n```json\n{\n  \"driverId\": \"{{driverId}}\",\n  \"accessToken\": \"{{driverAccessToken}}\"\n}\n```\n**Effect:** JWT verified; joins `driver:{driverId}`.  \n**You may receive:** `order:driver_request`, `order:taken`, `driver:orders:new_snapshot`, `driver:kyc_approved`, `driver:kyc_rejected`."
+          }
+        },
+        {
+          "name": "Emit – driver:location_update",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "**Event:** `driver:location_update` (socket path; still supported alongside REST `PATCH /driver/location`)  \n**Example payload:**\n```json\n{\n  \"driverId\": \"{{driverId}}\",\n  \"lat\": 52.52,\n  \"lng\": 13.405\n}\n```\n**Effect:** Updates driver DB location; server emits **`driver:location_update`** to room `admin` with `{ driverId, lat, lng, coordinates, timestamp }`."
+          }
+        },
+        {
+          "name": "Server events – reference table",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "| Server event | Typical room | Notes |\n|---|---|---|\n| `order:new` | vendor, admin | New customer order |\n| `order:accepted` | customer, admin | Vendor accepted |\n| `order:driver_request` | driver | Nearby delivery request; large payload with pickup/dropoff |\n| `order:taken` | driver | Another driver accepted |\n| `order:driver_assigned` | vendor, admin | Driver assigned |\n| `order:preparing` | customer | After driver accepts |\n| `driver:location` | customer, vendor | Live GPS from REST `PATCH /driver/location` |\n| `driver:location_update` | admin | From socket `driver:location_update` |\n| `order:status_changed` / `order:status_updated` | customer, vendor | Status sync |\n| `order:delivered` | customer, vendor, admin | OTP verified |\n| `driver:kyc_submitted` | admin | After KYC upload |\n| `driver:kyc_approved` / `driver:kyc_rejected` | driver | After admin decision |\n\nPayload shapes match server code in `apps/api/src` (search for `.emit(`)."
           }
         }
       ]
@@ -645,6 +828,15 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/vendor/onboarding/submit",
             "description": "Submit application. 422 if steps 2–5 not complete; emits vendor:new_submission to admin room and FCM to admins."
+          }
+        },
+        {
+          "name": "POST resubmit (after rejection)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/onboarding/resubmit",
+            "description": "Vendor onboarding: resubmit after rejection; resets approvalStatus=none, step=4, emits vendor:new_submission."
           }
         }
       ]
@@ -809,6 +1001,20 @@
       "name": "Vendor – Orders",
       "description": "Vendor order management. Bearer {{vendorAccessToken}}. authVendor + requireApproved.",
       "item": [
+        {
+          "name": "TEST (temp) nearby drivers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/test/nearby-drivers?radiusKm=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "test", "nearby-drivers"],
+              "query": [{ "key": "radiusKm", "value": "5", "description": "1–50 km, default 5 on server" }]
+            },
+            "description": "TEMPORARY — same pool as order accept. Vendor profile address must have lat/lng."
+          }
+        },
         {
           "name": "List orders",
           "request": {

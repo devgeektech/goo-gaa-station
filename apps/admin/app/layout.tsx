@@ -4,8 +4,8 @@ import { Providers } from './providers';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
-  title: 'DeliverEats Admin',
-  description: 'DeliverEats admin panel — orders, transactions, drivers.',
+  title: 'Goo-Gaa Station Admin',
+  description: 'Goo-Gaa Station admin panel — orders, transactions, drivers.',
 };
 
 export const viewport: Viewport = {

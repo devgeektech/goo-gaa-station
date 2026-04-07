@@ -12,6 +12,7 @@ export interface AccessPayload {
   model: UserModelType;
 }
 
+
 /** Access token payload as in JWT (type discriminator for auth middleware) */
 export interface AccessTokenPayload extends AccessPayload {
   type?: 'access';

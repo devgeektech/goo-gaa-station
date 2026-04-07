@@ -1,6 +1,6 @@
-# DeliverEats API – App team guide
+# Goo-Gaa Station API – App team guide
 
-Base URL and docs for integrating the mobile app (or any client) with the DeliverEats API.
+Base URL and docs for integrating the mobile app (or any client) with the Goo-Gaa Station API.
 
 ---
 
@@ -54,7 +54,7 @@ Two auth flows:
 
 ## Postman collection
 
-- **File:** `apps/api/DeliverEats-Postman-Collection.json`
+- **File:** `apps/api/goo-gaa-station-Postman-Collection.json`
 - **Import:** Postman → Import → Upload the file (or import from repo path).
 - **Variables:** Set at collection level (e.g. `baseUrl`, `accessToken`, `refreshToken`, `userId`, `driverId`, `orderId`, `customerId`, `vendorId`, `itemId`, `transactionId`, `paymentReference`). For admin requests, log in via **Auth – Admin (cookies)** first so cookies are sent. For app requests, set `accessToken` from **Auth – App** login and use **Authorization: Bearer {{accessToken}}** where the collection uses it.
 

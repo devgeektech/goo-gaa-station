@@ -16,6 +16,7 @@ import { authDriver } from '../middlewares/authDriver.middleware';
 import vendorCategoriesRoutes from './vendor/categories.routes';
 import vendorProductsRoutes from './vendor/products.routes';
 import vendorOrdersRoutes from './vendor/orders.routes';
+import vendorTestRoutes from './vendor/vendorTest.routes';
 import vendorProfileRoutes from './vendor/profile.routes';
 import userAdminRoutes from './admin/userAdmin.routes';
 import customerAdminRoutes from './admin/customerAdmin.routes';
@@ -36,6 +37,10 @@ import productsAppRoutes from './app/productsApp.routes';
 import cartRoutes from './app/cart.routes';
 import driverProfileRoutes from './app/driverProfile.routes';
 import driverOrderRoutes from './app/driverOrder.routes';
+import driverOrderListRoutes from './driver/orders';
+import driverLocationRoutes from './driver/location.routes';
+import driverNotificationRoutes from './driver/notifications.routes';
+import testSocketRoutes from './testSocket.routes';
 import paymentRoutes from './payment.routes';
 
 const router = Router();
@@ -60,8 +65,9 @@ router.get('/openapi.json', openApiHandler);
 /** Mount v1 API routes (auth, users, orders, etc.) under /api/v1 */
 const v1Router = Router();
 v1Router.get('/', (_req, res) => {
-  res.json({ message: 'DeliverEats API v1' });
+  res.json({ message: 'Goo-Gaa Station API v1' });
 });
+v1Router.use('/test/socket', testSocketRoutes);
 v1Router.use('/auth', authRoutes);
 v1Router.use('/auth/customer', customerAuthRoutes);
 v1Router.use('/auth/vendor', vendorAuthRoutes);
@@ -69,10 +75,13 @@ v1Router.use('/auth/driver', driverAuthRoutes);
 v1Router.use('/driver/setup', authDriver, driverSetupRoutes);
 v1Router.use('/driver/profile', authDriver, driverProfileSelfRoutes);
 v1Router.use('/driver/kyc', authDriver, driverKycRoutes);
+v1Router.use('/driver', authDriver, driverLocationRoutes);
+v1Router.use('/driver/notifications', authDriver, driverNotificationRoutes);
 v1Router.use('/vendor/onboarding', vendorOnboardingRoutes);
 v1Router.use('/vendor/categories', authVendor, requireApproved, vendorCategoriesRoutes);
 v1Router.use('/vendor/products', authVendor, requireApproved, vendorProductsRoutes);
 v1Router.use('/vendor/orders', authVendor, requireApproved, vendorOrdersRoutes);
+v1Router.use('/vendor/test', authVendor, requireApproved, vendorTestRoutes);
 v1Router.use('/vendor/profile', authVendor, requireApproved, vendorProfileRoutes);
 v1Router.use('/payment', paymentRoutes);
 v1Router.use('/admin/users', userAdminRoutes);
@@ -95,6 +104,7 @@ v1Router.use('/app/cart', cartRoutes);
 v1Router.use('/app/driver', driverProfileRoutes);
 v1Router.use('/app/driver/orders', driverOrderRoutes);
 v1Router.use('/driver/orders', driverOrderRoutes);
+v1Router.use('/driver/orders', authDriver, driverOrderListRoutes);
 
 router.use('/v1', v1Router);
 

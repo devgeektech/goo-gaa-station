@@ -118,6 +118,19 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
     'GET /api/v1/vendor/orders/new': [...paginationParams],
     'GET /api/v1/vendor/orders/current': [...paginationParams],
     'GET /api/v1/vendor/orders/completed': [...paginationParams],
+    'GET /api/v1/vendor/test/nearby-drivers': [
+      query('radiusKm', { type: 'number', minimum: 1, maximum: 50, default: 5, example: 5 }, false, 'Search radius in km (same as driver assignment)'),
+    ],
+    'GET /api/v1/driver/orders/new': [...paginationParams],
+    'GET /api/v1/driver/orders/completed': [...paginationParams],
+    'GET /api/v1/driver/orders/history': [...paginationParams],
+    'GET /api/v1/driver/notifications': [
+      ...paginationParams,
+      query('unreadOnly', { type: 'string', enum: ['true', 'false'] }, false, 'If true, only unread notifications (read=false)'),
+    ],
+    'GET /api/v1/app/driver/orders/new': [...paginationParams],
+    'GET /api/v1/app/driver/orders/completed': [...paginationParams],
+    'GET /api/v1/app/driver/orders/history': [...paginationParams],
     'GET /api/v1/admin/orders': [
       query('status', { type: 'string', enum: ['pending', 'vendor_notified', 'accepted', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] }, false, 'Filter by status'),
       query('vendorId', { type: 'string' }, false, 'Filter by vendor ObjectId'),
@@ -526,6 +539,154 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
         },
       },
     },
+    'GET /api/v1/vendor/test/nearby-drivers': {
+      description: 'TEMPORARY — nearby drivers for logged-in vendor (remove route later)',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  vendorLat: { type: 'number' },
+                  vendorLng: { type: 'number' },
+                  radiusKm: { type: 'number' },
+                  count: { type: 'integer' },
+                  drivers: { type: 'array', items: { type: 'object' } },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              vendorLat: 52.52,
+              vendorLng: 13.405,
+              radiusKm: 5,
+              count: 2,
+              drivers: [
+                {
+                  _id: '507f1f77bcf86cd799439011',
+                  name: 'Driver One',
+                  distanceKm: 1.2,
+                  liveLocation: { type: 'Point', coordinates: [13.41, 52.53] },
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+    'GET /api/v1/driver/notifications': {
+      description: 'Success — paginated notifications + unreadCount',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  notifications: { type: 'array', items: { type: 'object' } },
+                  unreadCount: { type: 'integer', example: 2 },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      total: { type: 'integer' },
+                      totalPages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              notifications: [
+                {
+                  _id: '507f1f77bcf86cd799439011',
+                  driver: '507f1f77bcf86cd799439012',
+                  type: 'new_order',
+                  title: 'New Order Available',
+                  body: 'A new delivery request is nearby…',
+                  orderId: '507f1f77bcf86cd799439013',
+                  data: { estimatedPayout: 3.5, orderNumber: 'ORD-20250406-ABC123' },
+                  read: false,
+                  createdAt: '2026-04-06T12:00:00.000Z',
+                },
+              ],
+              unreadCount: 1,
+              pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+            },
+          },
+        },
+      },
+    },
+    'PATCH /api/v1/driver/notifications/read-all': {
+      description: 'Success — all notifications marked read',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: { type: 'object', properties: { updated: { type: 'integer', example: 3 } } },
+            },
+          },
+          example: { success: true, data: { updated: 3 } },
+        },
+      },
+    },
+    'GET /api/v1/driver/orders/:id/detail': {
+      description: 'Success — delivery detail payload (map, pickup, dropoff, items, earnings)',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: { type: 'object', description: 'orderId, orderNumber, status, map, pickup, dropoff, customerNote, items, itemCount, earnings' },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              orderId: '507f1f77bcf86cd799439011',
+              orderNumber: 'ORD-20250406-ABC123',
+              status: 'preparing',
+              map: { pickupLat: 52.52, pickupLng: 13.405, dropoffLat: 52.53, dropoffLng: 13.41 },
+              pickup: {
+                restaurantName: 'Pizza House',
+                address: 'Main St 1, Berlin, Germany',
+                lat: 52.52,
+                lng: 13.405,
+                phone: '+252600000000',
+              },
+              dropoff: {
+                customerName: 'Jane',
+                address: 'Side St 2, Berlin, Germany',
+                lat: 52.53,
+                lng: 13.41,
+                phone: '+252611111111',
+                avatarUrl: null,
+                rating: null,
+                reviewCount: 0,
+              },
+              customerNote: '',
+              items: [{ name: 'Margherita', quantity: 2, notes: '', unitPrice: 12.99 }],
+              itemCount: 1,
+              earnings: { deliveryFee: 3.5, tip: 0, totalPayout: 3.5 },
+            },
+          },
+        },
+      },
+    },
     'GET /api/v1/driver/kyc/status': {
       description: 'Success — use for app routing (not_submitted | pending | approved | rejected)',
       content: {
@@ -879,6 +1040,16 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     },
   });
 
+  const driverLocationPatchBody = json({
+    type: 'object',
+    required: ['lat', 'lng'],
+    properties: {
+      lat: { type: 'number', example: 52.52 },
+      lng: { type: 'number', example: 13.405 },
+      heading: { type: 'number', nullable: true, description: 'Optional compass heading (degrees)' },
+    },
+  });
+
   const driverKycUploadBody = {
     description:
       'Driver KYC upload. Required groups: driversLicense (1 file), nationalId (1–10 files), vehiclePhotos (1–10 files). Allowed: image/jpeg, image/png, application/pdf. Max size: 5MB per file.',
@@ -944,6 +1115,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       properties: { token: { type: 'string', example: 'fcm-token...' } },
     }),
     'PATCH /api/v1/driver/profile/status': driverStatusBody,
+    'PATCH /api/v1/driver/location': driverLocationPatchBody,
     'POST /api/v1/driver/kyc/upload': driverKycUploadBody,
     'PATCH /api/v1/vendor/profile': {
       content: {
@@ -1405,9 +1577,9 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
   return {
     openapi: '3.0.3',
     info: {
-      title: 'DeliverEats API',
+      title: 'Goo-Gaa Station API',
       description:
-        'Backend API: Admin (cookies). **App – Customer:** /app/cart, /app/orders, /app/customer, discovery. **Driver:** /driver/setup, /driver/kyc, /driver/profile, /driver/orders (Bearer from /auth/driver/verify-otp). Legacy paths under /app/driver/*. **Auth:** /auth/customer, /auth/vendor, /auth/driver (phone OTP). **Vendor:** /vendor/*. Realtime: driver:kyc_submitted → admin; driver:kyc_approved / driver:kyc_rejected → driver:{driverId} (emit driver:join). Payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
+        'Backend API: Admin (cookies). **App – Customer:** /app/cart, /app/orders, /app/customer, discovery. **Driver:** /driver/setup, /driver/kyc, /driver/profile, /driver/location, /driver/notifications, /driver/orders (Bearer from /auth/driver/verify-otp). Legacy paths under /app/driver/*. **Auth:** /auth/customer, /auth/vendor, /auth/driver (phone OTP). **Vendor:** /vendor/*. **Realtime (Socket.IO v4):** connect with Postman Socket.IO or `ws://host/socket.io/?EIO=4&transport=websocket`; client events e.g. `admin:join`, `customer:join`, `vendor:join`, `driver:join` (JWT), `driver:location_update`. Server emits order/driver events to rooms `vendor:{id}`, `customer:{id}`, `driver:{id}`, `admin`. Payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
       version: '1.0.0',
       contact: { name: 'API Team' },
     },
@@ -1438,7 +1610,7 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
       {
         name: 'Driver',
         description:
-          'Driver app (Bearer from /auth/driver/verify-otp): setup (/driver/setup), KYC (/driver/kyc), profile (/driver/profile), orders (/driver/orders/*). Duplicates under /app/driver/*.',
+          'Driver app (Bearer from /auth/driver/verify-otp): setup (/driver/setup), KYC (/driver/kyc), profile (/driver/profile), location (/driver/location), notifications (/driver/notifications), orders (/driver/orders/*, including /:id/detail). Duplicates under /app/driver/*.',
       },
       { name: 'Vendor', description: 'Vendor onboarding: status, business-info, address, contact, kyc-documents, submit (Bearer required)' },
       { name: 'Admin', description: 'Admin panel (cookies from /auth/admin/login)' },

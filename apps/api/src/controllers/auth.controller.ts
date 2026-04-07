@@ -22,8 +22,7 @@ import {
   verifyRefreshToken,
   type AccessPayload,
 } from '../services/auth.service';
-// WhatsApp OTP (commented): uncomment import and calls below when TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM are set
-// import { sendOtpViaTwilioWhatsApp } from '../services/twilioWhatsApp.service';
+import { sendOtp } from '../services/smsService';
 import { logAuthFailure } from '../utils/securityLog';
 
 function getClientIp(req: Request): string {
@@ -249,7 +248,7 @@ export const appLogout = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, {});
 });
 
-/** POST /api/v1/auth/app/send-otp — Phone OTP for vendor/customer login (WhatsApp later). Temp OTP in dev. */
+/** POST /api/v1/auth/app/send-otp — Phone OTP; WhatsApp via Twilio when TWILIO_* env vars are set (see smsService.sendOtp). */
 export const appSendOtp = asyncHandler(async (req: Request, res: Response) => {
   const { phone, role } = req.body ?? {};
   const roleStr = role ? String(role).toLowerCase().trim() : '';
@@ -288,10 +287,7 @@ export const appSendOtp = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  const otp =
-    env.NODE_ENV === 'development'
-      ? TEMP_OTP_DEV
-      : String(Math.floor(1000 + Math.random() * 9000));
+  const otp = String(Math.floor(1000 + Math.random() * 9000));
   const otpHash = hashOtp(otp);
   await OTP.findOneAndUpdate(
     { phone: normalizedPhone, role: roleStr },
@@ -299,8 +295,7 @@ export const appSendOtp = asyncHandler(async (req: Request, res: Response) => {
     { upsert: true, new: true }
   );
 
-  // WhatsApp OTP (customer): uncomment when Twilio env is set (see top of file)
-  // await sendOtpViaTwilioWhatsApp(normalizedPhone, otp);
+  await sendOtp(normalizedPhone, otp);
 
   if (env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP sent (dev)', otp });
@@ -347,10 +342,7 @@ export const appResendOtp = asyncHandler(async (req: Request, res: Response) => 
     }
   }
 
-  const otp =
-    env.NODE_ENV === 'development'
-      ? TEMP_OTP_DEV
-      : String(Math.floor(1000 + Math.random() * 9000));
+  const otp = String(Math.floor(1000 + Math.random() * 9000));
   const otpHash = hashOtp(otp);
   await OTP.findOneAndUpdate(
     { phone: normalizedPhone, role: roleStr },
@@ -358,8 +350,7 @@ export const appResendOtp = asyncHandler(async (req: Request, res: Response) => 
     { upsert: true, new: true }
   );
 
-  // WhatsApp OTP (customer resend): uncomment when Twilio env is set (see top of file)
-  // await sendOtpViaTwilioWhatsApp(normalizedPhone, otp);
+  await sendOtp(normalizedPhone, otp);
 
   if (env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP resent (dev)', otp });

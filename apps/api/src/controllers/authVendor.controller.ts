@@ -17,8 +17,6 @@ import {
   type AccessPayload,
 } from '../services/auth.service';
 import { sendOtp } from '../services/smsService';
-// WhatsApp OTP (commented): uncomment import and calls below when TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM are set
-// import { sendOtpViaTwilioWhatsApp } from '../services/twilioWhatsApp.service';
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const MAX_OTP_ATTEMPTS = 5;
@@ -99,8 +97,6 @@ export const vendorSendOtp = asyncHandler(async (req: Request, res: Response) =>
   );
 
   await sendOtp(normalizedPhone, otp);
-  // WhatsApp OTP (vendor): uncomment when Twilio env is set (see top of file)
-  // await sendOtpViaTwilioWhatsApp(normalizedPhone, otp);
   if (process.env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP sent (dev)', otp });
   }
@@ -205,8 +201,6 @@ export const vendorResendOtp = asyncHandler(async (req: Request, res: Response) 
   );
 
   await sendOtp(normalizedPhone, otp);
-  // WhatsApp OTP (vendor resend): uncomment when Twilio env is set (see top of file)
-  // await sendOtpViaTwilioWhatsApp(normalizedPhone, otp);
   if (process.env.NODE_ENV === 'development') {
     return sendSuccess(res, { message: 'OTP resent (dev)', otp });
   }
