@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { Driver } from '../models/Driver';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/response';
@@ -20,7 +21,6 @@ export const getSetupStatus = asyncHandler(async (req: Request, res: Response) =
   if (!driver?._id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
   return sendSuccess(res, {
-    setupStep: driver.setupStep ?? 0,
     approvalStatus: driver.approvalStatus ?? 'pending',
     name: driver.name ?? '',
     profileImage: driver.profileImage ?? null,
@@ -47,7 +47,15 @@ export const updateProfileInfo = asyncHandler(async (req: Request, res: Response
 
   if (phone !== undefined) {
     if (typeof phone !== 'string') throw new AppError({ en: 'phone must be a string', de: 'phone muss ein String sein' }, 400, 'VALIDATION_ERROR');
-    driver.phone = normalizePhone(phone);
+    const normalized = normalizePhone(phone);
+    // Allow the same phone already bound to this driver; reject only true conflicts.
+    if (normalized !== driver.phone) {
+      const exists = await Driver.findOne({ phone: normalized, _id: { $ne: driver._id } }).select('_id').lean();
+      if (exists) {
+        throw new AppError({ en: 'Phone number already in use', de: 'Telefonnummer bereits vergeben' }, 409, 'CONFLICT');
+      }
+      driver.phone = normalized;
+    }
   }
 
   const file = req.file as Express.Multer.File | undefined;
@@ -63,40 +71,6 @@ export const updateProfileInfo = asyncHandler(async (req: Request, res: Response
     name: driver.name ?? '',
     phone: driver.phone ?? '',
     profileImage: driver.profileImage ?? null,
-    setupStep: driver.setupStep ?? 0,
-  });
-});
-
-/** PATCH /api/v1/driver/setup/vehicle-info (Step 2) */
-export const updateVehicleInfo = asyncHandler(async (req: Request, res: Response) => {
-  const driver = req.driver as DriverDocument | undefined;
-  if (!driver?._id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
-
-  if ((driver.setupStep ?? 0) < 1) {
-    throw new AppError({ en: 'Complete Profile Information first', de: 'Bitte Profilinformationen zuerst vervollständigen' }, 422, 'VALIDATION_ERROR');
-  }
-
-  const { vehicleType, vehicleNumber } = req.body ?? {};
-  const allowedVehicleTypes = ['bike', 'car', 'scooter', 'bicycle'] as const;
-
-  if (!vehicleType || typeof vehicleType !== 'string' || !allowedVehicleTypes.includes(vehicleType as any)) {
-    throw new AppError({ en: 'vehicleType is required and must be valid', de: 'vehicleType ist erforderlich und muss gültig sein' }, 400, 'VALIDATION_ERROR');
-  }
-  if (!vehicleNumber || typeof vehicleNumber !== 'string') {
-    throw new AppError({ en: 'vehicleNumber is required', de: 'vehicleNumber erforderlich' }, 400, 'VALIDATION_ERROR');
-  }
-
-  // Schema transform also normalizes, but keep explicit for clarity.
-  driver.vehicleType = vehicleType as DriverDocument['vehicleType'];
-  driver.vehicleNumber = String(vehicleNumber).trim().toUpperCase();
-
-  driver.setupStep = Math.max(driver.setupStep ?? 0, 2);
-  await driver.save();
-
-  return sendSuccess(res, {
-    vehicleType: driver.vehicleType ?? null,
-    vehicleNumber: driver.vehicleNumber ?? null,
-    setupStep: driver.setupStep ?? 0,
   });
 });
 

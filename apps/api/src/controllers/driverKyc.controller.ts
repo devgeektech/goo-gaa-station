@@ -117,7 +117,7 @@ export const getKycStatus = asyncHandler(async (req: Request, res: Response) => 
   if (!id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
   const driver = await Driver.findById(id)
-    .select('kycStatus kycRejectionReason kycSubmittedAt kycDocuments')
+    .select('name phone profileImage vehicleType vehicleNumber approvalStatus kycStatus kycRejectionReason kycSubmittedAt kycDocuments')
     .lean();
   if (!driver) throw new AppError({ en: 'Driver not found', de: 'Fahrer nicht gefunden' }, 404, 'NOT_FOUND');
 
@@ -129,6 +129,12 @@ export const getKycStatus = asyncHandler(async (req: Request, res: Response) => 
   };
 
   return sendSuccess(res, {
+    name: (driver as { name?: string }).name ?? '',
+    phone: (driver as { phone?: string }).phone ?? '',
+    profileImage: (driver as { profileImage?: string | null }).profileImage ?? null,
+    vehicleType: (driver as { vehicleType?: string | null }).vehicleType ?? null,
+    vehicleNumber: (driver as { vehicleNumber?: string | null }).vehicleNumber ?? null,
+    approvalStatus: (driver as { approvalStatus?: string }).approvalStatus ?? 'pending',
     kycStatus: (driver as { kycStatus?: string }).kycStatus ?? 'not_submitted',
     kycRejectionReason: (driver as { kycRejectionReason?: string | null }).kycRejectionReason ?? null,
     kycSubmittedAt: (driver as { kycSubmittedAt?: Date | null }).kycSubmittedAt ?? null,
@@ -144,11 +150,17 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
   await runDriverKycUpload(req, res);
 
   const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+  const vehicleTypeRaw = String(req.body?.vehicleType ?? '').trim().toLowerCase();
+  const vehicleNumberRaw = String(req.body?.vehicleNumber ?? '').trim().toUpperCase();
+  const vehicleType = vehicleTypeRaw === 'bicycle' ? 'bike' : vehicleTypeRaw;
+  const allowedVehicleTypes = ['bike', 'car', 'scooter', 'van'];
   const driversLicenseFiles = files?.driversLicense ?? [];
   const nationalIdFiles = files?.nationalId ?? [];
   const vehiclePhotosFiles = files?.vehiclePhotos ?? [];
 
   const missing: string[] = [];
+  if (!vehicleType) missing.push('vehicleType');
+  if (!vehicleNumberRaw) missing.push('vehicleNumber');
   if (driversLicenseFiles.length < 1) missing.push('driversLicense');
   if (nationalIdFiles.length < 1) missing.push('nationalId');
   if (vehiclePhotosFiles.length < 1) missing.push('vehiclePhotos');
@@ -165,6 +177,19 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
       422,
       'VALIDATION_ERROR',
       { missing }
+    );
+  }
+  if (!allowedVehicleTypes.includes(vehicleType)) {
+    for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles]) {
+      deleteLocalFile(getFileUrl(f.filename, DRIVER_KYC_FOLDER));
+    }
+    throw new AppError(
+      {
+        en: 'vehicleType must be one of: bike, car, scooter, van',
+        de: 'vehicleType muss einer von: bike, car, scooter, van sein',
+      },
+      400,
+      'VALIDATION_ERROR'
     );
   }
 
@@ -197,6 +222,9 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
   (driver as any).kycStatus = 'pending';
   (driver as any).kycSubmittedAt = submittedAt;
   (driver as any).kycRejectionReason = null;
+  (driver as any).vehicleType = vehicleType;
+  (driver as any).vehicleNumber = vehicleNumberRaw;
+  (driver as any).setupStep = Math.max((driver as any).setupStep ?? 0, 2);
 
   await driver.save();
 
@@ -229,6 +257,8 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
 
   return sendSuccess(res, {
     message: 'Documents submitted successfully',
+    vehicleType,
+    vehicleNumber: vehicleNumberRaw,
     kycStatus: 'pending' as const,
     kycSubmittedAt: submittedAt,
   });

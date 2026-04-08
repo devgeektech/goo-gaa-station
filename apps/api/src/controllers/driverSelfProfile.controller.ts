@@ -32,7 +32,6 @@ function toProfileShape(driver: any) {
     approvalStatus: driver?.approvalStatus ?? null,
     isOnline: Boolean(driver?.isOnline),
     rating: driver?.rating ?? 0,
-    setupStep: driver?.setupStep ?? 0,
     fcmTokens: Array.isArray(driver?.fcmTokens) ? driver.fcmTokens : [],
   };
 }

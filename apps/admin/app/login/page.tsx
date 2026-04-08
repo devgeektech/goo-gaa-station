@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 import { apiClient, getErrorMessage } from '@/lib/api/client';
@@ -98,12 +97,9 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <p className="muted loginHint">
-          Default after seed: <code className="loginCode">admin@deliveryapp.com</code> / <code className="loginCode">Admin@12345</code>
-        </p>
-        <Link href="/" className="btn" style={{ marginTop: 16, display: 'inline-block' }}>
+        {/* <Link href="/" className="btn" style={{ marginTop: 16, display: 'inline-block' }}>
           Back to dashboard
-        </Link>
+        </Link> */}
       </div>
     </div>
   );
