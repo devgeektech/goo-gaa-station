@@ -698,6 +698,12 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
               data: {
                 type: 'object',
                 properties: {
+                  name: { type: 'string' },
+                  phone: { type: 'string' },
+                  profileImage: { type: 'string', nullable: true },
+                  vehicleType: { type: 'string', nullable: true },
+                  vehicleNumber: { type: 'string', nullable: true },
+                  approvalStatus: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
                   kycStatus: {
                     type: 'string',
                     enum: ['not_submitted', 'pending', 'approved', 'rejected'],
@@ -719,6 +725,12 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
           example: {
             success: true,
             data: {
+              name: 'Driver 123456',
+              phone: '+252612345678',
+              profileImage: null,
+              vehicleType: 'car',
+              vehicleNumber: 'ABC-123',
+              approvalStatus: 'approved',
               kycStatus: 'pending',
               kycRejectionReason: null,
               kycSubmittedAt: '2025-03-26T12:00:00.000Z',
@@ -734,7 +746,7 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
     },
     'POST /api/v1/driver/kyc/upload': {
       description:
-        'Success — `kycStatus` becomes `pending`. Server emits **Socket.IO** `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Errors: 422 wrong MIME / missing fields (`data.missing`), 413 file too large.',
+        'Success — `kycStatus` becomes `pending` and vehicleType/vehicleNumber are saved. Server emits **Socket.IO** `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Errors: 422 wrong MIME / missing fields (`data.missing`), 413 file too large.',
       content: {
         'application/json': {
           schema: {
@@ -745,6 +757,8 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
                 type: 'object',
                 properties: {
                   message: { type: 'string' },
+                  vehicleType: { type: 'string', example: 'car' },
+                  vehicleNumber: { type: 'string', example: 'ABC-123' },
                   kycStatus: { type: 'string', example: 'pending' },
                   kycSubmittedAt: { type: 'string', format: 'date-time' },
                 },
@@ -755,6 +769,8 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
             success: true,
             data: {
               message: 'Documents submitted successfully',
+              vehicleType: 'car',
+              vehicleNumber: 'ABC-123',
               kycStatus: 'pending',
               kycSubmittedAt: '2025-03-26T12:00:00.000Z',
             },
@@ -980,7 +996,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
   });
 
   const driverProfileInfoBody = {
-    description: 'Driver setup Step 1: profile info (multipart). `name` required. `phone` optional. `profileImage` optional (JPEG/PNG/WEBP, max 2MB).',
+    description: 'Driver profile info (multipart). `name` required. `phone` optional (same phone as registration is allowed). `profileImage` optional (JPEG/PNG/WEBP, max 2MB).',
     content: {
       'multipart/form-data': {
         schema: {
@@ -995,15 +1011,6 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       },
     },
   };
-
-  const driverVehicleInfoBody = json({
-    type: 'object',
-    required: ['vehicleType', 'vehicleNumber'],
-    properties: {
-      vehicleType: { type: 'string', enum: ['bike', 'car', 'scooter', 'bicycle'], example: 'bike' },
-      vehicleNumber: { type: 'string', example: 'ABC123', description: 'Trimmed and uppercased vehicle number' },
-    },
-  });
 
   const driverSelfProfilePatchBody = {
     description: 'Driver self profile update (multipart). All fields optional: name, phone, profileImage (2MB, jpeg/png/webp), vehicleType, vehicleNumber.',
@@ -1052,13 +1059,15 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
 
   const driverKycUploadBody = {
     description:
-      'Driver KYC upload. Required groups: driversLicense (1 file), nationalId (1–10 files), vehiclePhotos (1–10 files). Allowed: image/jpeg, image/png, application/pdf. Max size: 5MB per file.',
+      'Driver KYC upload. Required fields: vehicleType, vehicleNumber and file groups driversLicense (1 file), nationalId (1–10 files), vehiclePhotos (1–10 files). Allowed: image/jpeg, image/png, application/pdf. Max size: 5MB per file.',
     content: {
       'multipart/form-data': {
         schema: {
           type: 'object',
-          required: ['driversLicense', 'nationalId', 'vehiclePhotos'],
+          required: ['vehicleType', 'vehicleNumber', 'driversLicense', 'nationalId', 'vehiclePhotos'],
           properties: {
+            vehicleType: { type: 'string', enum: ['bike', 'car', 'scooter', 'van', 'bicycle'], example: 'car' },
+            vehicleNumber: { type: 'string', example: 'ABC-123', description: 'Vehicle number (saved uppercased)' },
             driversLicense: { type: 'string', format: 'binary', description: 'Single image or PDF' },
             nationalId: {
               type: 'array',
@@ -1106,7 +1115,6 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     'POST /api/v1/auth/driver/refresh': driverRefreshBody,
     'POST /api/v1/auth/driver/logout': driverLogoutBody,
     'PATCH /api/v1/driver/setup/profile-info': driverProfileInfoBody,
-    'PATCH /api/v1/driver/setup/vehicle-info': driverVehicleInfoBody,
     'PATCH /api/v1/driver/profile': driverSelfProfilePatchBody,
     'POST /api/v1/driver/profile/fcm-token': driverFcmTokenBody,
     'DELETE /api/v1/driver/profile/fcm-token': json({

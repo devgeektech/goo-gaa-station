@@ -328,7 +328,7 @@
     },
     {
       "name": "Driver – Setup",
-      "description": "Driver profile setup under /api/v1/driver/setup. Bearer {{driverAccessToken}} (from Auth – Driver verify-otp). Step 1: profile-info (multipart). Step 2: vehicle-info (JSON).",
+      "description": "Driver profile setup under /api/v1/driver/setup. Bearer {{driverAccessToken}} (from Auth – Driver verify-otp). Uses profile-info only (multipart). Vehicle details are submitted in Driver – KYC upload.",
       "item": [
         {
           "name": "Get setup status",
@@ -339,8 +339,8 @@
           }
         },
         {
-          "name": "PATCH profile-info (Step 1)",
-          "description": "Multipart/form-data. `name` required. `phone` optional. `profileImage` optional (max 2MB, image/*).",
+          "name": "PATCH profile-info",
+          "description": "Multipart/form-data. `name` required. `phone` optional (same number used at registration is allowed). `profileImage` optional (max 2MB, image/*).",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
@@ -354,28 +354,12 @@
             },
             "url": "{{baseUrl}}/api/v1/driver/setup/profile-info"
           }
-        },
-        {
-          "name": "PATCH vehicle-info (Step 2)",
-          "description": "JSON body. Requires setupStep >= 1. `vehicleType`: bike|car|scooter|bicycle. `vehicleNumber`: trimmed + uppercased.",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"vehicleType\": \"car\",\n  \"vehicleNumber\": \"abc-123\"\n}"
-            },
-            "url": "{{baseUrl}}/api/v1/driver/setup/vehicle-info"
-          }
         }
       ]
     },
     {
       "name": "Driver – KYC",
-      "description": "Driver identity verification: GET /api/v1/driver/kyc/status, POST /upload (multipart), PATCH /resubmit. Bearer {{driverAccessToken}}.\n\n**Realtime (Socket.IO):**\n- After successful POST upload, server emits `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Admin UI shows a toast.\n- Admin PATCH approve/reject can emit `driver:kyc_approved` / `driver:kyc_rejected` to room `driver:{driverId}`. Driver app must `emit('driver:join', { driverId })` after connect.\n\n**Upload:** field `driversLicense` ×1; repeat field name `nationalId` and `vehiclePhotos` for multiple files (jpg/png/pdf, 5MB each). On 422, body may include `data.missing`: driversLicense | nationalId | vehiclePhotos.",
+      "description": "Driver identity verification: GET /api/v1/driver/kyc/status, POST /upload (multipart), PATCH /resubmit. Bearer {{driverAccessToken}}.\n\n**Realtime (Socket.IO):**\n- After successful POST upload, server emits `driver:kyc_submitted` to room `admin` with `{ driverId, name, phone, submittedAt }` (ISO). Admin UI shows a toast.\n- Admin PATCH approve/reject can emit `driver:kyc_approved` / `driver:kyc_rejected` to room `driver:{driverId}`. Driver app must `emit('driver:join', { driverId })` after connect.\n\n**Upload:** required text fields `vehicleType`, `vehicleNumber`; file groups: `driversLicense` ×1; repeat `nationalId` and `vehiclePhotos` for multiple files (jpg/png/pdf, 5MB each). On 422, body may include `data.missing`: vehicleType | vehicleNumber | driversLicense | nationalId | vehiclePhotos.",
       "item": [
         {
           "name": "Get KYC status",
@@ -383,7 +367,7 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/kyc/status",
-            "description": "200: `{ success, data: { kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments: { driversLicense, nationalId[], vehiclePhotos[] } } }`. Use on app launch for routing (not_submitted | pending | approved | rejected)."
+            "description": "200: `{ success, data: { name, phone, profileImage, vehicleType, vehicleNumber, approvalStatus, kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments: { driversLicense, nationalId[], vehiclePhotos[] } } }`. Use as single post-approval payload too."
           }
         },
         {
@@ -394,6 +378,8 @@
             "body": {
               "mode": "formdata",
               "formdata": [
+                { "key": "vehicleType", "value": "car", "type": "text", "description": "Required: bike|car|scooter|van" },
+                { "key": "vehicleNumber", "value": "ABC-123", "type": "text", "description": "Required" },
                 { "key": "driversLicense", "type": "file", "src": [], "description": "Exactly one file" },
                 { "key": "nationalId", "type": "file", "src": [], "description": "At least one; add more rows with key nationalId" },
                 { "key": "nationalId", "type": "file", "src": [], "disabled": true, "description": "Optional 2nd national ID file — enable and choose file" },
@@ -402,7 +388,7 @@
               ]
             },
             "url": "{{baseUrl}}/api/v1/driver/kyc/upload",
-            "description": "200: `{ success, data: { message, kycStatus: 'pending', kycSubmittedAt } }`. Emits `driver:kyc_submitted` to admin. 413: file too large. 422: wrong MIME or missing groups (`data.missing`)."
+            "description": "200: `{ success, data: { message, vehicleType, vehicleNumber, kycStatus: 'pending', kycSubmittedAt } }`. Emits `driver:kyc_submitted` to admin. 413: file too large. 422: wrong MIME or missing required fields/groups (`data.missing`)."
           }
         },
         {

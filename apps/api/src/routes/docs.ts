@@ -35,16 +35,15 @@ export const ROUTES = [
   { method: 'POST', path: '/api/v1/auth/driver/resend-otp', auth: false, description: 'Driver: resend OTP (body: phone); rate limit 5/hour per phone' },
   { method: 'POST', path: '/api/v1/auth/driver/refresh', auth: false, description: 'Driver: refresh tokens (body: refreshToken)' },
   { method: 'POST', path: '/api/v1/auth/driver/logout', auth: true, description: 'Driver: logout (Bearer required; optional body: refreshToken, fcmToken)' },
-  { method: 'GET', path: '/api/v1/driver/setup/status', auth: true, description: 'Driver setup: status (setupStep, approvalStatus, name, profileImage)' },
-  { method: 'PATCH', path: '/api/v1/driver/setup/profile-info', auth: true, description: 'Driver setup Step 1: profile info (multipart: name required; phone optional; profileImage optional)' },
-  { method: 'PATCH', path: '/api/v1/driver/setup/vehicle-info', auth: true, description: 'Driver setup Step 2: vehicle info (JSON: vehicleType, vehicleNumber; requires step 1)' },
-  { method: 'GET', path: '/api/v1/driver/kyc/status', auth: true, description: 'Driver KYC: status for app routing (kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments)' },
+  { method: 'GET', path: '/api/v1/driver/setup/status', auth: true, description: 'Driver setup: status (approvalStatus, name, profileImage)' },
+  { method: 'PATCH', path: '/api/v1/driver/setup/profile-info', auth: true, description: 'Driver setup profile info (multipart: name required; phone optional; profileImage optional; same phone allowed)' },
+  { method: 'GET', path: '/api/v1/driver/kyc/status', auth: true, description: 'Driver KYC + profile summary (name, phone, profileImage, vehicleType, vehicleNumber, approvalStatus, kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments)' },
   {
     method: 'POST',
     path: '/api/v1/driver/kyc/upload',
     auth: true,
     description:
-      'Driver KYC: upload documents (multipart: driversLicense 1 file, nationalId ≤10, vehiclePhotos ≤10; jpg/png/pdf, 5MB each); sets pending; Socket.IO driver:kyc_submitted → admin room { driverId, name, phone, submittedAt }',
+      'Driver KYC: upload documents + vehicle details (multipart: vehicleType, vehicleNumber, driversLicense 1 file, nationalId ≤10, vehiclePhotos ≤10; jpg/png/pdf, 5MB each); sets pending; Socket.IO driver:kyc_submitted → admin room { driverId, name, phone, submittedAt }',
   },
   {
     method: 'PATCH',
