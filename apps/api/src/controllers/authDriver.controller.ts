@@ -181,12 +181,16 @@ export const driverVerifyOtp = asyncHandler(async (req: Request, res: Response) 
 
   const isNewDriver = isPlaceholderDriver(driver);
   const approvalStatus = driver.approvalStatus === 'approved' ? 'approved' : 'pending';
+  const kycStatus = driver.kycStatus ?? 'not_submitted';
+  const kycRejectionReason = driver.kycRejectionReason ?? null;
 
   return sendSuccess(res, {
     accessToken,
     refreshToken,
     isNewDriver,
     approvalStatus,
+    kycStatus,
+    kycRejectionReason,
   });
 });
 
