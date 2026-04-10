@@ -92,6 +92,10 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...discoveryFilterParams,
       ...discoveryPaginationParams,
     ],
+    'GET /api/v1/app/vendors/:id': [
+      query('customerLat', { type: 'number', example: 30.6798 }, false, 'Optional customer latitude (WGS84) for distance/ETA'),
+      query('customerLng', { type: 'number', example: 76.7297 }, false, 'Optional customer longitude (WGS84) for distance/ETA'),
+    ],
     'GET /api/v1/app/orders': [
       query(
         'status',

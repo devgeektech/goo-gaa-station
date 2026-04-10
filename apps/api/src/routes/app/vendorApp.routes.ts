@@ -8,6 +8,6 @@ const router = Router();
 router.param('id', validateIdParam);
 
 router.get('/', optionalAuth, listVendors);
-router.get('/:id', getVendor);
+router.get('/:id', optionalAuth, getVendor);
 
 export default router;

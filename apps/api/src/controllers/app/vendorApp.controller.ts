@@ -15,6 +15,14 @@ function getFallbackEtaMinutes(vendor: any): number | null {
   return Number.isFinite(raw) && raw > 0 ? raw : null;
 }
 
+function toEtaRange(minutes: number | null): string | null {
+  if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return null;
+  const base = Math.max(1, Math.round(minutes));
+  const min = Math.max(1, base - 2);
+  const max = base + 4;
+  return `${min}-${max} mins`;
+}
+
 function getCurrentDayKey(now: Date): 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' {
   const days: Array<'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'> = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
   return days[now.getDay()];
@@ -185,18 +193,19 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
       for (let i = 0; i < vendors.length; i++) {
         const destIdx = mapIndexToDestIndex[i];
         const r = destIdx !== undefined ? compactResults[destIdx] : null;
-        (vendors as any)[i].estimatedTime = r?.durationMinutes ?? getFallbackEtaMinutes((vendors as any)[i]);
+        const etaMinutes = r?.durationMinutes ?? getFallbackEtaMinutes((vendors as any)[i]);
+        (vendors as any)[i].estimatedTime = toEtaRange(etaMinutes);
         (vendors as any)[i].distance = r?.distanceText ?? null;
       }
     } catch {
       for (let i = 0; i < vendors.length; i++) {
-        (vendors as any)[i].estimatedTime = getFallbackEtaMinutes((vendors as any)[i]);
+        (vendors as any)[i].estimatedTime = toEtaRange(getFallbackEtaMinutes((vendors as any)[i]));
         (vendors as any)[i].distance = null;
       }
     }
   } else {
     for (let i = 0; i < vendors.length; i++) {
-      (vendors as any)[i].estimatedTime = getFallbackEtaMinutes((vendors as any)[i]);
+      (vendors as any)[i].estimatedTime = toEtaRange(getFallbackEtaMinutes((vendors as any)[i]));
       (vendors as any)[i].distance = null;
     }
   }
@@ -214,7 +223,7 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   if (!vendor) {
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
   }
-  const products = await Product.find({
+  const products = await (Product as any).find({
     vendor: new mongoose.Types.ObjectId(id),
     isDeleted: false,
     isAvailable: true,
@@ -223,5 +232,54 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
     .populate('category', '_id name')
     .lean()
     .sort({ sortOrder: 1 });
-  return sendSuccess(res, { vendor, products });
+
+  // Customer origin for detail page:
+  // (1) query customerLat/customerLng, (2) logged-in user's preferred address.
+  let customerCoords: { lat: number; lng: number } | null = parseCustomerOriginFromQuery(req);
+  if (!customerCoords && req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
+    const user = (await (User as any).findById(req.user._id).select('addresses').lean()) as
+      | { addresses?: Array<{ lat?: number | null; lng?: number | null; isDefault?: boolean; preferred?: boolean }> }
+      | null;
+    const addresses = user?.addresses ?? [];
+    const preferred = addresses.find((a) => a?.isDefault || a?.preferred) ?? addresses[0];
+    const lat = preferred?.lat;
+    const lng = preferred?.lng;
+    if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
+      customerCoords = { lat, lng };
+    }
+  }
+  const vendorLat = Number((vendor as any)?.address?.lat);
+  const vendorLng = Number((vendor as any)?.address?.lng);
+  const hasVendorCoords = Number.isFinite(vendorLat) && Number.isFinite(vendorLng);
+
+  let distanceKm: number | null = null;
+  let estimatedTime: string | null = toEtaRange(getFallbackEtaMinutes(vendor));
+  let distance: string | null = null;
+  if (customerCoords && hasVendorCoords) {
+    distanceKm = Math.round(haversineKm(customerCoords.lat, customerCoords.lng, vendorLat, vendorLng) * 10) / 10;
+    distance = `${distanceKm} km`;
+    try {
+      const [result] = await getDistanceMatrixEstimates({
+        origin: customerCoords,
+        destinations: [{ lat: vendorLat, lng: vendorLng }],
+      });
+      if (result?.durationMinutes != null) {
+        estimatedTime = toEtaRange(result.durationMinutes);
+      }
+      if (result?.distanceText != null) {
+        distance = result.distanceText;
+      }
+    } catch {
+      // Keep fallback ETA when Distance Matrix is unavailable.
+    }
+  }
+
+  const vendorOut = vendor as any;
+  vendorOut.distanceKm = distanceKm;
+  vendorOut.distance = distance;
+  vendorOut.estimatedTime = estimatedTime;
+  // Ensure rating key is always present for client integration.
+  vendorOut.rating = vendorOut.rating ?? null;
+
+  return sendSuccess(res, { vendor: vendorOut, products });
 });
