@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Vendor } from '../../models/Vendor';
 import { Product } from '../../models/Product';
 import { User } from '../../models/User';
+import { Category } from '../../models/Category';
 import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -71,6 +72,14 @@ function parseCustomerOriginFromQuery(req: Request): { lat: number; lng: number 
   return { lat, lng };
 }
 
+function normalizeVendorRating(v: any): void {
+  const avg = Number(v?.averageRating);
+  const legacy = Number(v?.rating);
+  v.rating = Number.isFinite(avg) ? avg : (Number.isFinite(legacy) ? legacy : 0);
+  v.averageRating = v.rating;
+  v.totalRatings = Number.isFinite(Number(v?.totalRatings)) ? Number(v.totalRatings) : 0;
+}
+
 /** GET /api/v1/app/vendors — List vendors (active only), filter by category, search, optional filters/sort */
 export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit } = parsePagination(req.query, 10);
@@ -90,7 +99,10 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const maxDeliveryTime = req.query.maxDeliveryTime != null && req.query.maxDeliveryTime !== '' ? Number(req.query.maxDeliveryTime) : NaN;
   const minPrice = req.query.minPrice != null && req.query.minPrice !== '' ? Number(req.query.minPrice) : NaN;
   const maxPrice = req.query.maxPrice != null && req.query.maxPrice !== '' ? Number(req.query.maxPrice) : NaN;
-  if (!Number.isNaN(minRating) && Vendor.schema.paths.rating) (filter as Record<string, unknown>).rating = { $gte: minRating };
+  if (!Number.isNaN(minRating)) {
+    if (Vendor.schema.paths.averageRating) (filter as Record<string, unknown>).averageRating = { $gte: minRating };
+    else if (Vendor.schema.paths.rating) (filter as Record<string, unknown>).rating = { $gte: minRating };
+  }
   if (!Number.isNaN(maxDeliveryTime) && Vendor.schema.paths.deliveryTime) {
     // Backward-compatible: keep vendors that don't yet have deliveryTime stored.
     (filter as Record<string, unknown>).$or = [
@@ -107,7 +119,8 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   }
 
   let sort: Record<string, 1 | -1> = { createdAt: -1, sortOrder: 1, name: 1 };
-  if (sortQ === 'rating' && Vendor.schema.paths.rating) sort = { rating: -1, sortOrder: 1, name: 1 };
+  if (sortQ === 'rating' && Vendor.schema.paths.averageRating) sort = { averageRating: -1, sortOrder: 1, name: 1 };
+  else if (sortQ === 'rating' && Vendor.schema.paths.rating) sort = { rating: -1, sortOrder: 1, name: 1 };
   else if (sortQ === 'deliveryTime' && Vendor.schema.paths.deliveryTime) sort = { deliveryTime: 1, sortOrder: 1, name: 1 };
   else if (sortQ === 'recommended') sort = { createdAt: -1, sortOrder: 1, name: 1 };
   else if (sortQ === 'rating' || sortQ === 'deliveryTime') sort = { sortOrder: 1, name: 1 };
@@ -133,7 +146,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 
   let [vendors, total] = await Promise.all([
     Vendor.find(filter)
-      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours')
+      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours rating averageRating totalRatings')
       .populate('categoryIds', '_id name slug icon')
       .lean()
       .sort(sort)
@@ -210,8 +223,73 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
+  // Normalize rating keys for customer-side consumption.
+  for (let i = 0; i < vendors.length; i++) {
+    normalizeVendorRating((vendors as any)[i]);
+  }
+
   const pages = Math.ceil(total / limit) || 1;
   return sendSuccess(res, { vendors, total, page, pages });
+});
+
+/** GET /api/v1/app/vendors/recommended — rating-first recommended list with non-empty fallback */
+export const getRecommendedVendors = asyncHandler(async (req: Request, res: Response) => {
+  const fallbackLimit = 4;
+  const categoryQ = String(req.query.category || '').trim().toLowerCase();
+
+  const filter: Record<string, unknown> = { status: 'active', isOpen: true };
+  if (categoryQ && categoryQ !== 'all') {
+    // Support category type filter (food/grocery/pharmacy/fashion/retail)
+    // and category ObjectId filter for compatibility.
+    const isObjectIdCategory = mongoose.Types.ObjectId.isValid(categoryQ);
+    if (isObjectIdCategory) {
+      filter.categoryIds = new mongoose.Types.ObjectId(categoryQ);
+    } else {
+      const supportedTypes = ['food', 'grocery', 'pharmacy', 'fashion', 'retail'];
+      if (!supportedTypes.includes(categoryQ)) {
+        throw new AppError(
+          { en: 'Invalid category. Use all, food, grocery, pharmacy, fashion, retail, or category ObjectId', de: 'Ungültige Kategorie' },
+          400,
+          'VALIDATION_ERROR'
+        );
+      }
+      const matchedCategories = await (Category as any)
+        .find({ type: categoryQ, isActive: true, isDeleted: false })
+        .select('_id')
+        .lean();
+      const categoryIds = (matchedCategories as Array<{ _id: mongoose.Types.ObjectId }>).map((c) => c._id);
+      filter.categoryIds = { $in: categoryIds };
+    }
+  }
+
+  const baseQuery = Vendor.find(filter)
+    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours rating averageRating totalRatings')
+    .populate('categoryIds', '_id name slug icon type')
+    .lean();
+
+  const ratedQuery = Vendor.schema.paths.averageRating
+    ? baseQuery.clone().where({ averageRating: { $gt: 0 } }).sort({ averageRating: -1, createdAt: -1, sortOrder: 1, name: 1 })
+    : baseQuery.clone().where({ rating: { $gt: 0 } }).sort({ rating: -1, createdAt: -1, sortOrder: 1, name: 1 });
+
+  let vendors = (await ratedQuery.limit(fallbackLimit)) as any[];
+  const now = new Date();
+  vendors = vendors.filter((v) => isVendorAvailableNow(v, now));
+
+  if (vendors.length === 0) {
+    const unratedQuery = Vendor.schema.paths.averageRating
+      ? baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 })
+      : baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 });
+    vendors = ((await unratedQuery.limit(fallbackLimit)) as any[]).filter((v) => isVendorAvailableNow(v, now)).slice(0, fallbackLimit);
+  }
+
+  for (let i = 0; i < vendors.length; i++) {
+    const v = vendors[i];
+    normalizeVendorRating(v);
+    v.estimatedTime = toEtaRange(getFallbackEtaMinutes(v));
+    v.distance = null;
+  }
+
+  return sendSuccess(res, { vendors, total: vendors.length, page: 1, pages: 1 });
 });
 
 /** GET /api/v1/app/vendors/:id — Vendor detail with products (active only) */
@@ -278,8 +356,8 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   vendorOut.distanceKm = distanceKm;
   vendorOut.distance = distance;
   vendorOut.estimatedTime = estimatedTime;
-  // Ensure rating key is always present for client integration.
-  vendorOut.rating = vendorOut.rating ?? null;
+  // Ensure customer-side always gets normalized vendor ratings.
+  normalizeVendorRating(vendorOut);
 
   return sendSuccess(res, { vendor: vendorOut, products });
 });

@@ -65,6 +65,7 @@ const UserSchema = new mongoose.Schema(
     totalSpent: { type: Number, default: 0 },
     points: { type: Number, default: 0 },
     pointsHistory: [PointsHistorySchema],
+    wishlistVendorIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' }],
     notificationPrefs: {
       type: NotificationPrefsSchema,
       default: () => ({ push: true, email: true, orderUpdates: true, promotions: false }),

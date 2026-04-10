@@ -92,9 +92,22 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...discoveryFilterParams,
       ...discoveryPaginationParams,
     ],
+    'GET /api/v1/app/vendors/recommended': [
+      query(
+        'category',
+        { type: 'string', enum: ['all', 'food', 'grocery', 'pharmacy', 'fashion', 'retail'], example: 'food' },
+        false,
+        'Optional category filter. Use `all` (or omit) for no filter.'
+      ),
+      query('customerLat', { type: 'number', example: 30.6798 }, false, 'Optional customer latitude (WGS84)'),
+      query('customerLng', { type: 'number', example: 76.7297 }, false, 'Optional customer longitude (WGS84)'),
+    ],
     'GET /api/v1/app/vendors/:id': [
       query('customerLat', { type: 'number', example: 30.6798 }, false, 'Optional customer latitude (WGS84) for distance/ETA'),
       query('customerLng', { type: 'number', example: 76.7297 }, false, 'Optional customer longitude (WGS84) for distance/ETA'),
+    ],
+    'GET /api/v1/app/vendors/:id/ratings': [
+      ...paginationParams,
     ],
     'GET /api/v1/app/orders': [
       query(
@@ -256,6 +269,29 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
         },
       },
     },
+    'GET /api/v1/app/vendors/recommended': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  vendors: { type: 'array', items: { type: 'object' } },
+                  total: { type: 'integer', example: 4 },
+                  page: { type: 'integer', example: 1 },
+                  pages: { type: 'integer', example: 1 },
+                },
+              },
+            },
+          },
+          example: { success: true, data: { vendors: [vendorItem], total: 4, page: 1, pages: 1 } },
+        },
+      },
+    },
     'GET /api/v1/app/vendors/:id': {
       description: 'Success',
       content: {
@@ -274,6 +310,55 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
             },
           },
           example: { success: true, data: { vendor: vendorItem, products: [productItem] } },
+        },
+      },
+    },
+    'GET /api/v1/app/vendors/:id/ratings': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  ratings: { type: 'array', items: { type: 'object' } },
+                  averageRating: { type: 'number', example: 4.6 },
+                  totalRatings: { type: 'integer', example: 12 },
+                  total: { type: 'integer', example: 12 },
+                  page: { type: 'integer', example: 1 },
+                  limit: { type: 'integer', example: 20 },
+                  totalPages: { type: 'integer', example: 1 },
+                  hasNext: { type: 'boolean', example: false },
+                  hasPrev: { type: 'boolean', example: false },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              ratings: [
+                {
+                  _id: '507f1f77bcf86cd799439211',
+                  rating: 5,
+                  comment: 'Great service',
+                  customerId: { _id: '507f1f77bcf86cd799439012', name: 'John Doe', phone: '+49123456789' },
+                  orderId: { _id: '507f1f77bcf86cd799439099', orderNumber: 'ORD-20260101-ABC123' },
+                },
+              ],
+              averageRating: 4.6,
+              totalRatings: 12,
+              total: 12,
+              page: 1,
+              limit: 20,
+              totalPages: 1,
+              hasNext: false,
+              hasPrev: false,
+            },
+          },
         },
       },
     },
@@ -337,6 +422,44 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
               taxPercent: 5,
               taxAmount: 1.299,
               grandTotal: 29.279,
+            },
+          },
+        },
+      },
+    },
+    'GET /api/v1/app/customer/wishlist': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  vendors: { type: 'array', items: { type: 'object' } },
+                  total: { type: 'integer', example: 2 },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              vendors: [
+                {
+                  _id: '507f1f77bcf86cd799439012',
+                  name: 'Pizza House',
+                  slug: 'pizza-house',
+                  logo: '/uploads/logo.png',
+                  rating: 4.6,
+                  averageRating: 4.6,
+                  totalRatings: 21,
+                  isOpen: true,
+                },
+              ],
+              total: 1,
             },
           },
         },
@@ -1103,6 +1226,14 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
     'PATCH /api/v1/admin/users/:id/status': userStatus,
     'PUT /api/v1/app/customer/profile': customerProfileUpdate,
     'PUT /api/v1/app/customer/fcm-token': customerFcmToken,
+    'PUT /api/v1/app/customer/wishlist': json({
+      type: 'object',
+      required: ['vendorId', 'action'],
+      properties: {
+        vendorId: { type: 'string', example: '507f1f77bcf86cd799439012' },
+        action: { type: 'string', enum: ['like', 'dislike'], example: 'like' },
+      },
+    }),
     'POST /api/v1/app/customer/addresses': addAddressBody,
     'PUT /api/v1/app/customer/addresses/:id': updateAddressBody,
     'POST /api/v1/admin/categories': categoryCreateUpdate,
@@ -1446,6 +1577,15 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       properties: {
         rating: { type: 'number', minimum: 1, maximum: 5, example: 5 },
         comment: { type: 'string', example: 'Great food!' },
+      },
+    }),
+    'POST /api/v1/app/vendors/:id/ratings': json({
+      type: 'object',
+      required: ['orderId', 'rating'],
+      properties: {
+        orderId: { type: 'string', example: '507f1f77bcf86cd799439099' },
+        rating: { type: 'integer', minimum: 1, maximum: 5, example: 5 },
+        comment: { type: 'string', example: 'Excellent quality and on-time delivery' },
       },
     }),
     'PATCH /api/v1/app/orders/:id/cancel': json({
