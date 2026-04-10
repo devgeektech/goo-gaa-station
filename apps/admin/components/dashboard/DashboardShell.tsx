@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import type { LucideProps } from 'lucide-react';
-import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent } from 'lucide-react';
+import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent, RotateCcw } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 import type { Locale } from '@/lib/i18n/translations';
 
@@ -17,6 +17,7 @@ const NAV_KEYS = [
   { href: '/customers', key: 'customers' as const, icon: UserPlus },
   { href: '/drivers', key: 'drivers' as const, icon: Users },
   { href: '/vendors', key: 'vendors' as const, icon: Store },
+  { href: '/refunds', key: 'refunds' as const, icon: RotateCcw },
   { href: '/categories', key: 'categories' as const, icon: LayoutGrid },
   { href: '/fees', key: 'fees' as const, icon: Percent },
 ];
