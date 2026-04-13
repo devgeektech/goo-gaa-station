@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { User } from '../../models/User';
 import { Order } from '../../models/Order';
+import { Vendor } from '../../models/Vendor';
 import { AppError } from '../../utils/AppError';
 import { MESSAGES } from '../../constants/messages';
 import { sendSuccess } from '../../utils/response';
@@ -16,7 +17,7 @@ import {
 import { invalidateAllRefreshTokensForUser } from '../../services/auth.service';
 
 const uploadUserImage = getUploadMiddleware('users', MAX_FILE_SIZE_2MB);
-const MAX_ADDRESSES = 5;
+const COORD_PRECISION = 6;
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
@@ -175,6 +176,19 @@ function addressesSuccessPayload(userAddresses: Record<string, unknown>[] | unde
   return { addresses };
 }
 
+function normalizeAddressText(v: unknown): string {
+  return String(v ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeAddressCoord(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Number(n.toFixed(COORD_PRECISION));
+}
+
 /** If nothing is preferred after a delete, mark the first remaining row (persisted as isDefault). */
 function ensureAtLeastOnePreferredAddress(user: { addresses?: Array<{ isDefault?: boolean }> }): void {
   const addrs = user.addresses ?? [];
@@ -191,7 +205,7 @@ export const getAddresses = asyncHandler(async (req: Request, res: Response) => 
   return sendSuccess(res, addressesSuccessPayload(user.addresses));
 });
 
-/** POST /addresses — Add address (max 5) */
+/** POST /addresses — Add address */
 export const addAddress = asyncHandler(async (req: Request, res: Response) => {
   const id = req.user?._id;
   if (!id) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
@@ -200,13 +214,6 @@ export const addAddress = asyncHandler(async (req: Request, res: Response) => {
   if (!user) throw new AppError({ en: MESSAGES.USER.en.notFound, de: MESSAGES.USER.de.notFound }, 404);
 
   const addresses = user.addresses || [];
-  if (addresses.length >= MAX_ADDRESSES) {
-    throw new AppError(
-      { en: 'Maximum 5 addresses allowed', de: 'Maximal 5 Adressen erlaubt' },
-      400,
-      'MAX_ADDRESSES'
-    );
-  }
 
   const isFirstAddress = addresses.length === 0;
   const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng } = req.body ?? {};
@@ -224,6 +231,10 @@ export const addAddress = asyncHandler(async (req: Request, res: Response) => {
       : saveAddressType === 'other'
         ? 'other'
         : 'home';
+  const uniqueSingleType = addrType === 'home' || addrType === 'work';
+  const existingTypeIndex = uniqueSingleType
+    ? addresses.findIndex((a) => a?.saveAddressType === addrType)
+    : -1;
   const newAddr = {
     addressLine1: String(addressLine1).trim(),
     addressLine2: addressLine2 != null && String(addressLine2).trim() !== '' ? String(addressLine2).trim() : null,
@@ -235,6 +246,64 @@ export const addAddress = asyncHandler(async (req: Request, res: Response) => {
     lng: lng != null ? Number(lng) : null,
     isDefault: isFirstAddress,
   };
+
+  // Validation: prevent duplicate saved addresses for the same customer.
+  const incomingLine1 = normalizeAddressText(newAddr.addressLine1);
+  const incomingCity = normalizeAddressText(newAddr.city);
+  const incomingCountry = normalizeAddressText(newAddr.country);
+  const incomingLat = normalizeAddressCoord(newAddr.lat);
+  const incomingLng = normalizeAddressCoord(newAddr.lng);
+  const duplicateExists = addresses.some(
+    (
+      a: { addressLine1?: string; street?: string; city?: string; country?: string; lat?: number | null; lng?: number | null },
+      idx: number
+    ) => {
+      if (idx === existingTypeIndex) return false;
+      const line1 = normalizeAddressText(a.addressLine1 ?? a.street ?? '');
+      const cityVal = normalizeAddressText(a.city);
+      const countryVal = normalizeAddressText(a.country);
+      const latVal = normalizeAddressCoord(a.lat);
+      const lngVal = normalizeAddressCoord(a.lng);
+
+      const sameText = line1 === incomingLine1 && cityVal === incomingCity && countryVal === incomingCountry;
+      const bothHaveCoords = incomingLat != null && incomingLng != null && latVal != null && lngVal != null;
+      const sameCoords = bothHaveCoords ? latVal === incomingLat && lngVal === incomingLng : true;
+      return sameText && sameCoords;
+    }
+  );
+  if (duplicateExists) {
+    throw new AppError(
+      { en: 'Address already exists', de: 'Adresse existiert bereits' },
+      409,
+      'ADDRESS_ALREADY_EXISTS'
+    );
+  }
+
+  if (existingTypeIndex >= 0) {
+    const existing = addresses[existingTypeIndex] as {
+      addressLine1: string;
+      addressLine2?: string | null;
+      landmark?: string | null;
+      saveAddressType: string;
+      city: string;
+      country: string;
+      lat?: number | null;
+      lng?: number | null;
+      isDefault?: boolean;
+    };
+    const keepPreferred = Boolean(existing.isDefault);
+    existing.addressLine1 = newAddr.addressLine1;
+    existing.addressLine2 = newAddr.addressLine2;
+    existing.landmark = newAddr.landmark;
+    existing.saveAddressType = newAddr.saveAddressType;
+    existing.city = newAddr.city;
+    existing.country = newAddr.country;
+    existing.lat = newAddr.lat;
+    existing.lng = newAddr.lng;
+    existing.isDefault = keepPreferred;
+    await user.save();
+    return sendSuccess(res, addressesSuccessPayload(user.addresses as unknown as Record<string, unknown>[]));
+  }
 
   if (newAddr.isDefault && user.addresses?.length) {
     for (let i = 0; i < user.addresses.length; i++) {
@@ -314,6 +383,26 @@ export const updateAddressById = asyncHandler(async (req: Request, res: Response
   }
 
   const { addressLine1, addressLine2, landmark, saveAddressType, city, country, lat, lng, preferred } = req.body ?? {};
+  const targetType =
+    saveAddressType === undefined
+      ? (addr as { saveAddressType?: string }).saveAddressType
+      : saveAddressType === 'work'
+        ? 'work'
+        : saveAddressType === 'other'
+          ? 'other'
+          : 'home';
+  const enforceSingleType = targetType === 'home' || targetType === 'work';
+  const duplicateTypeExists = enforceSingleType && (user.addresses ?? []).some(
+    (a: { _id?: mongoose.Types.ObjectId; saveAddressType?: string }) =>
+      String(a._id) !== addrId && a.saveAddressType === targetType
+  );
+  if (duplicateTypeExists) {
+    throw new AppError(
+      { en: 'Address type already exists. Only one address per type is allowed', de: 'Adress-Typ existiert bereits' },
+      409,
+      'ADDRESS_TYPE_EXISTS'
+    );
+  }
   const preferredExplicitTrue = preferred === true;
   let fieldsTouched = false;
   if (addressLine1 !== undefined) {
@@ -329,7 +418,7 @@ export const updateAddressById = asyncHandler(async (req: Request, res: Response
     fieldsTouched = true;
   }
   if (saveAddressType !== undefined) {
-    (addr as { saveAddressType: string }).saveAddressType = saveAddressType === 'work' ? 'work' : saveAddressType === 'other' ? 'other' : 'home';
+    (addr as { saveAddressType: string }).saveAddressType = targetType ?? 'home';
     fieldsTouched = true;
   }
   if (city !== undefined) {
@@ -523,4 +612,78 @@ export const deleteAccount = asyncHandler(async (req: Request, res: Response) =>
     success: true,
     message: 'Account scheduled for deletion',
   });
+});
+
+/** PUT /wishlist — Like/Dislike vendor for current customer */
+export const updateWishlist = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?._id;
+  const { vendorId, action } = req.body ?? {};
+  if (!userId) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
+  if (!vendorId || !mongoose.Types.ObjectId.isValid(String(vendorId))) {
+    throw new AppError({ en: 'Valid vendorId is required', de: 'Gültige vendorId erforderlich' }, 400, 'VALIDATION_ERROR');
+  }
+  if (action !== 'like' && action !== 'dislike') {
+    throw new AppError({ en: 'action must be like or dislike', de: 'action muss like oder dislike sein' }, 400, 'VALIDATION_ERROR');
+  }
+
+  const vendorObjectId = new mongoose.Types.ObjectId(String(vendorId));
+  const vendor = await (Vendor as any).findOne({ _id: vendorObjectId, status: { $ne: 'deleted' } }).select('_id').lean();
+  if (!vendor) {
+    throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+  }
+
+  const update =
+    action === 'like'
+      ? { $addToSet: { wishlistVendorIds: vendorObjectId } }
+      : { $pull: { wishlistVendorIds: vendorObjectId } };
+  const user = await (User as any).findByIdAndUpdate(userId, update, { new: true }).select('wishlistVendorIds').lean();
+  const wishlistVendorIds = Array.isArray(user?.wishlistVendorIds)
+    ? user.wishlistVendorIds.map((id: any) => String(id))
+    : [];
+
+  return sendSuccess(res, {
+    success: true,
+    action,
+    wishlistVendorIds,
+  });
+});
+
+/** GET /wishlist — Customer wishlist vendor list */
+export const getWishlist = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?._id;
+  if (!userId) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
+
+  const user = await (User as any).findById(userId).select('wishlistVendorIds').lean();
+  const vendorIds: mongoose.Types.ObjectId[] = Array.isArray(user?.wishlistVendorIds)
+    ? user.wishlistVendorIds
+    : [];
+
+  if (!vendorIds.length) {
+    return sendSuccess(res, { vendors: [], total: 0 });
+  }
+
+  const vendors = await (Vendor as any).find({
+    _id: { $in: vendorIds },
+    status: { $ne: 'deleted' },
+  })
+    .select('name slug logo coverImage rating averageRating totalRatings deliveryTime isOpen')
+    .lean();
+
+  const vendorById = new Map(vendors.map((v: any) => [String(v._id), v]));
+  const ordered = vendorIds
+    .map((id) => vendorById.get(String(id)))
+    .filter(Boolean)
+    .map((v: any) => {
+      const avg = Number(v?.averageRating);
+      const legacy = Number(v?.rating);
+      const rating = Number.isFinite(avg) ? avg : (Number.isFinite(legacy) ? legacy : 0);
+      return {
+        ...v,
+        rating,
+        averageRating: rating,
+        totalRatings: Number.isFinite(Number(v?.totalRatings)) ? Number(v.totalRatings) : 0,
+      };
+    });
+
+  return sendSuccess(res, { vendors: ordered, total: ordered.length });
 });

@@ -2293,8 +2293,16 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/v1/app/vendors/{{vendorId}}",
-            "description": "Returns { data: { vendor, products } }. Vendor has categoryIds populated; products have category (name) populated. 404 if not found or not active."
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/vendors/{{vendorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "vendors", "{{vendorId}}"],
+              "query": [
+                { "key": "customerLat", "value": "30.6798", "disabled": true, "description": "Optional customer latitude (WGS84) for distance/ETA" },
+                { "key": "customerLng", "value": "76.7297", "disabled": true, "description": "Optional customer longitude (WGS84) for distance/ETA" }
+              ]
+            },
+            "description": "Returns { data: { vendor, products } }. Vendor includes `distanceKm`, `estimatedTime`, `rating` when customer coordinates are available (query or logged-in customer preferred address). 404 if not found or not active."
           }
         }
       ]

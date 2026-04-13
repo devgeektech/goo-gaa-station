@@ -65,6 +65,9 @@ const VendorSchema = new mongoose.Schema(
     },
     /** Optional fallback delivery estimate (minutes) when real-time estimation is unavailable. */
     deliveryTime: { type: Number, default: null, min: 1, max: 1000 },
+    /** Aggregated vendor rating from Rating model. */
+    averageRating: { type: Number, default: 0, min: 0, max: 5 },
+    totalRatings: { type: Number, default: 0, min: 0 },
     /** Global manual availability toggle (independent of schedule). */
     globalToggle: { type: Boolean, default: true },
     /** Effective open/closed flag used by app/vendor flows (manual override). */
