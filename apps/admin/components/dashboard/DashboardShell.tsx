@@ -85,6 +85,19 @@ export function DashboardShell({ children }: PropsWithChildren) {
 
   useEffect(() => setMounted(true), []);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sidebarOpen]);
+
   const isActive = (href: string) => {
     const pathBase = href.split('?')[0];
     return pathname === href || pathname === pathBase || pathname.startsWith(pathBase + '/');
@@ -179,7 +192,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
               disabled={loggingOut}
             >
               <LogOut size={20} aria-hidden />
-              <span>{loggingOut ? t.auth.loggingOut : t.auth.logout}</span>
+              <span className="mainHeaderLogoutText">{loggingOut ? t.auth.loggingOut : t.auth.logout}</span>
             </button>
           </div>
         </header>
