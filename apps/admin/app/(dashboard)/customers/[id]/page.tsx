@@ -151,7 +151,7 @@ export default function CustomerDetailPage() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
+                  <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
                     <span className="muted">Page {customerOrders.pagination.page} / {customerOrders.pagination.totalPages}</span>
                     <div className="row">
                       <button className="btn" disabled={!customerOrders.pagination.hasPrev || ordersLoading} onClick={() => fetchOrders(customerOrders.pagination.page - 1)}>Prev</button>

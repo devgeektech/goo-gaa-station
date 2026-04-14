@@ -122,7 +122,7 @@ export default function OrdersPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Orders</h1>
           <div className="muted" style={{ marginTop: 4 }}>Manage orders, status, drivers, cancellations.</div>
@@ -139,7 +139,7 @@ export default function OrdersPage() {
 
       <div className="card">
         <div className="cardBody">
-          <div className="toolbar">
+          <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
               <div className="label">Search (order number)</div>
               <input
@@ -157,13 +157,12 @@ export default function OrdersPage() {
               </button>
               {statusDropdownOpen ? (
                 <div
-                  className="card"
+                  className="card adminOrdersStatusPopover"
                   style={{
                     position: 'absolute',
                     top: 66,
                     left: 0,
                     zIndex: 50,
-                    width: 260,
                     padding: 10,
                     boxShadow: 'var(--shadow)',
                   }}
@@ -328,7 +327,7 @@ export default function OrdersPage() {
           )}
 
           {items.length > 0 ? (
-          <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
+          <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">
               Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
             </div>

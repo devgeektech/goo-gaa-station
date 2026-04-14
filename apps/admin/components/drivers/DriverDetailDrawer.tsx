@@ -251,7 +251,7 @@ export function DriverDetailDrawer({
                           </tbody>
                         </table>
                       </div>
-                      <div className="row paginationBar" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
+                      <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
                         <span className="muted">Page {ordersPagination.page} / {ordersPagination.totalPages}</span>
                         <div className="row">
                           <button className="btn" disabled={!ordersPagination.hasPrev || ordersLoading} onClick={() => onFetchOrders(ordersPagination.page - 1)}>Prev</button>

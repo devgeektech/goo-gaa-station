@@ -93,6 +93,7 @@ function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string
           <div className="muted">No products</div>
         ) : (
           <>
+            <div className="adminVendorProductsScroll">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -142,6 +143,7 @@ function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string
                 ))}
               </tbody>
             </table>
+            </div>
             {allData.hasNext && (
               <button
                 type="button"

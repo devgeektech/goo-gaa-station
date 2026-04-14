@@ -120,7 +120,7 @@ export default function RefundsPage(): JSX.Element {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Refunds</h1>
           <div className="muted" style={{ marginTop: 4 }}>List of refunded orders with filters and refund recording.</div>
@@ -132,7 +132,7 @@ export default function RefundsPage(): JSX.Element {
 
       <div className="card">
         <div className="cardBody">
-          <div className="toolbar">
+          <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
               <div className="label">Search (WifiPay ref)</div>
               <input
@@ -167,8 +167,8 @@ export default function RefundsPage(): JSX.Element {
         </div>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
-        <div className="card">
+      <div className="adminRefundsGrid">
+        <div className="card adminRefundsListCard">
           <div className="cardBody">
             <h3 style={{ marginTop: 0 }}>Refund list</h3>
             {loading && items.length === 0 ? (
@@ -212,7 +212,7 @@ export default function RefundsPage(): JSX.Element {
                     </tbody>
                   </table>
                 </div>
-                <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+                <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12 }}>
                   <div className="muted">Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}</div>
                   <div className="row">
                     <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void load(pagination.page - 1)}>Prev</button>
@@ -224,7 +224,7 @@ export default function RefundsPage(): JSX.Element {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card adminRefundsRecordCard">
           <div className="cardBody">
             <h3 style={{ marginTop: 0 }}>Record refund</h3>
             <div className="field">

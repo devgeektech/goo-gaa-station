@@ -134,7 +134,7 @@ export default function OrderDetailPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+      <div className="row" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <Link href="/orders" className="btn" aria-label="Back to orders">
           <ArrowLeft size={18} aria-hidden />
         </Link>
@@ -286,7 +286,7 @@ export default function OrderDetailPage() {
           {/* Status timeline */}
           <div className="card">
             <div className="cardBody">
-              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontWeight: 800 }}>Status timeline</div>
                 <button type="button" className="btn" onClick={() => { setLoading(true); void dispatch(fetchOrderById(id)).finally(() => setLoading(false)); }}>
                   <RefreshCcw size={16} /> Refresh
@@ -296,7 +296,7 @@ export default function OrderDetailPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {statusHistory.length === 0 ? <div className="muted">No history.</div> : null}
                 {statusHistory.map((s, idx) => (
-                  <div key={`${s.timestamp}-${idx}`} style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12 }}>
+                  <div key={`${s.timestamp}-${idx}`} className="adminStatusTimelineRow">
                     <div className="muted">{formatDateTime(s.timestamp)}</div>
                     <div>
                       <span className="badge" style={{ background: 'var(--bg)' }}>{s.status}</span>
@@ -331,7 +331,7 @@ export default function OrderDetailPage() {
                   </div>
                   <div>
                     <div className="muted" style={{ marginBottom: 8 }}>Assign driver</div>
-                    <div className="row" style={{ gap: 8 }}>
+                    <div className="adminDriverSearchRow">
                       <input className="input" value={driverQuery} onChange={(e) => setDriverQuery(e.target.value)} placeholder="Search drivers" />
                       <button type="button" className="btn" onClick={() => void runDriverSearch(driverQuery)} disabled={driverLoading} aria-label="Search"><Search size={16} /></button>
                     </div>

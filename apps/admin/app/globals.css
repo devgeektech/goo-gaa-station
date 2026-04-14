@@ -795,3 +795,192 @@ tbody tr:hover td {
     padding: 16px;
   }
 }
+
+/* ==================================================================
+   Responsive helpers (additive). All rules below are new; nothing
+   above was removed or replaced. Opt-in via admin* classes in markup.
+   ================================================================== */
+
+/* Refunds page: list + record form — minmax(0) lets columns shrink in grid */
+.adminRefundsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+}
+
+.adminRefundsGrid > .adminRefundsListCard,
+.adminRefundsGrid > .adminRefundsRecordCard {
+  min-width: 0;
+}
+
+.adminRefundsGrid .tableWrap {
+  max-width: 100%;
+}
+
+/* Stack list + form earlier (tablets / narrow laptops) */
+@media (max-width: 1100px) {
+  .adminRefundsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Refund list table: slightly tighter cells on small screens */
+@media (max-width: 640px) {
+  .adminRefundsListCard .tableWrap th,
+  .adminRefundsListCard .tableWrap td {
+    padding: 10px 10px;
+    font-size: 13px;
+  }
+}
+
+/* Record refund card: fields and primary action use full width */
+@media (max-width: 640px) {
+  .adminRefundsRecordCard .field {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .adminRefundsRecordCard .btn.btnPrimary {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .adminRefundsRecordCard .field input,
+  .adminRefundsRecordCard .field select,
+  .adminRefundsRecordCard .field textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* Page title row + actions (add adminPageHeader next to .row) */
+@media (max-width: 640px) {
+  .adminPageHeader {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .adminPageHeader > *:not(:first-child) {
+    width: 100%;
+  }
+
+  .adminPageHeader > .row .btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .adminPageHeader > .btn {
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+/* Toolbars: add class adminToolbarResponsive alongside .toolbar */
+@media (max-width: 640px) {
+  .adminToolbarResponsive {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .adminToolbarResponsive > .field {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* Orders: status multi-select dropdown panel (add class on the popover .card) */
+.adminOrdersStatusPopover {
+  width: min(260px, calc(100vw - 48px));
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .adminOrdersStatusPopover {
+    width: 100% !important;
+    left: 0 !important;
+    right: auto;
+  }
+}
+
+/* Pagination footer (add adminPaginationRow next to .row) */
+@media (max-width: 480px) {
+  .adminPaginationRow {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .adminPaginationRow > .row {
+    justify-content: center;
+  }
+}
+
+/* Categories: extra-narrow phones */
+@media (max-width: 480px) {
+  .categoriesGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Order detail: timeline rows */
+.adminStatusTimelineRow {
+  display: grid;
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 520px) {
+  .adminStatusTimelineRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Order detail: driver search input + button */
+.adminDriverSearchRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+
+.adminDriverSearchRow .input {
+  flex: 1;
+  min-width: min(200px, 100%);
+}
+
+/* Vendor detail: products table horizontal scroll */
+.adminVendorProductsScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.adminVendorProductsScroll table {
+  min-width: 520px;
+}
+
+/* Optional: narrow header — hide redundant logout label (button keeps aria-label) */
+@media (max-width: 420px) {
+  .mainHeaderLogoutText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
