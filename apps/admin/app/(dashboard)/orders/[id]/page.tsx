@@ -131,6 +131,13 @@ export default function OrderDetailPage() {
 
   const itemsSubtotal = (order?.items ?? []).reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
   const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  const grossAmount = Number(order?.grossAmount ?? order?.total ?? 0);
+  const platformCommission = Number(order?.platformCommission ?? 0);
+  const wifipayFee = Number(order?.wifipayFee ?? 0);
+  const driverShare = Number(order?.driverShare ?? order?.deliveryFee ?? 0);
+  const vendorShare = Number(
+    order?.vendorShare ?? Math.max(0, grossAmount - platformCommission - wifipayFee - driverShare)
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -209,6 +216,36 @@ export default function OrderDetailPage() {
                 <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>{formatMoney(order.total)}</div>
                 <div className="muted" style={{ fontSize: 12 }}>Method: {order.paymentMethod ?? '—'}</div>
                 <div className="muted" style={{ fontSize: 12 }}>WifiPay ref: {order.wifipayRef ?? '—'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Finance & ledger */}
+          <div className="card">
+            <div className="cardBody">
+              <div style={{ fontWeight: 800 }}>Finance & Ledger</div>
+              <div className="divider" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Gross amount</span>
+                  <span>{formatMoney(grossAmount)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Platform commission</span>
+                  <span>{formatMoney(platformCommission)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">WaafiPay fee</span>
+                  <span>{formatMoney(wifipayFee)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Driver share</span>
+                  <span>{formatMoney(driverShare)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
+                  <span>Vendor share</span>
+                  <span>{formatMoney(vendorShare)}</span>
+                </div>
               </div>
             </div>
           </div>

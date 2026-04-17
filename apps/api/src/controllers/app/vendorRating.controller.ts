@@ -87,7 +87,7 @@ export const addVendorRating = asyncHandler(async (req: Request, res: Response) 
     rating: created,
     averageRating: summary.averageRating,
     totalRatings: summary.totalRatings,
-  }, 201);
+  }, 200);
 });
 
 /** GET /api/v1/app/vendors/:id/ratings — list vendor ratings with summary */

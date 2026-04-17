@@ -9,6 +9,7 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { transitionOrderStatus } from '../../services/orderStatus.service';
+import { enrichOrderFinancials } from '../../services/orderFinancials.service';
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
@@ -44,8 +45,8 @@ export const listOrders = asyncHandler(async (req: Request, res: Response) => {
     Order.find(filter).populate('customerId', 'name phone email').populate('driverId', 'name phone').populate('vendorId', 'name slug').lean().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     Order.countDocuments(filter),
   ]);
-
-  return sendSuccess(res, orders, 200, toPaginated(orders, total, page, limit));
+  const ordersWithFinancials = orders.map((order) => enrichOrderFinancials(order));
+  return sendSuccess(res, ordersWithFinancials, 200, toPaginated(ordersWithFinancials, total, page, limit));
 });
 
 /** GET /:id */
@@ -56,7 +57,7 @@ export const getOrder = asyncHandler(async (req: Request, res: Response) => {
   }
   const order = await Order.findById(id).populate('customerId').populate('driverId').populate('vendorId', 'name slug logo').lean();
   if (!order) throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
-  return sendSuccess(res, order);
+  return sendSuccess(res, enrichOrderFinancials(order));
 });
 
 /** PATCH /:id/status — Manual status push; appends history, sends FCM to customer, emits socket */

@@ -123,7 +123,7 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
-  return sendSuccess(res, productObj, 201);
+  return sendSuccess(res, productObj, 200);
 });
 
 /** PATCH /api/v1/vendor/products/:id — multipart; all fields optional; replace image if uploaded */
