@@ -67,6 +67,14 @@ export const getProduct = asyncHandler(async (req: Request, res: Response) => {
   if (!product) {
     throw new AppError({ en: 'Product not found', de: 'Produkt nicht gefunden' }, 404, 'NOT_FOUND');
   }
+  if (product.category && typeof product.category === 'string') {
+    const category = await Category.findById(product.category)
+      .select('name slug')
+      .lean();
+
+    product.category = category || null;
+  }
+
   return sendSuccess(res, product);
 });
 
