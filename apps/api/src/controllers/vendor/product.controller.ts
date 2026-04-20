@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Product } from '../../models/Product';
 import { Category } from '../../models/Category';
+import { Vendor } from '../../models/Vendor';
 import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -15,6 +16,9 @@ import {
 import type { Server as SocketIOServer } from 'socket.io';
 
 const uploadProductImage = getUploadMiddleware('products', MAX_FILE_SIZE_2MB);
+const ProductModel = Product as any;
+const CategoryModel = Category as any;
+const VendorModel = Vendor as any;
 
 type ReqVendor = { _id: mongoose.Types.ObjectId; name?: string; categoryIds?: mongoose.Types.ObjectId[] };
 
@@ -26,6 +30,32 @@ function getVendor(req: Request): ReqVendor {
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+}
+
+/**
+ * Keep Vendor.categoryIds aligned with current non-deleted products.
+ * This is best-effort so existing product APIs keep working even if sync fails.
+ */
+async function syncVendorCategoryIds(vendorId: mongoose.Types.ObjectId): Promise<void> {
+  try {
+    const distinctCategoryIds = await ProductModel.distinct('category', {
+      vendor: vendorId,
+      isDeleted: false,
+    });
+    const normalizedCategoryIds = distinctCategoryIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(String(id)))
+      .map((id) => new mongoose.Types.ObjectId(String(id)));
+    await VendorModel.updateOne(
+      { _id: vendorId },
+      { $set: { categoryIds: normalizedCategoryIds } },
+      { runValidators: false }
+    );
+  } catch (err) {
+    console.warn('Failed to sync vendor categoryIds', {
+      vendorId: String(vendorId),
+      error: (err as Error)?.message ?? err,
+    });
+  }
 }
 
 /** GET /api/v1/vendor/products — list with ?category, ?isAvailable, pagination */
@@ -43,8 +73,8 @@ export const listProducts = asyncHandler(async (req: Request, res: Response) => 
   }
 
   const [products, total] = await Promise.all([
-    Product.find(filter).populate('category', 'name slug').sort({ sortOrder: 1, name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
-    Product.countDocuments(filter),
+    ProductModel.find(filter).populate('category', 'name slug').sort({ sortOrder: 1, name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
+    ProductModel.countDocuments(filter),
   ]);
   const totalPages = Math.ceil(total / limit) || 1;
   return sendSuccess(res, products, 200, {
@@ -61,14 +91,14 @@ export const listProducts = asyncHandler(async (req: Request, res: Response) => 
 export const getProduct = asyncHandler(async (req: Request, res: Response) => {
   const vendor = getVendor(req);
   const id = req.params.id;
-  const product = await Product.findOne({ _id: id, vendor: vendor._id, isDeleted: false })
+  const product = await ProductModel.findOne({ _id: id, vendor: vendor._id, isDeleted: false })
     .populate('category', 'name slug icon')
     .lean();
   if (!product) {
     throw new AppError({ en: 'Product not found', de: 'Produkt nicht gefunden' }, 404, 'NOT_FOUND');
   }
   if (product.category && typeof product.category === 'string') {
-    const category = await Category.findById(product.category)
+    const category = await CategoryModel.findById(product.category)
       .select('name slug')
       .lean();
 
@@ -98,7 +128,7 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
 
   const catId = new mongoose.Types.ObjectId(categoryId);
 
-  const categoryDoc = await Category.findById(catId).select('name').lean();
+  const categoryDoc = await CategoryModel.findById(catId).select('name').lean();
   if (!categoryDoc) throw new AppError({ en: 'Category not found', de: 'Kategorie nicht gefunden' }, 400, 'VALIDATION_ERROR');
 
   const payload: Record<string, unknown> = {
@@ -115,8 +145,9 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
   if (file?.filename) payload.image = getFileUrl(file.filename, 'products');
   else payload.image = null;
 
-  const product = await Product.create(payload);
+  const product = await ProductModel.create(payload);
   const productObj = product.toObject();
+  await syncVendorCategoryIds(vendor._id);
 
   const io = getIo(req);
   if (io) {
@@ -145,7 +176,7 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
 
   const vendor = getVendor(req);
   const id = req.params.id;
-  const product = await Product.findOne({ _id: id, vendor: vendor._id, isDeleted: false });
+  const product = await ProductModel.findOne({ _id: id, vendor: vendor._id, isDeleted: false });
   if (!product) {
     throw new AppError({ en: 'Product not found', de: 'Produkt nicht gefunden' }, 404, 'NOT_FOUND');
   }
@@ -163,7 +194,7 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
       throw new AppError({ en: 'Invalid category id', de: 'Ungültige Kategorie-ID' }, 400, 'VALIDATION_ERROR');
     }
     const catId = new mongoose.Types.ObjectId(rawCategoryId);
-    const categoryDoc = await Category.findById(catId).select('_id').lean();
+    const categoryDoc = await CategoryModel.findById(catId).select('_id').lean();
     if (!categoryDoc) throw new AppError({ en: 'Category not found', de: 'Kategorie nicht gefunden' }, 400, 'VALIDATION_ERROR');
     product.category = catId;
   }
@@ -177,6 +208,7 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
   }
 
   await product.save();
+  await syncVendorCategoryIds(vendor._id);
   return sendSuccess(res, product.toObject());
 });
 
@@ -184,7 +216,7 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
 export const toggleProduct = asyncHandler(async (req: Request, res: Response) => {
   const vendor = getVendor(req);
   const id = req.params.id;
-  const product = await Product.findOne({ _id: id, vendor: vendor._id, isDeleted: false });
+  const product = await ProductModel.findOne({ _id: id, vendor: vendor._id, isDeleted: false });
   if (!product) {
     throw new AppError({ en: 'Product not found', de: 'Produkt nicht gefunden' }, 404, 'NOT_FOUND');
   }
@@ -205,16 +237,17 @@ export const toggleProduct = asyncHandler(async (req: Request, res: Response) =>
   return sendSuccess(res, product.toObject());
 });
 
-/** DELETE /api/v1/vendor/products/:id — soft delete; emit product:deleted; 204 */
+/** DELETE /api/v1/vendor/products/:id — soft delete; emit product:deleted; returns success payload */
 export const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
   const vendor = getVendor(req);
   const id = req.params.id;
-  const product = await Product.findOne({ _id: id, vendor: vendor._id, isDeleted: false });
+  const product = await ProductModel.findOne({ _id: id, vendor: vendor._id, isDeleted: false });
   if (!product) {
     throw new AppError({ en: 'Product not found', de: 'Produkt nicht gefunden' }, 404, 'NOT_FOUND');
   }
   product.isDeleted = true;
   await product.save();
+  await syncVendorCategoryIds(vendor._id);
 
   const io = getIo(req);
   if (io) {
@@ -226,5 +259,5 @@ export const deleteProduct = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
-  return res.status(204).send();
+  return sendSuccess(res, { message: 'Product deleted successfully' }, 200);
 });

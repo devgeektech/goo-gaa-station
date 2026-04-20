@@ -179,7 +179,7 @@ export const ROUTES = [
   { method: 'DELETE', path: '/api/v1/admin/categories/:id', auth: true, description: 'Soft-delete category (admin); 409 if in use by vendors' },
   { method: 'GET', path: '/api/v1/app/categories', auth: false, description: 'List categories (app); query: type (food|grocery|pharmacy|fashion|retail)' },
   { method: 'GET', path: '/api/v1/app/categories/:slug/vendors', auth: false, description: 'List vendors in category by slug (app); query: sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit' },
-  { method: 'GET', path: '/api/v1/app/vendors', auth: false, description: 'List vendors (app); query: search, category, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit; optional customerLat+customerLng for ETA/distance from Google Distance Matrix' },
+  { method: 'GET', path: '/api/v1/app/vendors', auth: false, description: 'List vendors (app); query: search, category (ObjectId), type (food|grocery|pharmacy|fashion|retail), sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit; optional customerLat+customerLng for ETA/distance from Google Distance Matrix' },
   { method: 'GET', path: '/api/v1/app/vendors/recommended', auth: false, description: 'Recommended vendors (app): higher-rated first; query category=all|food|grocery|pharmacy|fashion|retail or category ObjectId; if no rated vendors, fallback to 3-4 active available vendors' },
   { method: 'GET', path: '/api/v1/app/vendors/:id', auth: false, description: 'Get vendor by id with products (app)' },
   { method: 'GET', path: '/api/v1/app/vendors/:id/ratings', auth: false, description: 'Get vendor ratings list with averageRating and totalRatings' },

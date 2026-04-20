@@ -2322,7 +2322,7 @@
     },
     {
       "name": "App – Vendors",
-      "description": "Public vendor listing for app. No auth required. Set vendorId for Get vendor. Query: search, category, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit (default 10). Optional customerLat+customerLng for estimatedTime and distance via Google Distance Matrix.",
+      "description": "Public vendor listing for app. No auth required. Set vendorId for Get vendor. Query: search, category, type, sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit (default 10). Optional customerLat+customerLng for estimatedTime and distance via Google Distance Matrix.",
       "item": [
         {
           "name": "List vendors",
@@ -2338,6 +2338,7 @@
                 { "key": "limit", "value": "10", "description": "Items per page (default 10)" },
                 { "key": "search", "value": "pizza", "disabled": true, "description": "Search vendor name (case-insensitive)" },
                 { "key": "category", "value": "{{categoryId}}", "disabled": true, "description": "Category ObjectId to filter" },
+                { "key": "type", "value": "food", "disabled": true, "description": "Category type filter: food | grocery | pharmacy | fashion | retail" },
                 { "key": "sort", "value": "recommended", "disabled": true, "description": "recommended | rating | deliveryTime" },
                 { "key": "minRating", "value": "4", "disabled": true, "description": "Minimum rating (1-5)" },
                 { "key": "maxDeliveryTime", "value": "45", "disabled": true, "description": "Max delivery time (minutes)" },
@@ -2348,6 +2349,24 @@
               ]
             },
             "description": "Returns { data: { vendors, total, page, pages } }. Categories populated with _id, name, slug, icon. Pass customerLat+customerLng (enable in Postman) for estimatedTime and distance when GOOGLE_DISTANCE_MATRIX_API_KEY is set."
+          }
+        },
+        {
+          "name": "Recommended vendors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/vendors/recommended",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "vendors", "recommended"],
+              "query": [
+                { "key": "category", "value": "food", "disabled": true, "description": "all | food | grocery | pharmacy | fashion | retail OR category ObjectId" },
+                { "key": "customerLat", "value": "30.6798", "disabled": true, "description": "Optional customer latitude (WGS84)" },
+                { "key": "customerLng", "value": "76.7297", "disabled": true, "description": "Optional customer longitude (WGS84)" }
+              ]
+            },
+            "description": "Returns top recommended vendors by rating. Falls back to active/open vendors when rated vendors are unavailable."
           }
         },
         {

@@ -86,6 +86,12 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
     'GET /api/v1/app/vendors': [
       query('search', { type: 'string', example: 'pizza' }, false, 'Search vendor name (case-insensitive)'),
       query('category', { type: 'string', example: '507f1f77bcf86cd799439011' }, false, 'Category ObjectId to filter vendors'),
+      query(
+        'type',
+        { type: 'string', enum: ['food', 'grocery', 'pharmacy', 'fashion', 'retail'], example: 'food' },
+        false,
+        'Category type filter (can be combined with category ObjectId)'
+      ),
       query('sort', { type: 'string', enum: ['recommended', 'rating', 'deliveryTime'], default: 'recommended', example: 'recommended' }, false, 'Sort: recommended, rating, deliveryTime'),
       query('customerLat', { type: 'number', example: 30.6798 }, false, 'Customer latitude (WGS84); with customerLng enables ETA/distance without auth'),
       query('customerLng', { type: 'number', example: 76.7297 }, false, 'Customer longitude (WGS84)'),

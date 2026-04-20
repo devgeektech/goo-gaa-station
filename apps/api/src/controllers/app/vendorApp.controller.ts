@@ -85,12 +85,29 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit } = parsePagination(req.query, 10);
   const search = String(req.query.search || '').trim();
   const categoryId = req.query.category as string | undefined;
+  const typeQ = String(req.query.type || '').trim().toLowerCase();
   const sortQ = String(req.query.sort || 'recommended').trim();
 
   const filter: Record<string, unknown> = { status: 'active', isOpen: true };
-  if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
-    filter.categoryIds = new mongoose.Types.ObjectId(categoryId);
+  const andClauses: Record<string, unknown>[] = [];
+  if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) andClauses.push({ categoryIds: new mongoose.Types.ObjectId(categoryId) });
+  if (typeQ) {
+    const supportedTypes = ['food', 'grocery', 'pharmacy', 'fashion', 'retail'];
+    if (!supportedTypes.includes(typeQ)) {
+      throw new AppError(
+        { en: 'Invalid type. Use food, grocery, pharmacy, fashion, or retail', de: 'Ungueltiger Typ' },
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+    const matchedCategories = await (Category as any)
+      .find({ type: typeQ, isActive: true, isDeleted: false })
+      .select('_id')
+      .lean();
+    const categoryIds = (matchedCategories as Array<{ _id: mongoose.Types.ObjectId }>).map((c) => c._id);
+    andClauses.push({ categoryIds: { $in: categoryIds } });
   }
+  if (andClauses.length > 0) (filter as Record<string, unknown>).$and = andClauses;
   if (search) {
     (filter as Record<string, unknown>).name = { $regex: search, $options: 'i' };
   }
