@@ -37,6 +37,11 @@ export type OrderListItem = {
   subtotal?: number;
   deliveryFee?: number;
   discount?: number;
+  grossAmount?: number;
+  platformCommission?: number;
+  wifipayFee?: number;
+  vendorShare?: number;
+  driverShare?: number;
   cancellationReason?: string | null;
   cancelledBy?: string | null;
   actualDeliveryAt?: string | null;

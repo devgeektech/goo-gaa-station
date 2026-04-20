@@ -131,10 +131,17 @@ export default function OrderDetailPage() {
 
   const itemsSubtotal = (order?.items ?? []).reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
   const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  const grossAmount = Number(order?.grossAmount ?? order?.total ?? 0);
+  const platformCommission = Number(order?.platformCommission ?? 0);
+  const wifipayFee = Number(order?.wifipayFee ?? 0);
+  const driverShare = Number(order?.driverShare ?? order?.deliveryFee ?? 0);
+  const vendorShare = Number(
+    order?.vendorShare ?? Math.max(0, grossAmount - platformCommission - wifipayFee - driverShare)
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+      <div className="row" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <Link href="/orders" className="btn" aria-label="Back to orders">
           <ArrowLeft size={18} aria-hidden />
         </Link>
@@ -213,6 +220,36 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
+          {/* Finance & ledger */}
+          <div className="card">
+            <div className="cardBody">
+              <div style={{ fontWeight: 800 }}>Finance & Ledger</div>
+              <div className="divider" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Gross amount</span>
+                  <span>{formatMoney(grossAmount)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Platform commission</span>
+                  <span>{formatMoney(platformCommission)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">WaafiPay fee</span>
+                  <span>{formatMoney(wifipayFee)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Driver share</span>
+                  <span>{formatMoney(driverShare)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
+                  <span>Vendor share</span>
+                  <span>{formatMoney(vendorShare)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Items */}
           <div className="card">
             <div className="cardBody">
@@ -286,7 +323,7 @@ export default function OrderDetailPage() {
           {/* Status timeline */}
           <div className="card">
             <div className="cardBody">
-              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontWeight: 800 }}>Status timeline</div>
                 <button type="button" className="btn" onClick={() => { setLoading(true); void dispatch(fetchOrderById(id)).finally(() => setLoading(false)); }}>
                   <RefreshCcw size={16} /> Refresh
@@ -296,7 +333,7 @@ export default function OrderDetailPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {statusHistory.length === 0 ? <div className="muted">No history.</div> : null}
                 {statusHistory.map((s, idx) => (
-                  <div key={`${s.timestamp}-${idx}`} style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12 }}>
+                  <div key={`${s.timestamp}-${idx}`} className="adminStatusTimelineRow">
                     <div className="muted">{formatDateTime(s.timestamp)}</div>
                     <div>
                       <span className="badge" style={{ background: 'var(--bg)' }}>{s.status}</span>
@@ -331,7 +368,7 @@ export default function OrderDetailPage() {
                   </div>
                   <div>
                     <div className="muted" style={{ marginBottom: 8 }}>Assign driver</div>
-                    <div className="row" style={{ gap: 8 }}>
+                    <div className="adminDriverSearchRow">
                       <input className="input" value={driverQuery} onChange={(e) => setDriverQuery(e.target.value)} placeholder="Search drivers" />
                       <button type="button" className="btn" onClick={() => void runDriverSearch(driverQuery)} disabled={driverLoading} aria-label="Search"><Search size={16} /></button>
                     </div>

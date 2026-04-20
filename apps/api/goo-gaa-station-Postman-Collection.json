@@ -559,6 +559,37 @@
           }
         },
         {
+          "name": "Get order chat history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/chat?page=1&limit=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "driver", "orders", "{{orderId}}", "chat"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "30" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send order chat message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{driverAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"I am near your location.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/driver/orders/{{orderId}}/chat"
+          }
+        },
+        {
           "name": "Accept order (POST)",
           "request": {
             "method": "POST",
@@ -1728,6 +1759,37 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
             "url": "{{baseUrl}}/api/v1/app/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Get order chat history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/app/orders/{{orderId}}/chat?page=1&limit=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "app", "orders", "{{orderId}}", "chat"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "30" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send order chat message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Please call when you arrive.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/app/orders/{{orderId}}/chat"
           }
         },
         {

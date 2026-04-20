@@ -10,6 +10,7 @@ import { env } from './config/env';
 import { Driver } from './models/Driver';
 import { startVendorResponseTimeoutWorker } from './workers/vendorResponseTimeout.worker';
 import { registerVendorSocket } from './sockets/vendorSocket';
+import { registerChatHandlers } from './sockets/chatHandler';
 
 const server = http.createServer(app);
 
@@ -109,6 +110,10 @@ io.on('connection', (socket) => {
       // ignore
     }
   });
+
+  // ── PHASE 14: Chat handler ──────────────────────────────────────────
+  registerChatHandlers(io, socket);
+  // ── END PHASE 14 ────────────────────────────────────────────────────
 });
 
 const wifipayMode = env.WIFIPAY_API_URL && env.WIFIPAY_API_KEY ? 'enabled' : 'disabled';

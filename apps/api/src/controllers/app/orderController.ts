@@ -9,6 +9,7 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
+import { computeOrderFinancials } from '../../services/orderFinancials.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const ACTIVE_STATUSES = ['pending', 'placed', 'accepted', 'confirmed', 'preparing', 'picked_up', 'on_the_way'] as const;
@@ -107,6 +108,12 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   const deliveryFee = (v.deliveryFee != null ? Number(v.deliveryFee) : 0) || 0;
   const discount = 0;
   const totalAmount = subtotal + deliveryFee - discount;
+  const financials = computeOrderFinancials({
+    subtotal,
+    deliveryFee,
+    discount,
+    total: totalAmount,
+  });
 
   const minimumOrder = v.minimumOrder != null ? Number(v.minimumOrder) : 0;
   if (minimumOrder > 0 && totalAmount < minimumOrder) {
@@ -127,6 +134,11 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     deliveryFee,
     discount,
     total: totalAmount,
+    grossAmount: financials.grossAmount,
+    platformCommission: financials.platformCommission,
+    wifipayFee: financials.wifipayFee,
+    vendorShare: financials.vendorShare,
+    driverShare: financials.driverShare,
     status: 'pending',
     statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
     paymentMethod: paymentMethod === 'online' || paymentMethod === 'cash' || paymentMethod === 'wallet' ? 'wifipay' : 'wifipay',

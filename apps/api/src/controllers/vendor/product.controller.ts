@@ -67,6 +67,14 @@ export const getProduct = asyncHandler(async (req: Request, res: Response) => {
   if (!product) {
     throw new AppError({ en: 'Product not found', de: 'Produkt nicht gefunden' }, 404, 'NOT_FOUND');
   }
+  if (product.category && typeof product.category === 'string') {
+    const category = await Category.findById(product.category)
+      .select('name slug')
+      .lean();
+
+    product.category = category || null;
+  }
+
   return sendSuccess(res, product);
 });
 
@@ -123,7 +131,7 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
-  return sendSuccess(res, productObj, 201);
+  return sendSuccess(res, productObj, 200);
 });
 
 /** PATCH /api/v1/vendor/products/:id — multipart; all fields optional; replace image if uploaded */

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import type { LucideProps } from 'lucide-react';
-import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent, RotateCcw } from 'lucide-react';
+import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent, RotateCcw, Wallet } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 import type { Locale } from '@/lib/i18n/translations';
 
@@ -20,6 +20,7 @@ const NAV_KEYS = [
   { href: '/refunds', key: 'refunds' as const, icon: RotateCcw },
   { href: '/categories', key: 'categories' as const, icon: LayoutGrid },
   { href: '/fees', key: 'fees' as const, icon: Percent },
+  { href: '/finance', key: 'finance' as const, icon: Wallet },
 ];
 
 import { apiClient } from '@/lib/api/client';
@@ -84,6 +85,19 @@ export function DashboardShell({ children }: PropsWithChildren) {
   const t = useTranslations(locale);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sidebarOpen]);
 
   const isActive = (href: string) => {
     const pathBase = href.split('?')[0];
@@ -179,7 +193,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
               disabled={loggingOut}
             >
               <LogOut size={20} aria-hidden />
-              <span>{loggingOut ? t.auth.loggingOut : t.auth.logout}</span>
+              <span className="mainHeaderLogoutText">{loggingOut ? t.auth.loggingOut : t.auth.logout}</span>
             </button>
           </div>
         </header>

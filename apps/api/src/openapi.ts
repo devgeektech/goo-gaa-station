@@ -118,6 +118,7 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ),
       ...paginationParams,
     ],
+    'GET /api/v1/app/orders/:id/chat': [...paginationParams],
     'GET /api/v1/admin/vendors/:id/products': [
       query('category', { type: 'string' }, false, 'Category ObjectId filter'),
       query('isAvailable', { type: 'string', enum: ['true', 'false'] }, false, 'Filter by stock'),
@@ -141,6 +142,7 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
     'GET /api/v1/driver/orders/new': [...paginationParams],
     'GET /api/v1/driver/orders/completed': [...paginationParams],
     'GET /api/v1/driver/orders/history': [...paginationParams],
+    'GET /api/v1/driver/orders/:id/chat': [...paginationParams],
     'GET /api/v1/driver/notifications': [
       ...paginationParams,
       query('unreadOnly', { type: 'string', enum: ['true', 'false'] }, false, 'If true, only unread notifications (read=false)'),
@@ -570,6 +572,70 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
               paymentMethod: 'wifipay',
               createdAt: '2026-03-27T10:12:00.000Z',
             },
+          },
+        },
+      },
+    },
+    'GET /api/v1/app/orders/:id/chat': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              messages: { type: 'array', items: { type: 'object' } },
+              pagination: {
+                type: 'object',
+                properties: {
+                  page: { type: 'integer', example: 1 },
+                  limit: { type: 'integer', example: 30 },
+                  total: { type: 'integer', example: 12 },
+                  totalPages: { type: 'integer', example: 1 },
+                },
+              },
+            },
+          },
+          example: {
+            messages: [
+              {
+                _id: '507f1f77bcf86cd799439055',
+                orderId: '507f1f77bcf86cd799439011',
+                senderId: '507f1f77bcf86cd799439012',
+                senderRole: 'customer',
+                message: 'Where are you?',
+                status: 'sent',
+                createdAt: '2026-04-13T08:20:00.000Z',
+              },
+            ],
+            pagination: { page: 1, limit: 30, total: 1, totalPages: 1 },
+          },
+        },
+      },
+    },
+    'GET /api/v1/driver/orders/:id/chat': {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              messages: { type: 'array', items: { type: 'object' } },
+              pagination: { type: 'object' },
+            },
+          },
+          example: {
+            messages: [
+              {
+                _id: '507f1f77bcf86cd799439056',
+                orderId: '507f1f77bcf86cd799439011',
+                senderId: '507f1f77bcf86cd799439013',
+                senderRole: 'driver',
+                message: 'I am arriving in 5 minutes',
+                status: 'delivered',
+                createdAt: '2026-04-13T08:21:00.000Z',
+              },
+            ],
+            pagination: { page: 1, limit: 30, total: 1, totalPages: 1 },
           },
         },
       },
@@ -1579,6 +1645,13 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
         comment: { type: 'string', example: 'Great food!' },
       },
     }),
+    'POST /api/v1/app/orders/:id/chat': json({
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string', maxLength: 1000, example: 'Please come to the front gate.' },
+      },
+    }),
     'POST /api/v1/app/vendors/:id/ratings': json({
       type: 'object',
       required: ['orderId', 'rating'],
@@ -1637,6 +1710,13 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
       type: 'object',
       required: ['otp'],
       properties: { otp: { type: 'string', example: '1234', description: '4-digit delivery OTP' } },
+    }),
+    'POST /api/v1/driver/orders/:id/chat': json({
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string', maxLength: 1000, example: 'I am near your location.' },
+      },
     }),
     'POST /api/v1/payment/initiate': json({
       type: 'object',

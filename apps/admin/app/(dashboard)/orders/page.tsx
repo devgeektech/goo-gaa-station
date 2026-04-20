@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, Download, RefreshCcw, Package } from 'lucide-react';
+import { Eye, Download, RefreshCcw, Package, ShieldAlert } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchOrders, setFilters, setStatusMulti } from '@/store/slices/ordersSlice';
+import { fetchOrders, setFilters, setStatusMulti, adminUpdateOrderStatus } from '@/store/slices/ordersSlice';
 import type { OrderStatus, PaymentStatus } from '@/lib/api/orders.api';
 import { paymentBadge, statusBadge } from '@/components/orders/orderBadges';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getOrders } from '@/lib/api/orders.api';
 import { useToast } from '@/components/ui/Toast';
+import { Modal } from '@/components/ui/Modal';
 
 const ALL_STATUSES: Array<{ value: OrderStatus; label: string }> = [
   { value: 'placed', label: 'Placed' },
@@ -41,6 +42,11 @@ export default function OrdersPage() {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideOrderId, setOverrideOrderId] = useState<string | null>(null);
+  const [overrideStatus, setOverrideStatus] = useState<OrderStatus>('confirmed');
+  const [overrideNote, setOverrideNote] = useState('');
+  const [overrideSaving, setOverrideSaving] = useState(false);
 
   useEffect(() => {
     void dispatch(fetchOrders({ page: 1, limit: 20 }));
@@ -120,9 +126,41 @@ export default function OrdersPage() {
     }
   }
 
+  function openOverride(orderId: string, currentStatus: OrderStatus) {
+    setOverrideOrderId(orderId);
+    setOverrideStatus(currentStatus);
+    setOverrideNote('');
+    setOverrideOpen(true);
+  }
+
+  async function submitOverride() {
+    if (!overrideOrderId) return;
+    setOverrideSaving(true);
+    const action = await dispatch(
+      adminUpdateOrderStatus({
+        id: overrideOrderId,
+        status: overrideStatus,
+        note: overrideNote.trim() || undefined,
+      })
+    );
+    setOverrideSaving(false);
+    if (adminUpdateOrderStatus.fulfilled.match(action)) {
+      toast.push({ title: 'Status override applied', description: overrideStatus, variant: 'success' });
+      setOverrideOpen(false);
+      setOverrideOrderId(null);
+      setOverrideNote('');
+    } else {
+      toast.push({
+        title: 'Override failed',
+        description: String(action.payload ?? action.error?.message ?? 'Unknown error'),
+        variant: 'danger',
+      });
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Orders</h1>
           <div className="muted" style={{ marginTop: 4 }}>Manage orders, status, drivers, cancellations.</div>
@@ -139,7 +177,7 @@ export default function OrdersPage() {
 
       <div className="card">
         <div className="cardBody">
-          <div className="toolbar">
+          <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
               <div className="label">Search (order number)</div>
               <input
@@ -157,13 +195,12 @@ export default function OrdersPage() {
               </button>
               {statusDropdownOpen ? (
                 <div
-                  className="card"
+                  className="card adminOrdersStatusPopover"
                   style={{
                     position: 'absolute',
                     top: 66,
                     left: 0,
                     zIndex: 50,
-                    width: 260,
                     padding: 10,
                     boxShadow: 'var(--shadow)',
                   }}
@@ -314,9 +351,20 @@ export default function OrdersPage() {
                         <td>{statusBadge(o.status)}</td>
                         <td className="muted">{formatDateTime(o.createdAt)}</td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <Link href={`/orders/${o._id}`} className="btn" aria-label="View order details">
-                            <Eye size={18} aria-hidden />
-                          </Link>
+                          <div className="row" style={{ gap: 6 }}>
+                            <Link href={`/orders/${o._id}`} className="btn" aria-label="View order details">
+                              <Eye size={18} aria-hidden />
+                            </Link>
+                            <button
+                              type="button"
+                              className="btn"
+                              aria-label="Status override"
+                              onClick={() => openOverride(o._id, o.status)}
+                              title="Status override (emergency)"
+                            >
+                              <ShieldAlert size={17} aria-hidden />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -328,7 +376,7 @@ export default function OrdersPage() {
           )}
 
           {items.length > 0 ? (
-          <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
+          <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">
               Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
             </div>
@@ -344,6 +392,57 @@ export default function OrdersPage() {
           ) : null}
         </div>
       </div>
+
+      <Modal
+        open={overrideOpen}
+        title="Status override (admin emergency fix)"
+        onClose={() => {
+          if (overrideSaving) return;
+          setOverrideOpen(false);
+          setOverrideOrderId(null);
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="muted" style={{ fontSize: 13 }}>
+            This will force the order status and add an admin override entry in status history.
+          </div>
+          <div className="field">
+            <div className="label">Override status</div>
+            <select className="select" value={overrideStatus} onChange={(e) => setOverrideStatus(e.target.value as OrderStatus)}>
+              {ALL_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <div className="label">Note (optional)</div>
+            <textarea
+              className="textarea"
+              placeholder="Explain why this override is needed"
+              value={overrideNote}
+              onChange={(e) => setOverrideNote(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button
+              className="btn"
+              onClick={() => {
+                setOverrideOpen(false);
+                setOverrideOrderId(null);
+              }}
+              disabled={overrideSaving}
+            >
+              Cancel
+            </button>
+            <button className="btn btnPrimary" onClick={() => void submitOverride()} disabled={overrideSaving || !overrideOrderId}>
+              {overrideSaving ? 'Applying…' : 'Apply override'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

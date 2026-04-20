@@ -169,7 +169,7 @@ export default function VendorsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Vendors</h1>
           <div className="muted" style={{ marginTop: 4 }}>Search, filter, and manage vendors.</div>
@@ -209,7 +209,7 @@ export default function VendorsPage() {
 
       <div className="card">
         <div className="cardBody">
-          <div className="toolbar">
+          <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
               <div className="label">Search (name, email, phone)</div>
               <input
@@ -315,7 +315,7 @@ export default function VendorsPage() {
             </div>
           )}
           {items.length > 0 ? (
-          <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
+          <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}</div>
             <div className="row">
               <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => load(pagination.page - 1)}>Prev</button>

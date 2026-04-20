@@ -128,7 +128,7 @@ export const fetchCustomerOrders = createAsyncThunk(
   async (args: { id: string; page?: number; limit?: number }, { rejectWithValue }) => {
     try {
       const res = await usersApi.getCustomerOrders(args.id, args.page, args.limit);
-      return { data: res.data, ...res };
+      return res;
     } catch (e) {
       return rejectWithValue(getErrorMessage(e));
     }

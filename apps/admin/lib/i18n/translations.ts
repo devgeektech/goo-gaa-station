@@ -11,6 +11,7 @@ export const translations = {
       refunds: 'Refunds',
       categories: 'Categories',
       fees: 'Fees & Tax',
+      finance: 'Finance',
     },
     common: {
       refresh: 'Refresh',
@@ -68,6 +69,7 @@ export const translations = {
       refunds: 'Lacag-celin',
       categories: 'Qaybaha',
       fees: 'Kharash & Canshuur',
+      finance: 'Maaliyad',
     },
     common: {
       refresh: 'Cusboonaysii',

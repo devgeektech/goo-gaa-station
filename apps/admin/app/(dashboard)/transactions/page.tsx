@@ -23,7 +23,7 @@ export default function TransactionsPage(): JSX.Element {
   return (
     <>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Transactions</h1>
           <div className="muted" style={{ marginTop: 4 }}>Payments, refunds and payout records.</div>
@@ -35,7 +35,7 @@ export default function TransactionsPage(): JSX.Element {
 
       <div className="card">
         <div className="cardBody">
-          <div className="toolbar">
+          <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
               <div className="label">Search (WifiPay ref)</div>
               <input className="input" value={filters.search} onChange={(e) => dispatch(setFilters({ search: e.target.value }))} placeholder="wifipayRef…" />
@@ -159,7 +159,7 @@ export default function TransactionsPage(): JSX.Element {
             </div>
           )}
           {items.length > 0 ? (
-          <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
+          <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">
               Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
             </div>

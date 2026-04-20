@@ -247,7 +247,7 @@ export default function DriversPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Drivers</h1>
           <div className="muted" style={{ marginTop: 4 }}>Pending approvals and all drivers.</div>
@@ -302,7 +302,7 @@ export default function DriversPage() {
                             )}
                           </div>
                         </div>
-                        <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 800 }}>{d.name}</div>
                           <div className="muted">{d.phone}</div>
                           {d.email ? <div className="muted">{d.email}</div> : null}
@@ -338,7 +338,7 @@ export default function DriversPage() {
                             </div>
                           ) : null}
                         </div>
-                        <div className="row" style={{ gap: 8 }}>
+                        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                           <button className="btn" onClick={() => openDetail(d._id)} aria-label="View"><Eye size={18} /></button>
                           {d.kycStatus === 'pending' ? (
                             <>
@@ -363,7 +363,7 @@ export default function DriversPage() {
         <>
           <div className="card">
             <div className="cardBody">
-              <div className="toolbar">
+              <div className="toolbar adminToolbarResponsive">
                 <div className="field" style={{ minWidth: 200 }}>
                   <div className="label">Search</div>
                   <input className="input" value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} placeholder="Name, phone, email" />
@@ -486,7 +486,7 @@ export default function DriversPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="row" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
+              <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
                 <div className="muted">Page {allPagination.page} / {allPagination.totalPages} • Total {allPagination.total}</div>
                 <div className="row">
                   <button className="btn" disabled={!allPagination.hasPrev || loadingAll} onClick={() => fetchAllPage(allPagination.page - 1)}>Prev</button>

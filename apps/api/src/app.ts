@@ -16,6 +16,10 @@ import { errorMiddleware } from './middlewares/error.middleware';
 import swaggerUi from 'swagger-ui-express';
 import routes from './routes';
 import { paymentCallback, wifipayWebhookHandler } from './controllers/payment.controller';
+import customerChatRouter from './routes/customer/chat';
+import driverChatRouter from './routes/driver/chat';
+import { authenticateJWT, requireRole } from './middlewares/auth.middleware';
+import { authDriver } from './middlewares/authDriver.middleware';
 
 const app = express();
 
@@ -168,6 +172,12 @@ if ((env.STORAGE_PROVIDER || 'local').toLowerCase() === 'local') {
 
 // --- API routes (health at /api/health, v1 at /api/v1) ---
 app.use('/api', routes);
+
+// ── PHASE 14: Driver <-> Customer Chat ─────────────────────────────
+const authApp = [authenticateJWT, requireRole('user')];
+app.use('/api/v1/app/orders/:orderId/chat', authApp, customerChatRouter);
+app.use('/api/v1/driver/orders/:orderId/chat', authDriver, driverChatRouter);
+// ── END PHASE 14 ────────────────────────────────────────────────────
 
 // --- Swagger UI: interactive API docs at /api-docs (for app team) ---
 app.use(
