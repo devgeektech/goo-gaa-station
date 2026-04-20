@@ -40,7 +40,7 @@ const COOKIE_OPTIONS = {
   secure: isProd,
   sameSite: cookieSameSite,
 };
-const ACCESS_MAX_AGE = 15 * 60 * 1000;       // 15 min
+const ACCESS_MAX_AGE = 24 * 60 * 60 * 1000;       // 24 hours
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 /** Temp OTP for development (WhatsApp not configured). Use this in app when NODE_ENV=development. */
 export const TEMP_OTP_DEV = '1234';

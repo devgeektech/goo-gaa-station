@@ -29,7 +29,7 @@ export const env = {
   MONGO_URI: process.env.MONGO_URI || '',
   JWT_SECRET: process.env.JWT_SECRET || '',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || '',
-  JWT_EXPIRY: process.env.JWT_EXPIRY || '15m',
+  JWT_EXPIRY: process.env.JWT_EXPIRY || '24h',
   JWT_REFRESH_EXPIRY: process.env.JWT_REFRESH_EXPIRY || '7d',
   STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || 'local',
   UPLOAD_DIR: process.env.UPLOAD_DIR || 'uploads',
