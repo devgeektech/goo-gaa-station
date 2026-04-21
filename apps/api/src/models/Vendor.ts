@@ -63,6 +63,8 @@ const VendorSchema = new mongoose.Schema(
       lng: { type: Number, default: null },
       addressLabel: { type: String, enum: ['home', 'work', 'other'], default: null },
     },
+    /** IANA timezone for evaluating recurring operatingHours (e.g. Asia/Kolkata). */
+    timezone: { type: String, default: 'Asia/Kolkata' },
     /** Optional fallback delivery estimate (minutes) when real-time estimation is unavailable. */
     deliveryTime: { type: Number, default: null, min: 1, max: 1000 },
     /** Aggregated vendor rating from Rating model. */

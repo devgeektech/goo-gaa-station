@@ -38,12 +38,48 @@ function toMinutes(hhmm: string): number | null {
   return hh * 60 + mm;
 }
 
+function resolveVendorTimezone(vendor: any): string {
+  const tz = String(vendor?.timezone || '').trim() || 'Asia/Kolkata';
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
+    return tz;
+  } catch {
+    return 'UTC';
+  }
+}
+
+function getVendorLocalNow(nowUtc: Date, timezone: string): { dayKey: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'; nowMin: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(nowUtc);
+  const weekday = parts.find((p) => p.type === 'weekday')?.value?.toLowerCase() ?? 'sun';
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  const map: Record<string, 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'> = {
+    mon: 'mon',
+    tue: 'tue',
+    wed: 'wed',
+    thu: 'thu',
+    fri: 'fri',
+    sat: 'sat',
+    sun: 'sun',
+  };
+  const dayKey = map[weekday.slice(0, 3)] ?? 'sun';
+  const nowMin = (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
+  return { dayKey, nowMin };
+}
+
 function isVendorAvailableNow(vendor: any, now: Date): boolean {
   // 1) Global availability
   if (vendor?.isOpen !== true) return false;
 
   // 2) Operating-hours toggle for today + 3) time window validation
-  const dayKey = getCurrentDayKey(now);
+  const timezone = resolveVendorTimezone(vendor);
+  const { dayKey, nowMin } = getVendorLocalNow(now, timezone);
   const todays = Array.isArray(vendor?.operatingHours)
     ? vendor.operatingHours.find((x: any) => x?.day === dayKey)
     : null;
@@ -52,7 +88,6 @@ function isVendorAvailableNow(vendor: any, now: Date): boolean {
   const fromMin = toMinutes(String(todays?.from ?? ''));
   const toMin = toMinutes(String(todays?.to ?? ''));
   if (fromMin == null || toMin == null) return false;
-  const nowMin = now.getHours() * 60 + now.getMinutes();
 
   // Supports same-day and overnight windows.
   if (fromMin <= toMin) return nowMin >= fromMin && nowMin <= toMin;
@@ -163,7 +198,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 
   let [vendors, total] = await Promise.all([
     Vendor.find(filter)
-      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours rating averageRating totalRatings')
+      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
       .populate('categoryIds', '_id name slug icon')
       .lean()
       .sort(sort)
@@ -280,7 +315,7 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
   }
 
   const baseQuery = Vendor.find(filter)
-    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours rating averageRating totalRatings')
+    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
     .populate('categoryIds', '_id name slug icon type')
     .lean();
 
