@@ -37,6 +37,10 @@ export const env = {
   AWS_REGION: process.env.AWS_REGION || '',
   AWS_ACCESS_KEY: process.env.AWS_ACCESS_KEY || '',
   AWS_SECRET_KEY: process.env.AWS_SECRET_KEY || '',
+  /** Optional: public base URL for uploaded objects (e.g. CloudFront). If unset, virtual-hosted S3 URL is used. */
+  AWS_S3_PUBLIC_BASE_URL: process.env.AWS_S3_PUBLIC_BASE_URL || '',
+  /** Optional: custom S3 endpoint (e.g. MinIO). When set, path-style addressing is used. */
+  AWS_S3_ENDPOINT: process.env.AWS_S3_ENDPOINT || '',
   WIFIPAY_API_URL: process.env.WIFIPAY_API_URL || '',
   WIFIPAY_API_KEY: process.env.WIFIPAY_API_KEY || '',
   WIFIPAY_WEBHOOK_SECRET: process.env.WIFIPAY_WEBHOOK_SECRET || '',

@@ -53,7 +53,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   const file = req.file as Express.Multer.File | undefined;
   if (file?.filename) {
     if (driver.profileImage) deleteLocalFile(driver.profileImage);
-    driver.profileImage = getFileUrl(file.filename, 'drivers');
+    driver.profileImage = getFileUrl(file, 'drivers');
   }
 
   await driver.save();

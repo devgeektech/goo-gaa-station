@@ -175,7 +175,7 @@ export const createCustomer = asyncHandler(async (req: Request, res: Response) =
 
   const file = req.file as Express.Multer.File | undefined;
   if (file?.filename) {
-    payload.profileImage = getFileUrl(file.filename, 'users');
+    payload.profileImage = getFileUrl(file, 'users');
   }
 
   const user = await User.create(payload);
@@ -251,7 +251,7 @@ export const updateCustomer = asyncHandler(async (req: Request, res: Response) =
   const file = req.file as Express.Multer.File | undefined;
   if (file?.filename) {
     if (user.profileImage) deleteLocalFile(user.profileImage);
-    user.profileImage = getFileUrl(file.filename, 'users');
+    user.profileImage = getFileUrl(file, 'users');
   }
 
   await user.save();

@@ -136,16 +136,16 @@ export const patchVendorProfile = asyncHandler(async (req: Request, res: Respons
     throw new AppError({ en: 'Logo file too large (max 2MB)', de: 'Logo zu groß (max 2MB)' }, 413, 'FILE_TOO_LARGE');
   }
 
-  if (logoFile?.filename) {
+  if (logoFile) {
     const prev = (vendor as any).logo;
     if (prev) deleteLocalFile(prev);
-    $set.logo = getFileUrl(logoFile.filename, 'vendors');
+    $set.logo = getFileUrl(logoFile, 'vendors');
   }
 
-  if (coverFile?.filename) {
+  if (coverFile) {
     const prev = (vendor as any).coverImage;
     if (prev) deleteLocalFile(prev);
-    $set.coverImage = getFileUrl(coverFile.filename, 'vendors');
+    $set.coverImage = getFileUrl(coverFile, 'vendors');
   }
 
   if (Object.keys($set).length > 0) {

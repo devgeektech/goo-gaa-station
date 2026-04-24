@@ -117,8 +117,8 @@ export const createVendor = asyncHandler(async (req: Request, res: Response) => 
       lng: body.address.lng != null ? Number(body.address.lng) : null,
     };
   }
-  if (logoFile?.filename) payload.logo = getFileUrl(logoFile.filename, 'vendors');
-  if (coverFile?.filename) payload.coverImage = getFileUrl(coverFile.filename, 'vendors');
+  if (logoFile) payload.logo = getFileUrl(logoFile, 'vendors');
+  if (coverFile) payload.coverImage = getFileUrl(coverFile, 'vendors');
 
   const vendor = await Vendor.create(payload);
   return sendSuccess(res, vendor.toObject(), 201);
@@ -169,11 +169,11 @@ export const updateVendor = asyncHandler(async (req: Request, res: Response) => 
   }
   if (logoFile?.filename) {
     if (vendor.logo) deleteLocalFile(vendor.logo);
-    vendor.logo = getFileUrl(logoFile.filename, 'vendors');
+    vendor.logo = getFileUrl(logoFile, 'vendors');
   }
   if (coverFile?.filename) {
     if (vendor.coverImage) deleteLocalFile(vendor.coverImage);
-    vendor.coverImage = getFileUrl(coverFile.filename, 'vendors');
+    vendor.coverImage = getFileUrl(coverFile, 'vendors');
   }
 
   await vendor.save();
@@ -354,7 +354,7 @@ export const createMenuItem = asyncHandler(async (req: Request, res: Response) =
     sortOrder: parseInt(String(body.sortOrder), 10) || 0,
   };
   const file = req.file as Express.Multer.File | undefined;
-  if (file?.filename) payload.image = getFileUrl(file.filename, 'menu-items');
+  if (file) payload.image = getFileUrl(file, 'menu-items');
 
   const item = await MenuItem.create(payload);
   return sendSuccess(res, item.toObject(), 201);
@@ -389,7 +389,7 @@ export const updateMenuItem = asyncHandler(async (req: Request, res: Response) =
   const file = req.file as Express.Multer.File | undefined;
   if (file?.filename) {
     if (item.image) deleteLocalFile(item.image);
-    item.image = getFileUrl(file.filename, 'menu-items');
+    item.image = getFileUrl(file, 'menu-items');
   }
 
   await item.save();

@@ -142,7 +142,7 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
     sortOrder: parseInt(String(body.sortOrder), 10) || 0,
   };
   const file = req.file as Express.Multer.File | undefined;
-  if (file?.filename) payload.image = getFileUrl(file.filename, 'products');
+  if (file) payload.image = getFileUrl(file, 'products');
   else payload.image = null;
 
   const product = await ProductModel.create(payload);
@@ -202,9 +202,9 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
   if (body.sortOrder !== undefined) product.sortOrder = parseInt(String(body.sortOrder), 10) || 0;
 
   const file = req.file as Express.Multer.File | undefined;
-  if (file?.filename) {
+  if (file) {
     if (product.image) deleteLocalFile(product.image);
-    product.image = getFileUrl(file.filename, 'products');
+    product.image = getFileUrl(file, 'products');
   }
 
   await product.save();
