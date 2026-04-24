@@ -192,20 +192,14 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  // If customer coords are provided, we need to filter/sort by distance BEFORE pagination,
-  // otherwise we can miss vendors that are within the radius but outside the paged slice.
-  const shouldApplyRadius = Boolean(customerCoords);
-
-  let [vendors, total] = await Promise.all([
-    Vendor.find(filter)
-      .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
-      .populate('categoryIds', '_id name slug icon')
-      .lean()
-      .sort(sort)
-      .skip(shouldApplyRadius ? 0 : (page - 1) * limit)
-      .limit(shouldApplyRadius ? 0 : limit),
-    Vendor.countDocuments(filter),
-  ]);
+  // We apply business-time availability filtering in-memory, so we must compute pagination
+  // after filtering to keep page sizes and total/pages metadata consistent.
+  let vendors = await Vendor.find(filter)
+    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
+    .populate('categoryIds', '_id name slug icon')
+    .lean()
+    .sort(sort);
+  let total = 0;
 
   // Availability checks for customer list:
   // - global isOpen === true
@@ -234,6 +228,10 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     const start = Math.max(0, (page - 1) * limit);
     const end = start + limit;
     vendors = within.slice(start, end).map((x) => x.v);
+  } else {
+    const start = Math.max(0, (page - 1) * limit);
+    const end = start + limit;
+    vendors = (vendors as any[]).slice(start, end);
   }
 
   if (customerCoords) {
