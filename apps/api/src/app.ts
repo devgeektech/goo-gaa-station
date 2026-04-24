@@ -112,7 +112,8 @@ const authLimiter = rateLimit({
     });
   },
 });
-app.use('/api/v1/auth', authLimiter);
+// Temporarily disabled: keep only OTP-specific rate limits active during testing.
+// app.use('/api/v1/auth', authLimiter);
 
 const customerOtpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
