@@ -162,7 +162,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     io.to(`customer:${customerId}`).emit('order:new', order.toObject?.() ?? order);
   }
 
-  return sendSuccess(res, { order: order.toObject?.() ?? order, paymentRequired: true }, 201);
+  return sendSuccess(res, { order: order.toObject?.() ?? order, paymentRequired: true }, 200);
 });
 
 /** GET / — Customer order history */

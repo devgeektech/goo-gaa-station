@@ -438,7 +438,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
       paymentMethod: order.paymentMethod,
       createdAt: order.createdAt,
     },
-    201
+    200
   );
 });
 

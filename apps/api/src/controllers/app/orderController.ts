@@ -181,7 +181,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
       totalAmount: order.total,
       deliveryOtp: order.deliveryOtp,
     },
-    201
+    200
   );
 });
 
