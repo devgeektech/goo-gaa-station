@@ -86,7 +86,7 @@ function getAuthRateLimitKey(body: unknown): string | null {
 // --- Rate limits ---
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   skip: (req) =>
     req.path === '/api/health' || req.path.startsWith('/api/v1/admin'),
 });
@@ -117,7 +117,7 @@ const authLimiter = rateLimit({
 
 const customerOtpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 50,
   keyGenerator: (req) => {
     const phone = req.body?.phone;
     return typeof phone === 'string' ? String(phone).trim().replace(/\s/g, '') : (req.ip ?? 'unknown');
@@ -139,7 +139,7 @@ app.use('/api/v1/auth/customer/resend-otp', customerOtpLimiter);
 
 const vendorOtpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 50,
   keyGenerator: (req) => {
     const phone = req.body?.phone;
     return typeof phone === 'string' ? String(phone).trim().replace(/\s/g, '') : (req.ip ?? 'unknown');
