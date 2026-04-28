@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useVendorPending } from '@/lib/context/VendorPendingContext';
+import { getErrorMessage } from '@/lib/api/client';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -91,7 +92,7 @@ export default function VendorsPage() {
         });
         if (typeof res.pendingCount === 'number') setPendingCount(res.pendingCount);
       })
-      .catch((e) => toast.push({ title: 'Failed to load vendors', description: e?.message ?? 'Error', variant: 'danger' }))
+      .catch((e) => toast.push({ title: 'Failed to load vendors', description: getErrorMessage(e), variant: 'danger' }))
       .finally(() => setLoading(false));
   };
 
@@ -110,7 +111,7 @@ export default function VendorsPage() {
       setAddOpen(false);
       load(1);
     } catch (e: unknown) {
-      toast.push({ title: 'Create failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Create failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setCreateLoading(false);
     }
@@ -126,7 +127,7 @@ export default function VendorsPage() {
       setEditOpen(false);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Update failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Update failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setUpdateLoading(false);
     }
@@ -142,7 +143,7 @@ export default function VendorsPage() {
       setActionVendorId(null);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Update failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Update failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setStatusLoading(false);
     }
@@ -159,7 +160,7 @@ export default function VendorsPage() {
       setEditOpen(false);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Delete failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Delete failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setDeleteLoading(false);
     }
