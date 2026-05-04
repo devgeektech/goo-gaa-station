@@ -397,6 +397,45 @@ function getDriverAcceptedAtFromHistory(statusHistory: Array<{ status?: string; 
   return Number.isNaN(at.getTime()) ? null : at;
 }
 
+/** `Number(null) === 0` breaks optional Mongoose numbers — treat only real stored values as present. */
+function optionalFiniteNonNegativeMinutes(v: unknown): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.round(n));
+}
+
+function optionalPositiveDistanceKm(v: unknown): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+/** Pickup coords: prefer order.pickupAddress when lat/lng are valid, else vendor address. */
+function resolvePickupLatLng(
+  orderPickup: { lat?: unknown; lng?: unknown } | null | undefined,
+  vendorAddress: { lat?: unknown; lng?: unknown } | null | undefined
+): { lat: number; lng: number } | null {
+  const pLat = orderPickup?.lat;
+  const pLng = orderPickup?.lng;
+  if (Number.isFinite(Number(pLat)) && Number.isFinite(Number(pLng))) {
+    return { lat: Number(pLat), lng: Number(pLng) };
+  }
+  const vLat = vendorAddress?.lat;
+  const vLng = vendorAddress?.lng;
+  if (Number.isFinite(Number(vLat)) && Number.isFinite(Number(vLng))) {
+    return { lat: Number(vLat), lng: Number(vLng) };
+  }
+  return null;
+}
+
+/** Rough driving ETA from great-circle km when DB / Google ETA is missing (~28 km/h blended urban). */
+function estimateMinutesFromDistanceKm(km: number): number {
+  const avgKmh = 28;
+  return Math.max(1, Math.ceil((km / avgKmh) * 60));
+}
+
 /** GET /active */
 export const getActiveOrder = asyncHandler(async (req: Request, res: Response) => {
   const driverId = req.driver?._id?.toString?.() ?? req.user?._id;
@@ -416,38 +455,38 @@ export const getActiveOrder = asyncHandler(async (req: Request, res: Response) =
     const vendorAddress = vendor?.address ?? null;
     const customer = order.customerId ?? null;
     const dropoff = order.deliveryAddress ?? null;
-    const pickupAddressObj = order.pickupAddress ?? vendorAddress ?? null;
+    const pickupCoords = resolvePickupLatLng(order.pickupAddress, vendorAddress);
 
     // Prioritize urgent states where fast driver action is expected.
     const isHighPriority = ['ready', 'on_the_way'].includes(String(order.status ?? ''));
 
-    const estimatedMinutesRaw = Number(order.estimatedDeliveryTime);
-    const pickingUpEtaMinutes =
-      ['preparing', 'ready'].includes(String(order.status ?? '')) && Number.isFinite(estimatedMinutesRaw)
-        ? Math.max(0, Math.round(estimatedMinutesRaw))
-        : null;
-
-    const estTime = Number.isFinite(estimatedMinutesRaw) ? Math.max(0, Math.round(estimatedMinutesRaw)) : null;
-
-    const pickupLat = Number(pickupAddressObj?.lat);
-    const pickupLng = Number(pickupAddressObj?.lng);
+    const storedEstMinutes = optionalFiniteNonNegativeMinutes(order.estimatedDeliveryTime);
     const dropoffLat = Number(dropoff?.lat);
     const dropoffLng = Number(dropoff?.lng);
-    const distanceFromDb = Number(order.deliveryDistance);
-    let distance: number | null =
-      Number.isFinite(distanceFromDb) && distanceFromDb >= 0 ? Math.round(distanceFromDb * 100) / 100 : null;
+
+    const distanceFromDb = optionalPositiveDistanceKm(order.deliveryDistance);
+    let distance: number | null = distanceFromDb;
     if (
       distance == null &&
-      Number.isFinite(pickupLat) &&
-      Number.isFinite(pickupLng) &&
+      pickupCoords &&
       Number.isFinite(dropoffLat) &&
       Number.isFinite(dropoffLng)
     ) {
-      distance = Math.round(haversineKm(pickupLat, pickupLng, dropoffLat, dropoffLng) * 100) / 100;
+      distance = Math.round(haversineKm(pickupCoords.lat, pickupCoords.lng, dropoffLat, dropoffLng) * 100) / 100;
     }
 
+    const estTimeFromDistance = distance != null && distance > 0 ? estimateMinutesFromDistanceKm(distance) : null;
+    const estTime = storedEstMinutes != null ? storedEstMinutes : estTimeFromDistance;
+
+    const pickingUpEtaMinutes =
+      ['preparing', 'ready'].includes(String(order.status ?? ''))
+        ? storedEstMinutes != null
+          ? storedEstMinutes
+          : estTimeFromDistance
+        : null;
+
     const subtotalNum = Number(order.subtotal);
-    const itemPrice = Number.isFinite(subtotalNum) ? subtotalNum : null;
+    const itemPrice = Number.isFinite(subtotalNum) ? Math.round(subtotalNum * 100) / 100 : null;
 
     return {
       orderId: order._id,
