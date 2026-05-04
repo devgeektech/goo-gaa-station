@@ -12,10 +12,13 @@ import { useToast } from '@/components/ui/Toast';
 import { useGetVendorProductsQuery } from '@/store/api';
 import type { VendorProductItem } from '@/store/api';
 
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
-  return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
 const DAY_LABELS: Record<string, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
@@ -492,7 +495,7 @@ export default function VendorDetailPage() {
         </div>
       )}
 
-      <ProductsCard vendorId={id} imgBase={IMG_BASE} />
+      <ProductsCard vendorId={id} imgBase={publicFileBase()} />
 
       {/* Reject modal */}
       {rejectModalOpen && (

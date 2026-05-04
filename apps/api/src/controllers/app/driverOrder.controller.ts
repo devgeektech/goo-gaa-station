@@ -416,6 +416,7 @@ export const getActiveOrder = asyncHandler(async (req: Request, res: Response) =
     const vendorAddress = vendor?.address ?? null;
     const customer = order.customerId ?? null;
     const dropoff = order.deliveryAddress ?? null;
+    const pickupAddressObj = order.pickupAddress ?? vendorAddress ?? null;
 
     // Prioritize urgent states where fast driver action is expected.
     const isHighPriority = ['ready', 'on_the_way'].includes(String(order.status ?? ''));
@@ -426,12 +427,37 @@ export const getActiveOrder = asyncHandler(async (req: Request, res: Response) =
         ? Math.max(0, Math.round(estimatedMinutesRaw))
         : null;
 
+    const estTime = Number.isFinite(estimatedMinutesRaw) ? Math.max(0, Math.round(estimatedMinutesRaw)) : null;
+
+    const pickupLat = Number(pickupAddressObj?.lat);
+    const pickupLng = Number(pickupAddressObj?.lng);
+    const dropoffLat = Number(dropoff?.lat);
+    const dropoffLng = Number(dropoff?.lng);
+    const distanceFromDb = Number(order.deliveryDistance);
+    let distance: number | null =
+      Number.isFinite(distanceFromDb) && distanceFromDb >= 0 ? Math.round(distanceFromDb * 100) / 100 : null;
+    if (
+      distance == null &&
+      Number.isFinite(pickupLat) &&
+      Number.isFinite(pickupLng) &&
+      Number.isFinite(dropoffLat) &&
+      Number.isFinite(dropoffLng)
+    ) {
+      distance = Math.round(haversineKm(pickupLat, pickupLng, dropoffLat, dropoffLng) * 100) / 100;
+    }
+
+    const subtotalNum = Number(order.subtotal);
+    const itemPrice = Number.isFinite(subtotalNum) ? subtotalNum : null;
+
     return {
       orderId: order._id,
       orderNumber: order.orderNumber,
       status: order.status,
       isHighPriority,
       estimatedPayout: typeof order.deliveryFee === 'number' ? order.deliveryFee : order.total,
+      itemPrice,
+      estTime,
+      distance,
       vendor: {
         name: vendor?.name ?? null,
         address: vendorAddress?.street ?? ([vendorAddress?.city, vendorAddress?.country].filter(Boolean).join(', ') || null),

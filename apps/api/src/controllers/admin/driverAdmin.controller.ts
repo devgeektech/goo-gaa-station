@@ -170,7 +170,7 @@ export const updateDriver = asyncHandler(async (req: Request, res: Response) => 
     if (arr?.[0]?.filename) {
       const old = driver[field];
       if (old) deleteLocalFile(old);
-      driver[field] = getFileUrl(arr[0].filename, 'drivers');
+      driver[field] = getFileUrl(arr[0], 'drivers');
     }
   }
 

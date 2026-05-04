@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useVendorPending } from '@/lib/context/VendorPendingContext';
+import { getErrorMessage } from '@/lib/api/client';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -42,10 +43,13 @@ function approvalStatusBadge(status: string | null | undefined): { label: string
   }
 }
 
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
-  return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
 export default function VendorsPage() {
@@ -88,7 +92,7 @@ export default function VendorsPage() {
         });
         if (typeof res.pendingCount === 'number') setPendingCount(res.pendingCount);
       })
-      .catch((e) => toast.push({ title: 'Failed to load vendors', description: e?.message ?? 'Error', variant: 'danger' }))
+      .catch((e) => toast.push({ title: 'Failed to load vendors', description: getErrorMessage(e), variant: 'danger' }))
       .finally(() => setLoading(false));
   };
 
@@ -107,7 +111,7 @@ export default function VendorsPage() {
       setAddOpen(false);
       load(1);
     } catch (e: unknown) {
-      toast.push({ title: 'Create failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Create failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setCreateLoading(false);
     }
@@ -123,7 +127,7 @@ export default function VendorsPage() {
       setEditOpen(false);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Update failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Update failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setUpdateLoading(false);
     }
@@ -139,7 +143,7 @@ export default function VendorsPage() {
       setActionVendorId(null);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Update failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Update failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setStatusLoading(false);
     }
@@ -156,7 +160,7 @@ export default function VendorsPage() {
       setEditOpen(false);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Delete failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: 'Delete failed', description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setDeleteLoading(false);
     }

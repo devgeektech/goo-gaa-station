@@ -3,22 +3,83 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, RefreshCcw, Receipt } from 'lucide-react';
+import { Eye, RefreshCcw, Receipt, Download } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTransactions, setFilters } from '@/store/slices/transactionsSlice';
 import { txnStatusBadge, txnTypeBadge } from '@/components/transactions/transactionBadges';
 import { formatDateTime, formatMoney, truncateId } from '@/lib/utils/format';
+import { toCsv, downloadCsv } from '@/lib/utils/csv';
+import { getTransactions } from '@/lib/api/transactions.api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { useToast } from '@/components/ui/Toast';
 
 export default function TransactionsPage(): JSX.Element {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const toast = useToast();
   const { items, pagination, filters, loading, error } = useAppSelector((s) => s.transactions);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void dispatch(fetchTransactions({ page: 1, limit: 20 }));
   }, [dispatch]);
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const limit = 100;
+      let page = 1;
+      const all: typeof items = [];
+      while (true) {
+        const res = await getTransactions({
+          page,
+          limit,
+          type: filters.type || '',
+          status: filters.status || '',
+          dateFrom: filters.dateFrom || '',
+          dateTo: filters.dateTo || '',
+          search: filters.search || '',
+        });
+        all.push(...(res.data ?? []));
+        if (!res.hasNext) break;
+        page += 1;
+      }
+      const rows = all.map((t) => {
+        const orderIdStr =
+          typeof t.orderId === 'string' ? t.orderId : t.orderId?._id != null ? String(t.orderId._id) : '';
+        const orderNumber = typeof t.orderId === 'string' ? '' : t.orderId?.orderNumber ?? '';
+        const customerIdStr =
+          typeof t.customerId === 'string' ? t.customerId : t.customerId?._id != null ? String(t.customerId._id) : '';
+        const customerPhone = typeof t.customerId === 'string' ? '' : t.customerId?.phone ?? '';
+        return {
+          transactionId: t._id,
+          orderId: orderIdStr,
+          orderNumber,
+          customerId: customerIdStr,
+          customerPhone,
+          amount: t.amount,
+          currency: t.currency,
+          type: t.type,
+          status: t.status,
+          wifipayRef: t.wifipayRef ?? '',
+          failureReason: t.failureReason ?? '',
+          createdAt: t.createdAt,
+        };
+      });
+      const csv = toCsv(rows as unknown as Record<string, unknown>[]);
+      downloadCsv(`transactions-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+      toast.push({ title: 'CSV exported', description: `${rows.length} row(s)`, variant: 'success' });
+    } catch (e) {
+      toast.push({
+        title: 'Export failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'danger',
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <>
@@ -28,9 +89,19 @@ export default function TransactionsPage(): JSX.Element {
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Transactions</h1>
           <div className="muted" style={{ marginTop: 4 }}>Payments, refunds and payout records.</div>
         </div>
-        <button className="btn" onClick={() => void dispatch(fetchTransactions(undefined))} disabled={loading} aria-label="Refresh transactions list">
-          <RefreshCcw size={18} aria-hidden /> Refresh
-        </button>
+        <div className="row">
+          <button className="btn" onClick={() => void dispatch(fetchTransactions(undefined))} disabled={loading} aria-label="Refresh transactions list">
+            <RefreshCcw size={18} aria-hidden /> Refresh
+          </button>
+          <button
+            className="btn btnPrimary"
+            onClick={() => void exportCsv()}
+            disabled={exporting || loading}
+            aria-label="Export transactions to CSV"
+          >
+            <Download size={18} aria-hidden /> {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+        </div>
       </div>
 
       <div className="card">

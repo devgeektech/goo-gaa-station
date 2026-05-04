@@ -23,6 +23,16 @@ function toForm(c: CustomerDetail | null): EditCustomerForm {
   };
 }
 
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
+
+function imgSrc(url: string | null | undefined) {
+  if (!url) return null;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
+}
+
 export function EditCustomerDrawer({
   open,
   customer,
@@ -111,8 +121,8 @@ export function EditCustomerDrawer({
             <div className="field">
               <label className="label">Profile image</label>
               <div className="row" style={{ alignItems: 'center', gap: 12 }}>
-                {imageUrl ? (
-                  <img src={imageUrl.startsWith('http') ? imageUrl : `${process.env.NEXT_PUBLIC_API_URL ?? ''}${imageUrl}`} alt="" style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover' }} />
+                {imgSrc(imageUrl) ? (
+                  <img src={imgSrc(imageUrl)!} alt="" style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No image</div>
                 )}

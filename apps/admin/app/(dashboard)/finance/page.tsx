@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Wallet, RefreshCcw } from 'lucide-react';
+import { Wallet, RefreshCcw, Download } from 'lucide-react';
 import { getOrders, type OrderListItem } from '@/lib/api/orders.api';
 import { formatMoney, formatDateTime } from '@/lib/utils/format';
+import { toCsv, downloadCsv } from '@/lib/utils/csv';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
@@ -36,6 +37,7 @@ export default function FinancePage() {
   const toast = useToast();
   const [items, setItems] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [pagination, setPagination] = useState<PaginationState>(initialPagination);
   const [filters, setFilters] = useState({
     search: '',
@@ -82,6 +84,72 @@ export default function FinancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function exportCsvLedger() {
+    setExporting(true);
+    try {
+      const limit = 100;
+      let page = 1;
+      const all: OrderListItem[] = [];
+      while (true) {
+        const res = await getOrders({
+          page,
+          limit,
+          search: filters.search || '',
+          dateFrom: filters.dateFrom || '',
+          dateTo: filters.dateTo || '',
+          vendorId: filters.vendorId || '',
+          status: filters.status || '',
+        });
+        all.push(...(res.data ?? []));
+        if (!res.hasNext) break;
+        page += 1;
+      }
+      const rows = all.map((order) => {
+        const grossAmount = toNumber(order.grossAmount, toNumber(order.total));
+        const platformCommission = toNumber(order.platformCommission);
+        const wifipayFee = toNumber(order.wifipayFee);
+        const driverShare = toNumber(order.driverShare, toNumber(order.deliveryFee));
+        const vendorShare = toNumber(
+          order.vendorShare,
+          Math.max(0, grossAmount - platformCommission - wifipayFee - driverShare)
+        );
+        const vendorIdStr = typeof order.vendorId === 'string' ? order.vendorId : order.vendorId?._id ?? '';
+        const vendorName = typeof order.vendorId === 'string' ? '' : order.vendorId?.name ?? '';
+        const customerIdStr =
+          typeof order.customerId === 'string' ? order.customerId : order.customerId?._id ?? '';
+        return {
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          paymentMethod: order.paymentMethod ?? '',
+          vendorId: vendorIdStr,
+          vendorName,
+          customerId: customerIdStr,
+          grossAmount,
+          platformCommission,
+          wifipayFee,
+          driverShare,
+          vendorShare,
+          orderTotal: toNumber(order.total),
+          deliveryFee: toNumber(order.deliveryFee),
+          createdAt: order.createdAt,
+        };
+      });
+      const csv = toCsv(rows as unknown as Record<string, unknown>[]);
+      downloadCsv(`finance-ledger-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+      toast.push({ title: 'CSV exported', description: `${rows.length} row(s)`, variant: 'success' });
+    } catch (e) {
+      toast.push({
+        title: 'Export failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'danger',
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const totals = useMemo(() => {
     return items.reduce(
       (acc, order) => {
@@ -108,9 +176,19 @@ export default function FinancePage() {
           <h1 className="pageTitle">Finance & Ledger</h1>
           <div className="pageSubtitle">Per-order breakdown: gross, commission, WaafiPay fee, vendor share, driver share.</div>
         </div>
-        <button className="btn" onClick={() => void load(pagination.page)} disabled={loading}>
-          <RefreshCcw size={18} aria-hidden /> Refresh
-        </button>
+        <div className="row">
+          <button className="btn" onClick={() => void load(pagination.page)} disabled={loading}>
+            <RefreshCcw size={18} aria-hidden /> Refresh
+          </button>
+          <button
+            className="btn btnPrimary"
+            onClick={() => void exportCsvLedger()}
+            disabled={exporting || loading}
+            aria-label="Export finance ledger to CSV"
+          >
+            <Download size={18} aria-hidden /> {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+        </div>
       </div>
 
       <div className="grid4">

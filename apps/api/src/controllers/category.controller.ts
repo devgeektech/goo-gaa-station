@@ -53,7 +53,7 @@ export const adminCreateCategory = asyncHandler(async (req: Request, res: Respon
     isDeleted: false,
   };
   const file = req.file as Express.Multer.File | undefined;
-  if (file?.filename) payload.icon = getFileUrl(file.filename, 'categories');
+  if (file) payload.icon = getFileUrl(file, 'categories');
 
   const category = await Category.create(payload);
   return sendSuccess(res, category.toObject(), 201);
@@ -81,9 +81,9 @@ export const adminUpdateCategory = asyncHandler(async (req: Request, res: Respon
   if (body.isActive !== undefined) category.isActive = Boolean(body.isActive);
 
   const file = req.file as Express.Multer.File | undefined;
-  if (file?.filename) {
+  if (file) {
     if (category.icon) deleteLocalFile(category.icon);
-    category.icon = getFileUrl(file.filename, 'categories');
+    category.icon = getFileUrl(file, 'categories');
   }
 
   await category.save();

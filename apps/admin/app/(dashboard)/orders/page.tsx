@@ -93,6 +93,9 @@ export default function OrdersPage() {
             dateFrom: filters.dateFrom || '',
             dateTo: filters.dateTo || '',
             search: filters.search || '',
+            vendorId: filters.vendorId || '',
+            customerId: filters.customerId || '',
+            driverId: filters.driverId || '',
           });
           all = all.concat(res.data);
           if (!res.hasNext) break;
@@ -102,20 +105,44 @@ export default function OrdersPage() {
 
       // de-dupe by _id
       const uniq = Array.from(new Map(all.map((o) => [o._id, o])).values());
-      const rows = uniq.map((o) => ({
-        orderId: o._id,
-        orderNumber: o.orderNumber,
-        customer: typeof o.customerId === 'string' ? o.customerId : o.customerId?._id ?? '',
-        customerPhone: typeof o.customerId === 'string' ? '' : o.customerId?.phone ?? '',
-        driver: o.driverId ? (typeof o.driverId === 'string' ? o.driverId : o.driverId._id) : '',
-        driverPhone: o.driverId && typeof o.driverId !== 'string' ? o.driverId.phone ?? '' : '',
-        itemsCount: o.items?.length ?? 0,
-        total: o.total,
-        paymentStatus: o.paymentStatus,
-        status: o.status,
-        createdAt: o.createdAt,
-        wifipayRef: o.wifipayRef ?? '',
-      }));
+      const num = (v: unknown, fb = 0) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fb;
+      };
+      const rows = uniq.map((o) => {
+        const gross = num(o.grossAmount, num(o.total));
+        const commission = num(o.platformCommission);
+        const wifipay = num(o.wifipayFee);
+        const driverShare = num(o.driverShare, num(o.deliveryFee));
+        const vendorShare = num(
+          o.vendorShare,
+          Math.max(0, gross - commission - wifipay - driverShare)
+        );
+        const vendorIdStr = typeof o.vendorId === 'string' ? o.vendorId : o.vendorId?._id ?? '';
+        const vendorName = typeof o.vendorId === 'string' ? '' : o.vendorId?.name ?? '';
+        return {
+          orderId: o._id,
+          orderNumber: o.orderNumber,
+          customer: typeof o.customerId === 'string' ? o.customerId : o.customerId?._id ?? '',
+          customerPhone: typeof o.customerId === 'string' ? '' : o.customerId?.phone ?? '',
+          driver: o.driverId ? (typeof o.driverId === 'string' ? o.driverId : o.driverId._id) : '',
+          driverPhone: o.driverId && typeof o.driverId !== 'string' ? o.driverId.phone ?? '' : '',
+          vendorId: vendorIdStr,
+          vendorName,
+          itemsCount: o.items?.length ?? 0,
+          total: o.total,
+          grossAmount: gross,
+          platformCommission: commission,
+          wifipayFee: wifipay,
+          driverShare,
+          vendorShare,
+          paymentMethod: o.paymentMethod ?? '',
+          paymentStatus: o.paymentStatus,
+          status: o.status,
+          createdAt: o.createdAt,
+          wifipayRef: o.wifipayRef ?? '',
+        };
+      });
       const csv = toCsv(rows);
       downloadCsv(`orders-${new Date().toISOString().slice(0, 10)}.csv`, csv);
       toast.push({ title: 'CSV exported', description: `${rows.length} order(s)`, variant: 'success' });

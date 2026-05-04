@@ -82,7 +82,7 @@ export const patchBusinessInfo = asyncHandler(async (req: Request, res: Response
   doc.onboardingStep = Math.max(currentStep, 2);
 
   const file = req.file as Express.Multer.File | undefined;
-  if (file?.filename) doc.logo = getFileUrl(file.filename, 'vendors');
+  if (file) doc.logo = getFileUrl(file, 'vendors');
   await doc.save();
 
   return sendSuccess(res, { message: 'Business info updated', onboardingStep: doc.onboardingStep });
@@ -142,12 +142,12 @@ export const postKycDocuments = asyncHandler(async (req: Request, res: Response)
     throw new AppError({ en: 'At least one identityDocument file is required', de: 'Mindestens ein Identitätsdokument erforderlich' }, 400, 'VALIDATION_ERROR');
   }
 
-  const identityUrls = identityDocuments.filter((f) => f?.filename).map((f) => getFileUrl(f!.filename, 'kyc'));
+  const identityUrls = identityDocuments.filter((f) => f).map((f) => getFileUrl(f!, 'kyc'));
   const update: Record<string, string | null | string[]> = {
-    'kycDocuments.businessRegistration': getFileUrl(businessRegistration.filename, 'kyc'),
+    'kycDocuments.businessRegistration': getFileUrl(businessRegistration, 'kyc'),
     'kycDocuments.identityDocument': identityUrls,
   };
-  if (healthSafetyLicense?.filename) update['kycDocuments.healthSafetyLicense'] = getFileUrl(healthSafetyLicense.filename, 'kyc');
+  if (healthSafetyLicense) update['kycDocuments.healthSafetyLicense'] = getFileUrl(healthSafetyLicense, 'kyc');
 
   const doc = await VendorModel.findByIdAndUpdate(
     vendor._id,

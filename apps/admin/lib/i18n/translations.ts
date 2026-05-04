@@ -12,6 +12,7 @@ export const translations = {
       categories: 'Categories',
       fees: 'Fees & Tax',
       finance: 'Finance',
+      settings: 'General settings',
     },
     common: {
       refresh: 'Refresh',
@@ -70,6 +71,7 @@ export const translations = {
       categories: 'Qaybaha',
       fees: 'Kharash & Canshuur',
       finance: 'Maaliyad',
+      settings: 'Dejinta guud',
     },
     common: {
       refresh: 'Cusboonaysii',

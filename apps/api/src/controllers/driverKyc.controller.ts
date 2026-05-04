@@ -1,31 +1,18 @@
 import type { Request, Response } from 'express';
-import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
 import multer from 'multer';
 import type { Server as SocketIOServer } from 'socket.io';
 
-import { env } from '../config/env';
 import { Admin } from '../models/Admin';
 import { Driver } from '../models/Driver';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/response';
-import { deleteLocalFile, getFileUrl } from '../utils/storageProvider';
+import { deleteLocalFile, getFileUrl, getUploadMiddlewareKyc } from '../utils/storageProvider';
 import { sendToMultiple } from '../services/fcm.service';
 
 const DRIVER_KYC_MIMES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
 const DRIVER_KYC_FOLDER = 'driver-kyc';
 const DRIVER_KYC_MAX_FILE = 5 * 1024 * 1024;
-
-function getExtension(mimetype: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'application/pdf': '.pdf',
-  };
-  return map[mimetype] || '.bin';
-}
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
@@ -39,36 +26,8 @@ function deleteKycFilesUrls(urls: string | string[] | null | undefined): void {
   }
 }
 
-const driverKycUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      const uploadPath = path.join(process.cwd(), env.UPLOAD_DIR, DRIVER_KYC_FOLDER);
-      if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-      cb(null, uploadPath);
-    },
-    filename: (_req, file, cb) => {
-      const ext = getExtension(file.mimetype);
-      const randomHex = crypto.randomBytes(8).toString('hex');
-      cb(null, `${Date.now()}-${randomHex}${ext}`);
-    },
-  }),
-  fileFilter: (_req, file, cb) => {
-    if (DRIVER_KYC_MIMES.includes(file.mimetype as (typeof DRIVER_KYC_MIMES)[number])) {
-      cb(null, true);
-    } else {
-      cb(
-        new AppError(
-          {
-            en: 'Only jpg, png, or pdf files are allowed',
-            de: 'Nur JPG-, PNG- oder PDF-Dateien sind erlaubt',
-          },
-          422,
-          'VALIDATION_ERROR'
-        ) as unknown as Error
-      );
-    }
-  },
-  limits: { fileSize: DRIVER_KYC_MAX_FILE },
+const driverKycUpload = getUploadMiddlewareKyc(DRIVER_KYC_FOLDER, DRIVER_KYC_MAX_FILE, {
+  allowedMimes: [...DRIVER_KYC_MIMES],
 }).fields([
   { name: 'driversLicense', maxCount: 1 },
   { name: 'nationalId', maxCount: 10 },
@@ -167,7 +126,7 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
 
   if (missing.length > 0) {
     for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles]) {
-      deleteLocalFile(getFileUrl(f.filename, DRIVER_KYC_FOLDER));
+      deleteLocalFile(getFileUrl(f, DRIVER_KYC_FOLDER));
     }
     throw new AppError(
       {
@@ -181,7 +140,7 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
   }
   if (!allowedVehicleTypes.includes(vehicleType)) {
     for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles]) {
-      deleteLocalFile(getFileUrl(f.filename, DRIVER_KYC_FOLDER));
+      deleteLocalFile(getFileUrl(f, DRIVER_KYC_FOLDER));
     }
     throw new AppError(
       {
@@ -209,9 +168,9 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
   if (prev?.nationalId?.length) deleteKycFilesUrls(prev.nationalId);
   if (prev?.vehiclePhotos?.length) deleteKycFilesUrls(prev.vehiclePhotos);
 
-  const driversLicenseUrl = getFileUrl(driversLicenseFiles[0]!.filename, DRIVER_KYC_FOLDER);
-  const nationalIdUrls = nationalIdFiles.map((f) => getFileUrl(f.filename, DRIVER_KYC_FOLDER));
-  const vehiclePhotoUrls = vehiclePhotosFiles.map((f) => getFileUrl(f.filename, DRIVER_KYC_FOLDER));
+  const driversLicenseUrl = getFileUrl(driversLicenseFiles[0]!, DRIVER_KYC_FOLDER);
+  const nationalIdUrls = nationalIdFiles.map((f) => getFileUrl(f, DRIVER_KYC_FOLDER));
+  const vehiclePhotoUrls = vehiclePhotosFiles.map((f) => getFileUrl(f, DRIVER_KYC_FOLDER));
 
   const submittedAt = new Date();
   (driver as any).kycDocuments = {

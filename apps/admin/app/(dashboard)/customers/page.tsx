@@ -33,6 +33,16 @@ const STATUS_OPTIONS = [
   { value: 'deleted', label: 'Deleted' },
 ];
 
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
+
+function imgSrc(url: string | null | undefined) {
+  if (!url) return null;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
+}
+
 export default function CustomersPage() {
   const dispatch = useAppDispatch();
   const toast = useToast();
@@ -288,9 +298,9 @@ export default function CustomersPage() {
                   items.map((c) => (
                     <tr key={c._id} className="clickableRow" onClick={() => openDetail(c._id)}>
                       <td>
-                        {c.profileImage ? (
+                        {imgSrc(c.profileImage) ? (
                           <img
-                            src={c.profileImage.startsWith('http') ? c.profileImage : `${process.env.NEXT_PUBLIC_API_URL ?? ''}${c.profileImage}`}
+                            src={imgSrc(c.profileImage)!}
                             alt=""
                             style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}
                           />

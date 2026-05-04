@@ -3,6 +3,9 @@ import { apiClient, type ApiSuccess } from './client';
 export type AppSettings = {
   deliveryFee: number;
   taxPercent: number;
+  defaultCurrency?: string;
+  defaultTimezone?: string;
+  serviceZones?: string[];
   updatedAt?: string;
 };
 
@@ -11,7 +14,11 @@ export async function getAppSettings() {
   return res.data;
 }
 
-export async function updateAppSettings(body: Partial<Pick<AppSettings, 'deliveryFee' | 'taxPercent'>>) {
+export async function updateAppSettings(
+  body: Partial<
+    Pick<AppSettings, 'deliveryFee' | 'taxPercent' | 'defaultCurrency' | 'defaultTimezone' | 'serviceZones'>
+  >
+) {
   const res = await apiClient.patch<ApiSuccess<AppSettings>>('/admin/app-settings', body);
   return res.data;
 }

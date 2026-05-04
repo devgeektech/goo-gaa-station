@@ -76,7 +76,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   const file = req.file as Express.Multer.File | undefined;
   if (file?.filename) {
     if (user.profileImage) deleteLocalFile(user.profileImage);
-    user.profileImage = getFileUrl(file.filename, 'users');
+    user.profileImage = getFileUrl(file, 'users');
   }
 
   await user.save();

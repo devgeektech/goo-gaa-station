@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import type { LucideProps } from 'lucide-react';
-import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent, RotateCcw, Wallet } from 'lucide-react';
+import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent, RotateCcw, Wallet, Settings } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 import type { Locale } from '@/lib/i18n/translations';
 
@@ -21,6 +21,7 @@ const NAV_KEYS = [
   { href: '/categories', key: 'categories' as const, icon: LayoutGrid },
   { href: '/fees', key: 'fees' as const, icon: Percent },
   { href: '/finance', key: 'finance' as const, icon: Wallet },
+  { href: '/settings', key: 'settings' as const, icon: Settings },
 ];
 
 import { apiClient } from '@/lib/api/client';

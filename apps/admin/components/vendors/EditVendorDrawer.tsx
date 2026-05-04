@@ -27,10 +27,13 @@ function toForm(v: VendorListItem | VendorDetail | null): EditVendorForm {
   };
 }
 
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+function publicFileBase(): string {
+  const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+  return base.replace(/\/api\/v1\/?$/, '');
+}
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
-  return url.startsWith('http') ? url : `${IMG_BASE}${url}`;
+  return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
 export function EditVendorDrawer({
