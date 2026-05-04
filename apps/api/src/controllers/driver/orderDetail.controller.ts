@@ -59,7 +59,10 @@ export const getOrderDetail = asyncHandler(async (req: Request, res: Response) =
       contactPhone?: string | null;
     };
     deliveryFee?: number;
-    items: Array<{ name: string; qty: number; unitPrice: number }>;
+    subtotal?: number;
+    discount?: number;
+    total?: number;
+    items: Array<{ name: string; qty: number; unitPrice: number; subtotal?: number }>;
     notes?: string | null;
   };
 
@@ -105,12 +108,31 @@ export const getOrderDetail = asyncHandler(async (req: Request, res: Response) =
   const deliveryFee = typeof order.deliveryFee === 'number' ? order.deliveryFee : 0;
   const tip = 0;
 
-  const items = (order.items ?? []).map((i) => ({
+  const rawItems = order.items ?? [];
+  const items = rawItems.map((i) => ({
     name: i.name,
     quantity: i.qty,
     notes: '',
     unitPrice: i.unitPrice,
   }));
+
+  const itemsTotalFromLines = rawItems.reduce((sum, i) => {
+    const line =
+      typeof i.subtotal === 'number' && Number.isFinite(i.subtotal)
+        ? i.subtotal
+        : (Number(i.qty) || 0) * (Number(i.unitPrice) || 0);
+    return sum + line;
+  }, 0);
+  const itemsTotal =
+    typeof order.subtotal === 'number' && Number.isFinite(order.subtotal)
+      ? Math.round(order.subtotal * 100) / 100
+      : Math.round(itemsTotalFromLines * 100) / 100;
+  const discountNum = typeof order.discount === 'number' && Number.isFinite(order.discount) ? order.discount : 0;
+  const grandTotalRaw =
+    typeof order.total === 'number' && Number.isFinite(order.total)
+      ? order.total
+      : Math.max(0, itemsTotal + deliveryFee - discountNum);
+  const grandTotal = Math.round(grandTotalRaw * 100) / 100;
 
   const payload = {
     orderId: order._id,
@@ -142,6 +164,8 @@ export const getOrderDetail = asyncHandler(async (req: Request, res: Response) =
     customerNote: order.notes ?? '',
     items,
     itemCount: items.length,
+    itemsTotal,
+    grandTotal,
     earnings: {
       deliveryFee,
       tip,

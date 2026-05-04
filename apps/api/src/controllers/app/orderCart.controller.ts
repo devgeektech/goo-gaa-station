@@ -19,6 +19,7 @@ import { VENDOR_RESPONSE_WINDOW_MS } from '../../constants/vendorResponse';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const DELIVERY_FEE = 2.0;
+const MAX_ORDER_RADIUS_KM = 30;
 const ACTIVE_STATUSES = ['pending', 'accepted', 'preparing', 'picked_up', 'on_the_way'] as const;
 
 function getCurrentDayKey(now: Date): 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' {
@@ -96,6 +97,17 @@ function isVendorAvailableNow(vendor: any, now: Date): boolean {
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function toDisplayOrderId(order: { orderNumber?: string | number | null; _id?: unknown }): string {
@@ -219,6 +231,33 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   const v = vendor as { isOpen?: boolean; minimumOrder?: number; operatingHours?: unknown[] };
   if (!isVendorAvailableNow(v, new Date())) {
     throw new AppError({ en: 'Vendor is currently closed', de: 'Anbieter ist geschlossen' }, 400, 'VENDOR_CLOSED');
+  }
+
+  const vendorLat = Number((vendor as { address?: { lat?: number | null } })?.address?.lat);
+  const vendorLng = Number((vendor as { address?: { lng?: number | null } })?.address?.lng);
+  const customerLat = Number(addr.lat);
+  const customerLng = Number(addr.lng);
+  if (!Number.isFinite(vendorLat) || !Number.isFinite(vendorLng) || !Number.isFinite(customerLat) || !Number.isFinite(customerLng)) {
+    throw new AppError(
+      {
+        en: 'Vendor and delivery address must have valid latitude/longitude.',
+        de: 'Anbieter und Lieferadresse benötigen gültige Breiten-/Längengrade.',
+      },
+      400,
+      'VALIDATION_ERROR'
+    );
+  }
+
+  const vendorToCustomerKm = haversineKm(vendorLat, vendorLng, customerLat, customerLng);
+  if (vendorToCustomerKm > MAX_ORDER_RADIUS_KM) {
+    throw new AppError(
+      {
+        en: `Delivery address is too far from vendor (${vendorToCustomerKm.toFixed(2)} km). Maximum allowed is ${MAX_ORDER_RADIUS_KM} km.`,
+        de: `Lieferadresse ist zu weit vom Anbieter entfernt (${vendorToCustomerKm.toFixed(2)} km). Maximal erlaubt sind ${MAX_ORDER_RADIUS_KM} km.`,
+      },
+      400,
+      'VALIDATION_ERROR'
+    );
   }
 
   const items = (cart as {
