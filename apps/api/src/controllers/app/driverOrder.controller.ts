@@ -405,13 +405,6 @@ function optionalFiniteNonNegativeMinutes(v: unknown): number | null {
   return Math.max(0, Math.round(n));
 }
 
-function optionalPositiveDistanceKm(v: unknown): number | null {
-  if (v == null) return null;
-  const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * 100) / 100;
-}
-
 /** Pickup coords: prefer order.pickupAddress when lat/lng are valid, else vendor address. */
 function resolvePickupLatLng(
   orderPickup: { lat?: unknown; lng?: unknown } | null | undefined,
@@ -436,19 +429,47 @@ function estimateMinutesFromDistanceKm(km: number): number {
   return Math.max(1, Math.ceil((km / avgKmh) * 60));
 }
 
+/** Best-effort driver position: currentLocation first, else liveLocation [lng, lat] (ignore default [0,0]). */
+function resolveDriverLatLng(
+  driver: { currentLocation?: { lat?: unknown; lng?: unknown } | null; liveLocation?: { coordinates?: number[] } | null } | null
+): { lat: number; lng: number } | null {
+  if (!driver) return null;
+  const clat = driver.currentLocation?.lat;
+  const clng = driver.currentLocation?.lng;
+  if (Number.isFinite(Number(clat)) && Number.isFinite(Number(clng))) {
+    return { lat: Number(clat), lng: Number(clng) };
+  }
+  const coords = driver.liveLocation?.coordinates;
+  if (Array.isArray(coords) && coords.length >= 2) {
+    const lng = Number(coords[0]);
+    const lat = Number(coords[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) {
+      return { lat, lng };
+    }
+  }
+  return null;
+}
+
 /** GET /active */
 export const getActiveOrder = asyncHandler(async (req: Request, res: Response) => {
   const driverId = req.driver?._id?.toString?.() ?? req.user?._id;
   if (!driverId) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
 
-  const orders = await Order.find({
-    driverId: new mongoose.Types.ObjectId(String(driverId)),
-    status: { $in: ['preparing', 'ready', 'picked_up', 'on_the_way'] },
-  })
-    .populate('customerId', 'name phone')
-    .populate('vendorId', 'name address phone')
-    .sort({ updatedAt: -1 })
-    .lean();
+  const [orders, driverLean] = await Promise.all([
+    Order.find({
+      driverId: new mongoose.Types.ObjectId(String(driverId)),
+      status: { $in: ['preparing', 'ready', 'picked_up', 'on_the_way'] },
+    })
+      .populate('customerId', 'name phone')
+      .populate('vendorId', 'name address phone')
+      .sort({ updatedAt: -1 })
+      .lean(),
+    Driver.findById(driverId).select('currentLocation liveLocation').lean(),
+  ]);
+
+  const driverPos = resolveDriverLatLng(
+    driverLean as { currentLocation?: { lat?: unknown; lng?: unknown }; liveLocation?: { coordinates?: number[] } } | null
+  );
 
   const cards = orders.map((order: any) => {
     const vendor = order.vendorId ?? null;
@@ -458,32 +479,27 @@ export const getActiveOrder = asyncHandler(async (req: Request, res: Response) =
     const pickupCoords = resolvePickupLatLng(order.pickupAddress, vendorAddress);
 
     // Prioritize urgent states where fast driver action is expected.
-    const isHighPriority = ['ready', 'on_the_way'].includes(String(order.status ?? ''));
+    const statusStr = String(order.status ?? '');
+    const isHighPriority = ['ready', 'on_the_way'].includes(statusStr);
 
     const storedEstMinutes = optionalFiniteNonNegativeMinutes(order.estimatedDeliveryTime);
     const dropoffLat = Number(dropoff?.lat);
     const dropoffLng = Number(dropoff?.lng);
 
-    const distanceFromDb = optionalPositiveDistanceKm(order.deliveryDistance);
-    let distance: number | null = distanceFromDb;
-    if (
-      distance == null &&
-      pickupCoords &&
-      Number.isFinite(dropoffLat) &&
-      Number.isFinite(dropoffLng)
-    ) {
-      distance = Math.round(haversineKm(pickupCoords.lat, pickupCoords.lng, dropoffLat, dropoffLng) * 100) / 100;
+    const beforePickup = statusStr === 'preparing' || statusStr === 'ready';
+    const afterPickup = statusStr === 'picked_up' || statusStr === 'on_the_way';
+
+    let distance: number | null = null;
+    if (driverPos && beforePickup && pickupCoords) {
+      distance = Math.round(haversineKm(driverPos.lat, driverPos.lng, pickupCoords.lat, pickupCoords.lng) * 100) / 100;
+    } else if (driverPos && afterPickup && Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)) {
+      distance = Math.round(haversineKm(driverPos.lat, driverPos.lng, dropoffLat, dropoffLng) * 100) / 100;
     }
 
-    const estTimeFromDistance = distance != null && distance > 0 ? estimateMinutesFromDistanceKm(distance) : null;
-    const estTime = storedEstMinutes != null ? storedEstMinutes : estTimeFromDistance;
+    const estTimeFromLeg = distance != null && distance > 0 ? estimateMinutesFromDistanceKm(distance) : null;
+    const estTime = estTimeFromLeg ?? storedEstMinutes ?? null;
 
-    const pickingUpEtaMinutes =
-      ['preparing', 'ready'].includes(String(order.status ?? ''))
-        ? storedEstMinutes != null
-          ? storedEstMinutes
-          : estTimeFromDistance
-        : null;
+    const pickingUpEtaMinutes = beforePickup ? (estTimeFromLeg ?? storedEstMinutes ?? null) : null;
 
     const subtotalNum = Number(order.subtotal);
     const itemPrice = Number.isFinite(subtotalNum) ? Math.round(subtotalNum * 100) / 100 : null;
