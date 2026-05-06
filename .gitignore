@@ -8,3 +8,6 @@ coverage/
 uploads/
 .DS_Store
 *.log
+
+# Firebase Admin service account JSON (monorepo root)
+firebase tokens/

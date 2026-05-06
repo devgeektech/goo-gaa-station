@@ -84,57 +84,24 @@ export const getNewOrders = asyncHandler(async (req: Request, res: Response) => 
     ],
   };
 
-  const [orders, total] = await Promise.all([
+  const [orders, total, driverLean] = await Promise.all([
     Order.find(baseFilter)
-      .populate('vendorId', 'name address')
+      .populate('vendorId', 'name address phone')
+      .populate('customerId', 'name phone')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean(),
     Order.countDocuments(baseFilter),
+    Driver.findById(driverId).select('currentLocation liveLocation').lean(),
   ]);
 
-  const cards = orders.map((order: any) => {
-    const vendor = order.vendorId ?? null;
-    const vendorAddress = vendor?.address ?? null;
-    const pickupAddressObj = order.pickupAddress ?? vendorAddress ?? null;
-    const dropoffAddressObj = order.deliveryAddress ?? null;
-    const pickupLat = Number(pickupAddressObj?.lat);
-    const pickupLng = Number(pickupAddressObj?.lng);
-    const dropoffLat = Number(dropoffAddressObj?.lat);
-    const dropoffLng = Number(dropoffAddressObj?.lng);
+  const driverPos = resolveDriverLatLng(
+    driverLean as { currentLocation?: { lat?: unknown; lng?: unknown }; liveLocation?: { coordinates?: number[] } } | null
+  );
 
-    const distanceKm =
-      Number.isFinite(pickupLat) &&
-      Number.isFinite(pickupLng) &&
-      Number.isFinite(dropoffLat) &&
-      Number.isFinite(dropoffLng)
-        ? Math.round(haversineKm(pickupLat, pickupLng, dropoffLat, dropoffLng) * 100) / 100
-        : null;
-
-    const deadline = order.driverAssignmentDeadline ? new Date(order.driverAssignmentDeadline).getTime() : 0;
-    const expiresIn = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
-
-    const pickupAddressText =
-      pickupAddressObj?.street ?? ([pickupAddressObj?.city, pickupAddressObj?.country].filter(Boolean).join(', ') || null);
-    const dropoffAddressText =
-      dropoffAddressObj?.street ?? ([dropoffAddressObj?.city, dropoffAddressObj?.country].filter(Boolean).join(', ') || null);
-
-    return {
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      estimatedPayout: typeof order.deliveryFee === 'number' ? order.deliveryFee : order.total,
-      distanceKm,
-      pickup: {
-        name: pickupAddressObj?.name ?? vendor?.name ?? 'Pickup',
-        address: pickupAddressText,
-      },
-      dropoff: {
-        address: dropoffAddressText,
-      },
-      expiresIn,
-    };
-  });
+  const emptyCompletion = { deliveredAt: null, deliveryDurationMinutes: null, statusBadge: null };
+  const cards = orders.map((order: any) => toDriverOrderCardActiveShape(order, driverPos, emptyCompletion));
 
   const pagination = toPaginated(cards, total, page, limit);
 
@@ -450,91 +417,114 @@ function resolveDriverLatLng(
   return null;
 }
 
+/** Same card shape as GET /active, plus completion fields (null when not delivered). */
+function toDriverOrderCardActiveShape(
+  order: any,
+  driverPos: { lat: number; lng: number } | null,
+  completion: {
+    deliveredAt: Date | string | null;
+    deliveryDurationMinutes: number | null;
+    statusBadge: string | null;
+    statusLabelOverride?: string;
+  }
+): Record<string, unknown> {
+  const vendor = order.vendorId ?? null;
+  const vendorAddress = vendor?.address ?? null;
+  const customer = order.customerId ?? null;
+  const dropoff = order.deliveryAddress ?? null;
+  const pickupCoords = resolvePickupLatLng(order.pickupAddress, vendorAddress);
+
+  const statusStr = String(order.status ?? '');
+  const isHighPriority = ['ready', 'on_the_way'].includes(statusStr);
+
+  const storedEstMinutes = optionalFiniteNonNegativeMinutes(order.estimatedDeliveryTime);
+  const dropoffLat = Number(dropoff?.lat);
+  const dropoffLng = Number(dropoff?.lng);
+
+  const beforePickup = statusStr === 'preparing' || statusStr === 'ready';
+  const afterPickup = statusStr === 'picked_up' || statusStr === 'on_the_way';
+
+  let distance: number | null = null;
+  if (driverPos && beforePickup && pickupCoords) {
+    distance = Math.round(haversineKm(driverPos.lat, driverPos.lng, pickupCoords.lat, pickupCoords.lng) * 100) / 100;
+  } else if (driverPos && afterPickup && Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)) {
+    distance = Math.round(haversineKm(driverPos.lat, driverPos.lng, dropoffLat, dropoffLng) * 100) / 100;
+  }
+
+  const estTimeFromLeg = distance != null && distance > 0 ? estimateMinutesFromDistanceKm(distance) : null;
+  const estTime = estTimeFromLeg ?? storedEstMinutes ?? null;
+
+  const pickingUpEtaMinutes = beforePickup ? (estTimeFromLeg ?? storedEstMinutes ?? null) : null;
+
+  const subtotalNum = Number(order.subtotal);
+  const itemPrice = Number.isFinite(subtotalNum) ? Math.round(subtotalNum * 100) / 100 : null;
+
+  const statusLabel = completion.statusLabelOverride ?? mapActiveStatusLabel(statusStr);
+
+  return {
+    orderId: order._id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    isHighPriority,
+    estimatedPayout: typeof order.deliveryFee === 'number' ? order.deliveryFee : order.total,
+    itemPrice,
+    estTime,
+    distance,
+    vendor: {
+      name: vendor?.name ?? null,
+      address: vendorAddress?.street ?? ([vendorAddress?.city, vendorAddress?.country].filter(Boolean).join(', ') || null),
+      lat: vendorAddress?.lat ?? null,
+      lng: vendorAddress?.lng ?? null,
+      phone: vendor?.phone ?? null,
+    },
+    customer: {
+      name: customer?.name ?? null,
+      phone: customer?.phone ?? null,
+    },
+    dropoff: {
+      address: dropoff?.street ?? ([dropoff?.city, dropoff?.country].filter(Boolean).join(', ') || null),
+      lat: dropoff?.lat ?? null,
+      lng: dropoff?.lng ?? null,
+    },
+    pickingUpEtaMinutes,
+    statusLabel,
+    deliveredAt: completion.deliveredAt,
+    deliveryDurationMinutes: completion.deliveryDurationMinutes,
+    statusBadge: completion.statusBadge,
+  };
+}
+
 /** GET /active */
 export const getActiveOrder = asyncHandler(async (req: Request, res: Response) => {
   const driverId = req.driver?._id?.toString?.() ?? req.user?._id;
   if (!driverId) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
+  const { page, limit } = parsePagination(req.query, 20);
+  const skip = (page - 1) * limit;
+  const filter = {
+    driverId: new mongoose.Types.ObjectId(String(driverId)),
+    status: { $in: ['preparing', 'ready', 'picked_up', 'on_the_way'] },
+  };
 
-  const [orders, driverLean] = await Promise.all([
-    Order.find({
-      driverId: new mongoose.Types.ObjectId(String(driverId)),
-      status: { $in: ['preparing', 'ready', 'picked_up', 'on_the_way'] },
-    })
+  const [orders, driverLean, total] = await Promise.all([
+    Order.find(filter)
       .populate('customerId', 'name phone')
       .populate('vendorId', 'name address phone')
       .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean(),
     Driver.findById(driverId).select('currentLocation liveLocation').lean(),
+    Order.countDocuments(filter),
   ]);
 
   const driverPos = resolveDriverLatLng(
     driverLean as { currentLocation?: { lat?: unknown; lng?: unknown }; liveLocation?: { coordinates?: number[] } } | null
   );
 
-  const cards = orders.map((order: any) => {
-    const vendor = order.vendorId ?? null;
-    const vendorAddress = vendor?.address ?? null;
-    const customer = order.customerId ?? null;
-    const dropoff = order.deliveryAddress ?? null;
-    const pickupCoords = resolvePickupLatLng(order.pickupAddress, vendorAddress);
+  const emptyCompletion = { deliveredAt: null, deliveryDurationMinutes: null, statusBadge: null };
+  const cards = orders.map((order: any) => toDriverOrderCardActiveShape(order, driverPos, emptyCompletion));
 
-    // Prioritize urgent states where fast driver action is expected.
-    const statusStr = String(order.status ?? '');
-    const isHighPriority = ['ready', 'on_the_way'].includes(statusStr);
-
-    const storedEstMinutes = optionalFiniteNonNegativeMinutes(order.estimatedDeliveryTime);
-    const dropoffLat = Number(dropoff?.lat);
-    const dropoffLng = Number(dropoff?.lng);
-
-    const beforePickup = statusStr === 'preparing' || statusStr === 'ready';
-    const afterPickup = statusStr === 'picked_up' || statusStr === 'on_the_way';
-
-    let distance: number | null = null;
-    if (driverPos && beforePickup && pickupCoords) {
-      distance = Math.round(haversineKm(driverPos.lat, driverPos.lng, pickupCoords.lat, pickupCoords.lng) * 100) / 100;
-    } else if (driverPos && afterPickup && Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng)) {
-      distance = Math.round(haversineKm(driverPos.lat, driverPos.lng, dropoffLat, dropoffLng) * 100) / 100;
-    }
-
-    const estTimeFromLeg = distance != null && distance > 0 ? estimateMinutesFromDistanceKm(distance) : null;
-    const estTime = estTimeFromLeg ?? storedEstMinutes ?? null;
-
-    const pickingUpEtaMinutes = beforePickup ? (estTimeFromLeg ?? storedEstMinutes ?? null) : null;
-
-    const subtotalNum = Number(order.subtotal);
-    const itemPrice = Number.isFinite(subtotalNum) ? Math.round(subtotalNum * 100) / 100 : null;
-
-    return {
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      isHighPriority,
-      estimatedPayout: typeof order.deliveryFee === 'number' ? order.deliveryFee : order.total,
-      itemPrice,
-      estTime,
-      distance,
-      vendor: {
-        name: vendor?.name ?? null,
-        address: vendorAddress?.street ?? ([vendorAddress?.city, vendorAddress?.country].filter(Boolean).join(', ') || null),
-        lat: vendorAddress?.lat ?? null,
-        lng: vendorAddress?.lng ?? null,
-        phone: vendor?.phone ?? null,
-      },
-      customer: {
-        name: customer?.name ?? null,
-        phone: customer?.phone ?? null,
-      },
-      dropoff: {
-        address: dropoff?.street ?? ([dropoff?.city, dropoff?.country].filter(Boolean).join(', ') || null),
-        lat: dropoff?.lat ?? null,
-        lng: dropoff?.lng ?? null,
-      },
-      pickingUpEtaMinutes,
-      statusLabel: mapActiveStatusLabel(String(order.status ?? '')),
-    };
-  });
-
-  return sendSuccess(res, cards);
+  return sendSuccess(res, cards, 200, toPaginated(cards, total, page, limit));
 });
 
 /** GET /history */
@@ -566,7 +556,8 @@ export const getCompletedOrders = asyncHandler(async (req: Request, res: Respons
 
   const [orders, total] = await Promise.all([
     Order.find(filter)
-      .populate('vendorId', 'name address')
+      .populate('vendorId', 'name address phone')
+      .populate('customerId', 'name phone')
       .sort({ actualDeliveryAt: -1, updatedAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -575,9 +566,6 @@ export const getCompletedOrders = asyncHandler(async (req: Request, res: Respons
   ]);
 
   const cards = orders.map((order: any) => {
-    const vendor = order.vendorId ?? null;
-    const vendorAddress = vendor?.address ?? null;
-    const dropoff = order.deliveryAddress ?? null;
     const deliveredAt = order.actualDeliveryAt ?? null;
     const acceptedAt = getDriverAcceptedAtFromHistory(order.statusHistory ?? []);
     const deliveredAtDate = deliveredAt ? new Date(deliveredAt) : null;
@@ -587,22 +575,15 @@ export const getCompletedOrders = asyncHandler(async (req: Request, res: Respons
         ? Math.max(0, Math.round((deliveredAtDate.getTime() - acceptedAt.getTime()) / 60_000))
         : null;
 
-    return {
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      payoutEarned: typeof order.deliveryFee === 'number' ? order.deliveryFee : order.total,
-      vendor: {
-        name: vendor?.name ?? null,
-        address: vendorAddress?.street ?? ([vendorAddress?.city, vendorAddress?.country].filter(Boolean).join(', ') || null),
-      },
-      dropoff: {
-        address: dropoff?.street ?? ([dropoff?.city, dropoff?.country].filter(Boolean).join(', ') || null),
-      },
+    const statusBadge = order.status === 'cancelled' ? 'CANCELLED' : 'COMPLETED';
+    const statusLabelOverride = order.status === 'cancelled' ? 'CANCELLED' : 'DELIVERED';
+
+    return toDriverOrderCardActiveShape(order, null, {
       deliveredAt,
       deliveryDurationMinutes,
-      statusBadge: order.status === 'cancelled' ? 'CANCELLED' : 'COMPLETED',
-    };
+      statusBadge,
+      statusLabelOverride,
+    });
   });
 
   return sendSuccess(res, cards, 200, toPaginated(cards, total, page, limit));

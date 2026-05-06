@@ -1,6 +1,7 @@
 /**
  * FCM (Firebase Cloud Messaging) service.
- * Initialize firebase-admin from FIREBASE_SERVICE_ACCOUNT (path to JSON or JSON string).
+ * Initialize firebase-admin from FIREBASE_SERVICE_ACCOUNT (path to JSON or JSON string),
+ * or from <monorepo>/firebase tokens/{customerToken,driverToken,vendorToken}.json when unset.
  * sendToDevice / sendToMultiple; check notificationPrefs for customers; remove invalid tokens.
  */
 
@@ -18,25 +19,86 @@ const VendorModel = Vendor as any;
 
 let firebaseAdmin: typeof import('firebase-admin') | null = null;
 
+/** `apps/api` package root */
+const apiPackageRoot = path.resolve(__dirname, '..', '..');
+/** Monorepo root when API lives at `<root>/apps/api` */
+const monorepoRoot = path.resolve(__dirname, '..', '..', '..');
+
+function tryReadServiceAccountJson(filePath: string): object | null {
+  try {
+    const normalized = path.normalize(filePath);
+    if (!fs.existsSync(normalized)) return null;
+    return JSON.parse(fs.readFileSync(normalized, 'utf8')) as object;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve Firebase Admin credentials: env (inline JSON or file path), then default
+ * `firebase tokens/*.json` at monorepo root. One service account serves all apps
+ * (customer / driver / vendor device tokens target the same Firebase project).
+ */
+function resolveFirebaseServiceAccount(): { cred: object; label: string } | null {
+  const raw = env.FIREBASE_SERVICE_ACCOUNT?.trim();
+
+  if (raw) {
+    if (raw.startsWith('{')) {
+      try {
+        return { cred: JSON.parse(raw) as object, label: 'FIREBASE_SERVICE_ACCOUNT (inline JSON)' };
+      } catch {
+        return null;
+      }
+    }
+    const pathsToTry: string[] = [];
+    pathsToTry.push(path.normalize(raw));
+    if (!path.isAbsolute(raw)) {
+      pathsToTry.push(path.resolve(process.cwd(), raw));
+      pathsToTry.push(path.resolve(monorepoRoot, raw));
+      pathsToTry.push(path.resolve(apiPackageRoot, raw));
+    }
+    for (const p of pathsToTry) {
+      const cred = tryReadServiceAccountJson(p);
+      if (cred) return { cred, label: p };
+    }
+    return null;
+  }
+
+  const defaults = [
+    path.join(monorepoRoot, 'firebase tokens', 'customerToken.json'),
+    path.join(monorepoRoot, 'firebase tokens', 'driverToken.json'),
+    path.join(monorepoRoot, 'firebase tokens', 'vendorToken.json'),
+  ];
+  for (const p of defaults) {
+    const cred = tryReadServiceAccountJson(p);
+    if (cred) return { cred, label: p };
+  }
+  return null;
+}
+
 function getFirebaseAdmin(): typeof import('firebase-admin') | null {
   if (firebaseAdmin) return firebaseAdmin;
-  const raw = env.FIREBASE_SERVICE_ACCOUNT?.trim();
-  if (!raw) return null;
   try {
+    const resolved = resolveFirebaseServiceAccount();
+    if (!resolved) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[FCM] No Firebase credentials: set FIREBASE_SERVICE_ACCOUNT or add firebase tokens/*.json at monorepo root.'
+        );
+      }
+      return null;
+    }
     const admin = require('firebase-admin') as typeof import('firebase-admin');
     if (admin.apps?.length) {
       firebaseAdmin = admin;
       return admin;
     }
-    let cred: object;
-    if (raw.startsWith('{')) {
-      cred = JSON.parse(raw) as object;
-    } else {
-      const keyPath = path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
-      const keyContent = fs.readFileSync(keyPath, 'utf8');
-      cred = JSON.parse(keyContent) as object;
+    admin.initializeApp({
+      credential: admin.credential.cert(resolved.cred as import('firebase-admin').ServiceAccount),
+    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[FCM] Firebase Admin initialized from', resolved.label);
     }
-    admin.initializeApp({ credential: admin.credential.cert(cred as import('firebase-admin').ServiceAccount) });
     firebaseAdmin = admin;
     return admin;
   } catch (err) {
