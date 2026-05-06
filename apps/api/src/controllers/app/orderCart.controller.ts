@@ -434,6 +434,11 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     const vendorDoc = await Vendor.findById(vendorId).select('fcmTokens').lean();
     if (vendorDoc) {
       const itemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
+      const pushPayload = {
+        title: 'New Order Received! 🔔',
+        body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
+        data: { screen: 'NewOrders', orderId: String(order._id), vendorId: String(vendorId) },
+      };
       const vendorTokenCount = ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> })?.fcmTokens ?? [])
         .map((t) => t?.token ?? '')
         .filter(Boolean).length;
@@ -443,12 +448,11 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
         orderId: String(order._id),
         orderNumber: order.orderNumber,
         tokenCount: vendorTokenCount,
+        orderPayload: order.toObject?.() ?? order,
+        realtimePayload: newOrderRealtimePayload,
+        fcmPayload: pushPayload,
       });
-      const pushRes = await sendPushToVendor(vendorDoc as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, {
-        title: 'New Order Received! 🔔',
-        body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
-        data: { screen: 'NewOrders', orderId: String(order._id), vendorId: String(vendorId) },
-      });
+      const pushRes = await sendPushToVendor(vendorDoc as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, pushPayload);
       // eslint-disable-next-line no-console -- debug aid for production FCM verification
       console.log('[FCM][Vendor][OrderPlaced] push result', {
         vendorId: String(vendorId),
