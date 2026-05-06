@@ -14,7 +14,7 @@ import { parsePagination } from '../../utils/pagination';
 import { mapOrderStatusForCustomer, toCustomerOrderStatus } from '../../utils/customerOrderStatus';
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import { initiatePayment } from '../../services/wifipay.service';
-import { sendToMultiple } from '../../services/fcm.service';
+import { sendPushToVendor } from '../../services/fcm.service';
 import { VENDOR_RESPONSE_WINDOW_MS } from '../../constants/vendorResponse';
 import type { Server as SocketIOServer } from 'socket.io';
 
@@ -432,13 +432,9 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
 
   try {
     const vendorDoc = await Vendor.findById(vendorId).select('fcmTokens').lean();
-    const tokens =
-      ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-        .map((t) => t?.token ?? '')
-        .filter(Boolean);
-    if (tokens.length > 0) {
+    if (vendorDoc) {
       const itemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
-      await sendToMultiple(tokens as string[], {
+      await sendPushToVendor(vendorDoc as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, {
         title: 'New Order Received! 🔔',
         body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
         data: { screen: 'NewOrders', orderId: String(order._id), vendorId: String(vendorId) },

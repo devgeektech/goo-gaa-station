@@ -10,7 +10,7 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { transitionOrderStatus } from '../../services/orderStatus.service';
-import { sendToMultiple } from '../../services/fcm.service';
+import { sendPushToCustomer, sendPushToVendor } from '../../services/fcm.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const STATUS_FLOW = ['accepted', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered'] as const;
@@ -246,13 +246,9 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   }
 
   try {
-    const customer = await User.findById(updated.customerId).select('fcmTokens').lean();
-    const tokens =
-      ((customer as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-        .map((t) => t?.token ?? '')
-        .filter(Boolean);
-    if (tokens.length > 0) {
-      await sendToMultiple(tokens as string[], {
+    const customer = await User.findById(updated.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+    if (customer) {
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
         title: 'Driver assigned',
         body: '🚗 A driver is on the way to pick up your order!',
         data: { screen: 'OrderDetail', orderId: String(updated._id) },
@@ -266,14 +262,9 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   // This endpoint updates the order atomically; only the first successful accept sends this notification.
   try {
     const vendorDoc = await Vendor.findById(updated.vendorId).select('fcmTokens').lean();
-    const tokens =
-      ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-        .map((t) => t?.token ?? '')
-        .filter(Boolean);
-
-    if (tokens.length > 0) {
+    if (vendorDoc) {
       const driverName = driver.name ?? 'Driver';
-      await sendToMultiple(tokens as string[], {
+      await sendPushToVendor(vendorDoc as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, {
         title: 'Driver accepted your delivery request',
         body: `${driverName} accepted your delivery request. Preparing for pickup.`,
         data: { screen: 'OrderDetail', orderId: String(updated._id) },
@@ -624,12 +615,9 @@ export const pickupOrder = asyncHandler(async (req: Request, res: Response) => {
   }
 
   try {
-    const customer = await User.findById(order.customerId).select('fcmTokens').lean();
-    const tokens = ((customer as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-      .map((t) => t?.token ?? '')
-      .filter(Boolean);
-    if (tokens.length > 0) {
-      await sendToMultiple(tokens as string[], {
+    const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+    if (customer) {
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
         title: `🚚 ${driver.name} has picked up your order!`,
         body: `🚚 ${driver.name} has picked up your order!`,
         data: { screen: 'OrderDetail', orderId: String(order._id) },
@@ -676,12 +664,9 @@ export const enrouteOrder = asyncHandler(async (req: Request, res: Response) => 
   }
 
   try {
-    const customer = await User.findById(order.customerId).select('fcmTokens').lean();
-    const tokens = ((customer as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-      .map((t) => t?.token ?? '')
-      .filter(Boolean);
-    if (tokens.length > 0) {
-      await sendToMultiple(tokens as string[], {
+    const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+    if (customer) {
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
         title: `🏃 Your order is on the way! Your delivery code: ${order.deliveryOtp ?? ''}`,
         body: `🏃 Your order is on the way! Your delivery code: ${order.deliveryOtp ?? ''}`,
         data: { screen: 'OrderDetail', orderId: String(order._id) },
@@ -748,12 +733,9 @@ export const deliverOrder = asyncHandler(async (req: Request, res: Response) => 
   }
 
   try {
-    const customer = await User.findById(order.customerId).select('fcmTokens').lean();
-    const tokens = ((customer as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-      .map((t) => t?.token ?? '')
-      .filter(Boolean);
-    if (tokens.length > 0) {
-      await sendToMultiple(tokens as string[], {
+    const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+    if (customer) {
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
         title: '🎉 Order delivered! How was your food? Rate your experience.',
         body: '🎉 Order delivered! How was your food? Rate your experience.',
         data: { screen: 'RateOrder', orderId: String(order._id) },

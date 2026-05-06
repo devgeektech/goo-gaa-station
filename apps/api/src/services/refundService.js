@@ -1,7 +1,7 @@
 const { Transaction } = require('../models/Transaction');
 const { Order } = require('../models/Order');
 const { User } = require('../models/User');
-const { sendToMultiple } = require('./fcm.service');
+const { sendPushToCustomer } = require('./fcm.service');
 
 /**
  * Shared refund + customer-notification helper for vendor reject/timeout flows.
@@ -22,10 +22,9 @@ async function initiateRefund(order, reason, io) {
         refundInitiated: false,
       });
     }
-    const customer = await User.findById(order.customerId).select('fcmTokens').lean();
-    const tokens = (customer?.fcmTokens ?? []).map((t) => t?.token ?? '').filter(Boolean);
-    if (tokens.length) {
-      await sendToMultiple(tokens, {
+    const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+    if (customer) {
+      await sendPushToCustomer(customer, {
         title: '❌ Order Cancelled',
         body: `Your order ${order.orderNumber} was cancelled. ${reason}.`,
         data: { screen: 'OrderDetail', orderId: String(order._id) },
@@ -69,10 +68,9 @@ async function initiateRefund(order, reason, io) {
   }
 
   // FCM push to customer
-  const customer = await User.findById(order.customerId).select('fcmTokens').lean();
-  const tokens = (customer?.fcmTokens ?? []).map((t) => t?.token ?? '').filter(Boolean);
-  if (tokens.length) {
-    await sendToMultiple(tokens, {
+  const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+  if (customer) {
+    await sendPushToCustomer(customer, {
       title: '❌ Order Cancelled',
       body: `Your order ${order.orderNumber} was cancelled. ${reason}. Refund initiated.`,
       data: { screen: 'OrderDetail', orderId: String(order._id) },

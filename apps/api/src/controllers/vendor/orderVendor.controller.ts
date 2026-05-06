@@ -10,7 +10,7 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { initiateRefund } from '../../services/refundService';
-import { sendToMultiple } from '../../services/fcm.service';
+import { sendPushToCustomer, sendPushToDriver } from '../../services/fcm.service';
 import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../../constants/driverAssignment';
 import { findNearbyDrivers } from '../../services/driverAssignmentService';
 import type { Server as SocketIOServer } from 'socket.io';
@@ -217,13 +217,9 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   }
 
   try {
-    const customer = await User.findById(acceptedOrder.customerId).select('fcmTokens').lean();
-    const tokens =
-      ((customer as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-        .map((t) => t?.token ?? '')
-        .filter(Boolean);
-    if (tokens.length > 0) {
-      await sendToMultiple(tokens as string[], {
+    const customer = await User.findById(acceptedOrder.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+    if (customer) {
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
         title: 'Order Accepted',
         body: 'Your order has been accepted by the vendor.',
         data: { orderId: String(acceptedOrder._id), screen: 'OrderDetail' },
@@ -366,12 +362,10 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
         orderNumber: acceptedOrder.orderNumber,
       });
     }
-    const tokens = ((driver as { fcmTokens?: Array<{ token?: string | null }> }).fcmTokens ?? [])
-      .map((t) => t?.token ?? '')
-      .filter(Boolean);
-    if (tokens.length > 0) {
+    const driverDoc = driver as { _id?: unknown; fcmTokens?: Array<{ token: string }> };
+    if ((driverDoc.fcmTokens ?? []).length > 0) {
       try {
-        await sendToMultiple(tokens as string[], {
+        await sendPushToDriver(driverDoc, {
           title: '🚚 Delivery Request',
           body: `New order from ${notifyPayload.vendorName}. Tap to accept!`,
           data: { screen: 'OrderRequest', orderId: String(acceptedOrder._id) },
@@ -592,13 +586,9 @@ export const markOrderReady = asyncHandler(async (req: Request, res: Response) =
   }
 
   try {
-    const customer = await User.findById(order.customerId).select('fcmTokens').lean();
-    const customerTokens =
-      ((customer as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-        .map((t) => t?.token ?? '')
-        .filter(Boolean);
-    if (customerTokens.length > 0) {
-      await sendToMultiple(customerTokens as string[], {
+    const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
+    if (customer) {
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
         title: 'Your food is ready and waiting for pickup! 🍽️',
         body: 'Your food is ready and waiting for pickup! 🍽️',
         data: { screen: 'OrderDetail', orderId: String(order._id) },
@@ -611,12 +601,8 @@ export const markOrderReady = asyncHandler(async (req: Request, res: Response) =
   if (driverId) {
     try {
       const driver = await Driver.findById(driverId).select('fcmTokens').lean();
-      const driverTokens =
-        ((driver as { fcmTokens?: Array<{ token?: string | null }> } | null)?.fcmTokens ?? [])
-          .map((t) => t?.token ?? '')
-          .filter(Boolean);
-      if (driverTokens.length > 0) {
-        await sendToMultiple(driverTokens as string[], {
+      if (driver) {
+        await sendPushToDriver(driver as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, {
           title: `Food is ready for pickup at ${vendorName}`,
           body: `Food is ready for pickup at ${vendorName}`,
           data: { screen: 'OrderRequest', orderId: String(order._id) },
