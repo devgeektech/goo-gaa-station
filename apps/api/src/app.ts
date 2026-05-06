@@ -22,6 +22,7 @@ import { authenticateJWT, requireRole } from './middlewares/auth.middleware';
 import { authDriver } from './middlewares/authDriver.middleware';
 
 const app = express();
+app.set('trust proxy', 1);
 
 // --- WifiPay webhooks (raw body) — MUST be before json parser; public, signature verification in handler ---
 app.use('/api/v1/payment/callback', express.raw({ type: '*/*' }), paymentCallback);

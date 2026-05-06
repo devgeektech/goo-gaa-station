@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { ROUTES } from './routes/docs';
+import { env } from './config/env';
 
 /** Convert Express path to OpenAPI path (e.g. :id -> {id}) */
 function toOpenApiPath(expressPath: string): string {
@@ -1862,6 +1863,11 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
 }
 
 export function openApiHandler(req: Request, res: Response): void {
-  const baseUrl = `${req.protocol}://${req.get('host') || 'localhost:5000'}`;
+  const host = req.get('host') || 'localhost:5000';
+  const xfProto = (req.get('x-forwarded-proto') || '').split(',')[0].trim();
+  const protocol = env.NODE_ENV === 'production'
+    ? (xfProto || 'https')
+    : (xfProto || req.protocol || 'http');
+  const baseUrl = `${protocol}://${host}`;
   res.json(getOpenApiSpec(baseUrl));
 }
