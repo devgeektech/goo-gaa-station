@@ -434,13 +434,42 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     const vendorDoc = await Vendor.findById(vendorId).select('fcmTokens').lean();
     if (vendorDoc) {
       const itemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
-      await sendPushToVendor(vendorDoc as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, {
+      const vendorTokenCount = ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> })?.fcmTokens ?? [])
+        .map((t) => t?.token ?? '')
+        .filter(Boolean).length;
+      // eslint-disable-next-line no-console -- debug aid for production FCM verification
+      console.log('[FCM][Vendor][OrderPlaced] preparing vendor push', {
+        vendorId: String(vendorId),
+        orderId: String(order._id),
+        orderNumber: order.orderNumber,
+        tokenCount: vendorTokenCount,
+      });
+      const pushRes = await sendPushToVendor(vendorDoc as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, {
         title: 'New Order Received! 🔔',
         body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
         data: { screen: 'NewOrders', orderId: String(order._id), vendorId: String(vendorId) },
       });
+      // eslint-disable-next-line no-console -- debug aid for production FCM verification
+      console.log('[FCM][Vendor][OrderPlaced] push result', {
+        vendorId: String(vendorId),
+        orderId: String(order._id),
+        success: pushRes.success,
+        failed: pushRes.failed,
+      });
+    } else {
+      // eslint-disable-next-line no-console -- debug aid for missing vendor record during push
+      console.warn('[FCM][Vendor][OrderPlaced] vendor not found, skipping push', {
+        vendorId: String(vendorId),
+        orderId: String(order._id),
+      });
     }
-  } catch {
+  } catch (err) {
+    // eslint-disable-next-line no-console -- debug aid when Firebase/token send fails
+    console.error('[FCM][Vendor][OrderPlaced] push failed', {
+      vendorId: String(vendorId),
+      orderId: String(order._id),
+      error: err instanceof Error ? err.message : String(err),
+    });
     // Do not fail order placement if vendor push fails.
   }
 

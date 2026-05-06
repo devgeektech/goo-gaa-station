@@ -327,8 +327,21 @@ export async function sendPushToVendor(
   payload: PushPayload
 ): Promise<{ success: number; failed: number }> {
   const tokens = getVendorFcmTokens(vendor);
+  // eslint-disable-next-line no-console -- explicit debug visibility for vendor FCM flow
+  console.log('[FCM][Vendor] sendPushToVendor called', {
+    vendorId: vendor._id?.toString?.() ?? null,
+    tokenCount: tokens.length,
+    title: payload.title,
+  });
   const res = await sendToMultiple(tokens, payload);
   const id = vendor._id?.toString?.();
   if (id && res.invalidTokens.length) await removeInvalidTokensFromVendor(id, res.invalidTokens);
+  // eslint-disable-next-line no-console -- explicit debug visibility for vendor FCM send result
+  console.log('[FCM][Vendor] sendPushToVendor result', {
+    vendorId: id ?? null,
+    success: res.success,
+    failed: res.failed,
+    invalidTokens: res.invalidTokens.length,
+  });
   return { success: res.success, failed: res.failed };
 }
