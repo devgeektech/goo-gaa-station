@@ -65,9 +65,9 @@ function resolveFirebaseServiceAccount(): { cred: object; label: string } | null
   }
 
   const defaults = [
-    path.join(monorepoRoot, 'firebase tokens', 'customerToken.json'),
-    path.join(monorepoRoot, 'firebase tokens', 'driverToken.json'),
-    path.join(monorepoRoot, 'firebase tokens', 'vendorToken.json'),
+    path.join(monorepoRoot, 'firebase_tokens', 'customerToken.json'),
+    path.join(monorepoRoot, 'firebase_tokens', 'driverToken.json'),
+    path.join(monorepoRoot, 'firebase_tokens', 'vendorToken.json'),
   ];
   for (const p of defaults) {
     const cred = tryReadServiceAccountJson(p);

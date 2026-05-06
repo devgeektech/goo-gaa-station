@@ -10,4 +10,4 @@ uploads/
 *.log
 
 # Firebase Admin service account JSON (monorepo root)
-firebase tokens/
+firebase_tokens/
