@@ -434,6 +434,19 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     const vendorDoc = await Vendor.findById(vendorId).select('fcmTokens').lean();
     if (vendorDoc) {
       const itemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
+      const orderForVendorLog = await Order.findById(order._id)
+        .populate('customerId', 'name phone')
+        .lean();
+      const vendorOrderPayload =
+        orderForVendorLog
+          ? {
+              ...orderForVendorLog,
+              remainingTime: Math.max(
+                0,
+                Math.ceil((new Date(orderForVendorLog.vendorResponseDeadline as Date | string).getTime() - Date.now()) / 1000)
+              ),
+            }
+          : null;
       const pushPayload = {
         title: 'New Order Received! 🔔',
         body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
@@ -448,7 +461,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
         orderId: String(order._id),
         orderNumber: order.orderNumber,
         tokenCount: vendorTokenCount,
-        orderPayload: order.toObject?.() ?? order,
+        orderPayload: vendorOrderPayload ?? (order.toObject?.() ?? order),
         realtimePayload: newOrderRealtimePayload,
         fcmPayload: pushPayload,
       });
