@@ -1867,7 +1867,7 @@ export function openApiHandler(req: Request, res: Response): void {
   const xfProto = (req.get('x-forwarded-proto') || '').split(',')[0].trim();
   const protocol = env.NODE_ENV === 'production'
     ? (xfProto || 'https')
-    : (xfProto || req.protocol || 'http');
+    : (xfProto || req.protocol || 'https');
   const baseUrl = `${protocol}://${host}`;
   res.json(getOpenApiSpec(baseUrl));
 }

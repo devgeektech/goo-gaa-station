@@ -237,3 +237,54 @@ export const patchVendorOperatingHours = asyncHandler(async (req: Request, res: 
   return res.status(200).json({ operatingHours: (updated as { operatingHours?: unknown[] }).operatingHours ?? [] });
 });
 
+/** POST /api/v1/vendor/profile/fcm-token */
+export const registerVendorFcmToken = asyncHandler(async (req: Request, res: Response) => {
+  const vendorId = getVendorId(req);
+  const { token, device } = req.body ?? {};
+  const tokenStr = token != null ? String(token).trim() : '';
+  if (!tokenStr) {
+    throw new AppError({ en: 'token is required', de: 'token erforderlich' }, 400, 'VALIDATION_ERROR');
+  }
+
+  const vendor = await Vendor.findById(vendorId);
+  if (!vendor) throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+
+  const now = new Date();
+  const fcmTokens = ((vendor as any).fcmTokens ?? []) as Array<{ token: string; device?: string | null; updatedAt?: Date }>;
+  const existing = fcmTokens.find((t) => t.token === tokenStr);
+  if (existing) {
+    existing.updatedAt = now;
+    if (device !== undefined) existing.device = device != null ? String(device) : null;
+  } else {
+    fcmTokens.push({ token: tokenStr, device: device != null ? String(device) : null, updatedAt: now });
+  }
+
+  // Keep at most 5 tokens per vendor (most recently updated).
+  if (fcmTokens.length > 5) {
+    fcmTokens.sort((a, b) => (a.updatedAt?.getTime?.() ?? 0) - (b.updatedAt?.getTime?.() ?? 0));
+    while (fcmTokens.length > 5) fcmTokens.shift();
+  }
+
+  (vendor as any).fcmTokens = fcmTokens;
+  await vendor.save();
+  return sendSuccess(res, { message: 'FCM token registered' });
+});
+
+/** DELETE /api/v1/vendor/profile/fcm-token */
+export const removeVendorFcmToken = asyncHandler(async (req: Request, res: Response) => {
+  const vendorId = getVendorId(req);
+  const { token } = req.body ?? {};
+  const tokenStr = token != null ? String(token).trim() : '';
+  if (!tokenStr) {
+    throw new AppError({ en: 'token is required', de: 'token erforderlich' }, 400, 'VALIDATION_ERROR');
+  }
+
+  const vendor = await Vendor.findById(vendorId);
+  if (!vendor) throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+
+  const fcmTokens = ((vendor as any).fcmTokens ?? []) as Array<{ token: string }>;
+  (vendor as any).fcmTokens = fcmTokens.filter((t) => t.token !== tokenStr);
+  await vendor.save();
+  return sendSuccess(res, { message: 'FCM token removed' });
+});
+

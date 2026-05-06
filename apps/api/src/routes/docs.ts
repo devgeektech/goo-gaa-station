@@ -167,6 +167,8 @@ export const ROUTES = [
   { method: 'PATCH', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor update profile (multipart, all optional): name, phone (unique), logo (2MB), coverImage (5MB), deliveryTime, minimumOrder, address JSON' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/toggle', auth: true, description: 'Vendor: toggle isOpen (manual override); emits vendor:availability_changed to admin' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/operating-hours', auth: true, description: 'Vendor: replace operatingHours (JSON body); requires all 7 days; 422 on validation errors' },
+  { method: 'POST', path: '/api/v1/vendor/profile/fcm-token', auth: true, description: 'Vendor self profile: register FCM token (body: token required, device optional; max 5)' },
+  { method: 'DELETE', path: '/api/v1/vendor/profile/fcm-token', auth: true, description: 'Vendor self profile: remove FCM token (body: token required)' },
   { method: 'POST', path: '/api/v1/vendor/products', auth: true, description: 'Vendor: create product (multipart: name, price, category required; description, image optional); emits product:created' },
   { method: 'PATCH', path: '/api/v1/vendor/products/:id', auth: true, description: 'Vendor: update product (multipart, all optional); replace image if uploaded' },
   { method: 'PATCH', path: '/api/v1/vendor/products/:id/toggle', auth: true, description: 'Vendor: toggle isAvailable (Stock); emits product:toggled when set to false' },
