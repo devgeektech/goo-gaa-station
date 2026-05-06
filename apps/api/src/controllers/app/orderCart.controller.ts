@@ -447,10 +447,16 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
               ),
             }
           : null;
+      const vendorOrderPayloadJson = vendorOrderPayload ? JSON.stringify(vendorOrderPayload) : '';
       const pushPayload = {
         title: 'New Order Received! 🔔',
         body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
-        data: { screen: 'NewOrders', orderId: String(order._id), vendorId: String(vendorId) },
+        data: {
+          screen: 'NewOrders',
+          orderId: String(order._id),
+          vendorId: String(vendorId),
+          orderPayload: vendorOrderPayloadJson,
+        },
       };
       const vendorTokenCount = ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> })?.fcmTokens ?? [])
         .map((t) => t?.token ?? '')
