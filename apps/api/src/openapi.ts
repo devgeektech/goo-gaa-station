@@ -125,6 +125,20 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ),
       ...paginationParams,
     ],
+    'GET /api/v1/app/customer/addresses': [
+      query(
+        'custLat',
+        { type: 'number', example: 30.6798 },
+        false,
+        'Optional customer latitude (WGS84). When provided together with custLong, addresses are filtered within 40km.'
+      ),
+      query(
+        'custLong',
+        { type: 'number', example: 76.7297 },
+        false,
+        'Optional customer longitude (WGS84). When provided together with custLat, addresses are filtered within 40km.'
+      ),
+    ],
     'GET /api/v1/app/orders/:id/chat': [...paginationParams],
     'GET /api/v1/admin/vendors/:id/products': [
       query('category', { type: 'string' }, false, 'Category ObjectId filter'),

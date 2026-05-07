@@ -189,6 +189,17 @@ function normalizeAddressCoord(v: unknown): number | null {
   return Number(n.toFixed(COORD_PRECISION));
 }
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 /** If nothing is preferred after a delete, mark the first remaining row (persisted as isDefault). */
 function ensureAtLeastOnePreferredAddress(user: { addresses?: Array<{ isDefault?: boolean }> }): void {
   const addrs = user.addresses ?? [];
@@ -202,7 +213,33 @@ export const getAddresses = asyncHandler(async (req: Request, res: Response) => 
   if (!id) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
   const user = await User.findById(id).select('addresses').lean() as { addresses?: Record<string, unknown>[] } | null;
   if (!user) throw new AppError({ en: MESSAGES.USER.en.notFound, de: MESSAGES.USER.de.notFound }, 404);
-  return sendSuccess(res, addressesSuccessPayload(user.addresses));
+
+  const latQ = req.query.custLat;
+  const lngQ = req.query.custLong;
+  const hasCoords = latQ !== undefined && lngQ !== undefined;
+  if (!hasCoords) {
+    return sendSuccess(res, addressesSuccessPayload(user.addresses));
+  }
+
+  const custLat = Number(latQ);
+  const custLng = Number(lngQ);
+  if (!Number.isFinite(custLat) || !Number.isFinite(custLng)) {
+    throw new AppError(
+      { en: 'custLat and custLong must be valid numbers', de: 'custLat und custLong müssen gültige Zahlen sein' },
+      400,
+      'VALIDATION_ERROR'
+    );
+  }
+
+  const MAX_RADIUS_KM = 40;
+  const filtered = (user.addresses ?? []).filter((a) => {
+    const lat = Number((a as { lat?: unknown }).lat);
+    const lng = Number((a as { lng?: unknown }).lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    return haversineKm(custLat, custLng, lat, lng) <= MAX_RADIUS_KM;
+  });
+
+  return sendSuccess(res, addressesSuccessPayload(filtered));
 });
 
 /** POST /addresses — Add address */
