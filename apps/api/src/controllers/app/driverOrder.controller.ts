@@ -104,7 +104,7 @@ export const getNewOrders = asyncHandler(async (req: Request, res: Response) => 
   const cards = orders.map((order: any) => toDriverOrderCardActiveShape(order, driverPos, emptyCompletion));
 
   const pagination = toPaginated(cards, total, page, limit);
-  const socketPayload = { success: true, data: cards, ...pagination };
+  const socketPayload = { data: cards, ...pagination };
 
   // New-tab sync channel: when client fetches /new, also push same snapshot over socket.
   // This enables frontend to bind list state to one event stream.
@@ -516,7 +516,7 @@ export const getActiveOrder = asyncHandler(async (req: Request, res: Response) =
   const emptyCompletion = { deliveredAt: null, deliveryDurationMinutes: null, statusBadge: null };
   const cards = orders.map((order: any) => toDriverOrderCardActiveShape(order, driverPos, emptyCompletion));
   const pagination = toPaginated(cards, total, page, limit);
-  const socketPayload = { success: true, data: cards, ...pagination };
+  const socketPayload = { data: cards, ...pagination };
   const io = getIo(req);
   if (io) {
     io.to(`driver:${driverId}`).emit('driver:orders:active_snapshot', socketPayload);
@@ -584,7 +584,7 @@ export const getCompletedOrders = asyncHandler(async (req: Request, res: Respons
     });
   });
   const pagination = toPaginated(cards, total, page, limit);
-  const socketPayload = { success: true, data: cards, ...pagination };
+  const socketPayload = { data: cards, ...pagination };
   const io = getIo(req);
   if (io) {
     io.to(`driver:${driverId}`).emit('driver:orders:completed_snapshot', socketPayload);

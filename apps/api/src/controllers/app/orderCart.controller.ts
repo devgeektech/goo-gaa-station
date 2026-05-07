@@ -128,7 +128,6 @@ async function buildVendorNewOrdersSocketPayload(vendorId: string): Promise<Reco
   const pages = Math.ceil(total / limit) || 1;
   const withTimer = orders.map((o) => withRemainingTime(o as Record<string, unknown>));
   return {
-    success: true,
     data: { orders: withTimer, total, page, pages },
   };
 }
