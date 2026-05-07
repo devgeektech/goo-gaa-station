@@ -99,6 +99,40 @@ function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
 }
 
+function withRemainingTime<T extends Record<string, unknown>>(order: T): T & { remainingTime: number } {
+  const deadline = (order as { vendorResponseDeadline?: Date | string | null }).vendorResponseDeadline;
+  if (!deadline) return { ...(order as object), remainingTime: 0 } as T & { remainingTime: number };
+  const ms = new Date(deadline).getTime() - Date.now();
+  return {
+    ...(order as object),
+    remainingTime: Math.max(0, Math.ceil(ms / 1000)),
+  } as T & { remainingTime: number };
+}
+
+async function buildVendorNewOrdersSocketPayload(vendorId: string): Promise<Record<string, unknown>> {
+  const page = 1;
+  const limit = 20;
+  const filter: Record<string, unknown> = {
+    vendorId: new mongoose.Types.ObjectId(String(vendorId)),
+    status: 'vendor_notified',
+  };
+  const [orders, total] = await Promise.all([
+    Order.find(filter)
+      .populate('customerId', 'name phone')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Order.countDocuments(filter),
+  ]);
+  const pages = Math.ceil(total / limit) || 1;
+  const withTimer = orders.map((o) => withRemainingTime(o as Record<string, unknown>));
+  return {
+    success: true,
+    data: { orders: withTimer, total, page, pages },
+  };
+}
+
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const R = 6371;
@@ -427,7 +461,9 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   };
   if (io) {
     io.to('admin').emit('order:new', { ...newOrderRealtimePayload, vendorId });
-    io.to(`vendor:${vendorId}`).emit('order:new', newOrderRealtimePayload);
+    const vendorSnapshotPayload = await buildVendorNewOrdersSocketPayload(String(vendorId));
+    io.to(`vendor:${vendorId}`).emit('order:new', vendorSnapshotPayload);
+    io.to(`vendor:${vendorId}`).emit('vendor:orders:new_snapshot', vendorSnapshotPayload);
   }
 
   try {

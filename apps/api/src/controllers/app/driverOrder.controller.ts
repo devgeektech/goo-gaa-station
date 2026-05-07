@@ -104,11 +104,12 @@ export const getNewOrders = asyncHandler(async (req: Request, res: Response) => 
   const cards = orders.map((order: any) => toDriverOrderCardActiveShape(order, driverPos, emptyCompletion));
 
   const pagination = toPaginated(cards, total, page, limit);
+  const socketPayload = { success: true, data: cards, ...pagination };
 
   // New-tab sync channel: when client fetches /new, also push same snapshot over socket.
   // This enables frontend to bind list state to one event stream.
   if (io) {
-    io.to(`driver:${driverId}`).emit('driver:orders:new_snapshot', pagination);
+    io.to(`driver:${driverId}`).emit('driver:orders:new_snapshot', socketPayload);
   }
 
   return sendSuccess(res, cards, 200, pagination);
@@ -514,8 +515,14 @@ export const getActiveOrder = asyncHandler(async (req: Request, res: Response) =
 
   const emptyCompletion = { deliveredAt: null, deliveryDurationMinutes: null, statusBadge: null };
   const cards = orders.map((order: any) => toDriverOrderCardActiveShape(order, driverPos, emptyCompletion));
+  const pagination = toPaginated(cards, total, page, limit);
+  const socketPayload = { success: true, data: cards, ...pagination };
+  const io = getIo(req);
+  if (io) {
+    io.to(`driver:${driverId}`).emit('driver:orders:active_snapshot', socketPayload);
+  }
 
-  return sendSuccess(res, cards, 200, toPaginated(cards, total, page, limit));
+  return sendSuccess(res, cards, 200, pagination);
 });
 
 /** GET /history */
@@ -576,8 +583,14 @@ export const getCompletedOrders = asyncHandler(async (req: Request, res: Respons
       statusLabelOverride,
     });
   });
+  const pagination = toPaginated(cards, total, page, limit);
+  const socketPayload = { success: true, data: cards, ...pagination };
+  const io = getIo(req);
+  if (io) {
+    io.to(`driver:${driverId}`).emit('driver:orders:completed_snapshot', socketPayload);
+  }
 
-  return sendSuccess(res, cards, 200, toPaginated(cards, total, page, limit));
+  return sendSuccess(res, cards, 200, pagination);
 });
 
 /** PATCH /:id/pickup — Driver picks up ready order */
