@@ -412,7 +412,10 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
           title: '🚚 Delivery Request',
           body: `New order from ${notifyPayload.vendorName}. Tap to accept!`,
           data: {
-            data: JSON.stringify({ data: [driverNewApiCard] }),
+            screen: 'NewOrders',
+            orderId: String(acceptedOrder._id),
+            vendorId: String(vendorId),
+            orderPayload: JSON.stringify({ data: [driverNewApiCard] }),
           },
         });
       } catch {
