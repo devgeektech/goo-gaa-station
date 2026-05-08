@@ -228,6 +228,11 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
       driverPhone: driver.phone ?? null,
       estimatedPickupMinutes,
     });
+    io.to(`customer:${updated.customerId}`).emit('order:status_updated', {
+      orderId: updated._id,
+      status: 'preparing',
+      message: 'Driver accepted your order and it is now preparing.',
+    });
     io.to('admin').emit('order:driver_assigned', {
       orderId: updated._id,
       driverId: String(driverId),
@@ -623,6 +628,11 @@ export const pickupOrder = asyncHandler(async (req: Request, res: Response) => {
       driverName: driver.name,
       driverPhone: driver.phone,
       driverCurrentLocation: { lat: coords[1] ?? 0, lng: coords[0] ?? 0 },
+    });
+    io.to(`customer:${order.customerId}`).emit('order:status_updated', {
+      orderId: order._id,
+      status: 'picked_up',
+      message: 'Your order has been picked up by the driver.',
     });
     io.to(`vendor:${order.vendorId}`).emit('order:status_updated', { orderId: order._id, status: 'picked_up' });
   }

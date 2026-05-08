@@ -233,6 +233,11 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   if (io) {
     io.to('admin').emit('order:accepted', { orderId: acceptedOrder._id, vendorId: String(vendorId) });
     io.to(`customer:${acceptedOrder.customerId}`).emit('order:accepted', { orderId: acceptedOrder._id, vendorId: String(vendorId) });
+    io.to(`customer:${acceptedOrder.customerId}`).emit('order:status_updated', {
+      orderId: acceptedOrder._id,
+      status: 'accepted',
+      message: 'Your order has been accepted by the vendor.',
+    });
   }
 
   const assignmentDeadline = new Date(Date.now() + DRIVER_ASSIGNMENT_WINDOW_MS);

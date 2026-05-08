@@ -460,6 +460,16 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   };
   if (io) {
     io.to('admin').emit('order:new', { ...newOrderRealtimePayload, vendorId });
+    io.to(`customer:${customerIdObj}`).emit('order:placed', {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      status: 'placed',
+    });
+    io.to(`customer:${customerIdObj}`).emit('order:status_updated', {
+      orderId: order._id,
+      status: 'placed',
+      message: 'Your order has been placed.',
+    });
     const vendorSnapshotPayload = await buildVendorNewOrdersSocketPayload(String(vendorId));
     io.to(`vendor:${vendorId}`).emit('order:new', vendorSnapshotPayload);
     io.to(`vendor:${vendorId}`).emit('vendor:orders:new_snapshot', vendorSnapshotPayload);
