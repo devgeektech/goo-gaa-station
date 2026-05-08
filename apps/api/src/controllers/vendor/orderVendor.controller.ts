@@ -368,7 +368,9 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
         await sendPushToDriver(driverDoc, {
           title: '🚚 Delivery Request',
           body: `New order from ${notifyPayload.vendorName}. Tap to accept!`,
-          data: { screen: 'OrderRequest', orderId: String(acceptedOrder._id) },
+          data: {
+            data: JSON.stringify({ data: notifyPayload }),
+          },
         });
       } catch {
         // Best effort only.
@@ -605,7 +607,17 @@ export const markOrderReady = asyncHandler(async (req: Request, res: Response) =
         await sendPushToDriver(driver as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, {
           title: `Food is ready for pickup at ${vendorName}`,
           body: `Food is ready for pickup at ${vendorName}`,
-          data: { screen: 'OrderRequest', orderId: String(order._id) },
+          data: {
+            data: JSON.stringify({
+              data: {
+                orderId: String(order._id),
+                orderNumber: order.orderNumber,
+                vendorName,
+                vendorAddress,
+                status: 'ready',
+              },
+            }),
+          },
         });
       }
     } catch {
