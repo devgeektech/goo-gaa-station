@@ -243,7 +243,8 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
     },
   });
 
-  const vendor = await Vendor.findById(vendorId).select('name address').lean();
+  const vendor = await Vendor.findById(vendorId).select('name address phone').lean();
+  const customer = await User.findById(acceptedOrder.customerId).select('name phone').lean();
   const vendorLat = Number((vendor as { address?: { lat?: number } } | null)?.address?.lat);
   const vendorLng = Number((vendor as { address?: { lng?: number } } | null)?.address?.lng);
   const nearbyDrivers = await findNearbyDrivers(vendorLat, vendorLng, 5);
@@ -351,6 +352,43 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
           ? Math.round((driverToPickupMiles + vendorToCustomerMiles) * 100) / 100
           : baseNotifyPayload.totalMiles,
     };
+    const vendorAddressObj = (vendor as { address?: { street?: string; city?: string; country?: string; lat?: number; lng?: number } } | null)?.address ?? null;
+    const dropoffObj = acceptedOrder.deliveryAddress ?? null;
+    const vendorAddressText = vendorAddressObj?.street ?? ([vendorAddressObj?.city, vendorAddressObj?.country].filter(Boolean).join(', ') || null);
+    const dropoffAddressText = dropoffObj?.street ?? ([dropoffObj?.city, dropoffObj?.country].filter(Boolean).join(', ') || null);
+    const subtotalNum = Number(acceptedOrder.subtotal);
+    const itemPrice = Number.isFinite(subtotalNum) ? Math.round(subtotalNum * 100) / 100 : null;
+    const driverNewApiCard = {
+      orderId: String(acceptedOrder._id),
+      orderNumber: acceptedOrder.orderNumber,
+      status: String(acceptedOrder.status ?? 'accepted'),
+      isHighPriority: false,
+      estimatedPayout: typeof acceptedOrder.deliveryFee === 'number' ? acceptedOrder.deliveryFee : acceptedOrder.total,
+      itemPrice,
+      estTime: null,
+      distance: null,
+      vendor: {
+        name: (vendor as { name?: string } | null)?.name ?? null,
+        address: vendorAddressText,
+        lat: vendorAddressObj?.lat ?? null,
+        lng: vendorAddressObj?.lng ?? null,
+        phone: (vendor as { phone?: string } | null)?.phone ?? null,
+      },
+      customer: {
+        name: (customer as { name?: string } | null)?.name ?? null,
+        phone: (customer as { phone?: string } | null)?.phone ?? null,
+      },
+      dropoff: {
+        address: dropoffAddressText,
+        lat: dropoffObj?.lat ?? null,
+        lng: dropoffObj?.lng ?? null,
+      },
+      pickingUpEtaMinutes: null,
+      statusLabel: 'PICKING UP',
+      deliveredAt: null,
+      deliveryDurationMinutes: null,
+      statusBadge: null,
+    };
 
     if (io) {
       const room = `driver:${driverId}`;
@@ -369,7 +407,7 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
           title: '🚚 Delivery Request',
           body: `New order from ${notifyPayload.vendorName}. Tap to accept!`,
           data: {
-            data: JSON.stringify({ data: notifyPayload }),
+            data: JSON.stringify({ data: [driverNewApiCard] }),
           },
         });
       } catch {
