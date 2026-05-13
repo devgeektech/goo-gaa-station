@@ -4,6 +4,7 @@ import { Cart } from '../../models/Cart';
 import { Order } from '../../models/Order';
 import { Product } from '../../models/Product';
 import { Vendor } from '../../models/Vendor';
+import { AppSettings } from '../../models/AppSettings';
 import { Driver } from '../../models/Driver';
 import { User } from '../../models/User';
 import { getNextOrderNumber } from '../../models/Counters';
@@ -18,7 +19,6 @@ import { sendPushToVendor } from '../../services/fcm.service';
 import { VENDOR_RESPONSE_WINDOW_MS } from '../../constants/vendorResponse';
 import type { Server as SocketIOServer } from 'socket.io';
 
-const DELIVERY_FEE = 2.0;
 const MAX_ORDER_RADIUS_KM = 30;
 const ACTIVE_STATUSES = ['pending', 'accepted', 'preparing', 'picked_up', 'on_the_way'] as const;
 
@@ -303,11 +303,14 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     }>;
   }).items;
   const productIds = items.map((i) => i.product?._id ?? i.product).filter(Boolean);
-  const products = await Product.find({
-    _id: { $in: productIds },
-    vendor: vendorId,
-    isDeleted: false,
-  }).lean();
+  const [products, appSettings] = await Promise.all([
+    Product.find({
+      _id: { $in: productIds },
+      vendor: vendorId,
+      isDeleted: false,
+    }).lean(),
+    (AppSettings as any).findOne().select('deliveryFee').lean(),
+  ]);
   const productMap = new Map(products.map((p: { _id: mongoose.Types.ObjectId }) => [p._id.toString(), p] as const));
 
   for (const item of items) {
@@ -324,7 +327,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const subtotal = (cart as { subtotal: number }).subtotal;
-  const deliveryFee = DELIVERY_FEE;
+  const deliveryFee = Number((appSettings as { deliveryFee?: number })?.deliveryFee ?? 0) || 0;
   const pointsAvailable = (customerForAddress as { points?: number })?.points ?? 0;
   const discountFromPoints = Math.min(usePoints, pointsAvailable, Math.floor(subtotal * 0.1));
   const discount = discountFromPoints;

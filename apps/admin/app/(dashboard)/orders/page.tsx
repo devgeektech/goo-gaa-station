@@ -3,16 +3,17 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, Download, RefreshCcw, Package, ShieldAlert } from 'lucide-react';
+import { Eye, RefreshCcw, Package, ShieldAlert } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchOrders, setFilters, setStatusMulti, adminUpdateOrderStatus } from '@/store/slices/ordersSlice';
 import type { OrderStatus, PaymentStatus } from '@/lib/api/orders.api';
 import { paymentBadge, statusBadge } from '@/components/orders/orderBadges';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
-import { toCsv, downloadCsv } from '@/lib/utils/csv';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { getOrders } from '@/lib/api/orders.api';
+import { searchCustomers } from '@/lib/api/customers.api';
+import { searchDrivers } from '@/lib/api/drivers.api';
+import { listVendors } from '@/lib/api/vendors.api';
 import { useToast } from '@/components/ui/Toast';
 import { Modal } from '@/components/ui/Modal';
 
@@ -40,8 +41,11 @@ export default function OrdersPage() {
   const { items, pagination, filters, loading, error } = useAppSelector((s) => s.orders);
 
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
+  const [customerOptions, setCustomerOptions] = useState<Array<{ _id: string; label: string }>>([]);
+  const [driverOptions, setDriverOptions] = useState<Array<{ _id: string; label: string }>>([]);
+  const [vendorOptions, setVendorOptions] = useState<Array<{ _id: string; label: string }>>([]);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideOrderId, setOverrideOrderId] = useState<string | null>(null);
   const [overrideStatus, setOverrideStatus] = useState<OrderStatus>('confirmed');
@@ -51,6 +55,54 @@ export default function OrdersPage() {
   useEffect(() => {
     void dispatch(fetchOrders({ page: 1, limit: 20 }));
   }, [dispatch]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFilterDropdowns() {
+      setFilterOptionsLoading(true);
+      try {
+        const [customersRes, driversRes, vendorsRes] = await Promise.all([
+          searchCustomers({ page: 1, limit: 100 }),
+          searchDrivers({ page: 1, limit: 100 }),
+          listVendors({ page: 1, limit: 100 }),
+        ]);
+        if (cancelled) return;
+        const customers = customersRes.data ?? [];
+        const drivers = driversRes.data ?? [];
+        const vendors = vendorsRes.data ?? [];
+        setCustomerOptions(
+          customers.map((c) => ({
+            _id: c._id,
+            label: [c.name || '—', c.phone].filter(Boolean).join(' · '),
+          }))
+        );
+        setDriverOptions(
+          drivers.map((d) => ({
+            _id: d._id,
+            label: [d.name || 'Driver', d.phone].filter(Boolean).join(' · '),
+          }))
+        );
+        setVendorOptions(
+          vendors.map((v) => ({
+            _id: v._id,
+            label: v.name || '—',
+          }))
+        );
+      } catch {
+        if (!cancelled) {
+          setCustomerOptions([]);
+          setDriverOptions([]);
+          setVendorOptions([]);
+        }
+      } finally {
+        if (!cancelled) setFilterOptionsLoading(false);
+      }
+    }
+    void loadFilterDropdowns();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!statusDropdownOpen) return;
@@ -71,86 +123,6 @@ export default function OrdersPage() {
 
   async function applyFilters() {
     void dispatch(fetchOrders({ page: 1 }));
-  }
-
-  async function exportCsv() {
-    setExporting(true);
-    try {
-      const limit = 50;
-      let page = 1;
-      let all: typeof items = [];
-
-      // Note: backend currently supports single status; for multi-select we export one by one and merge.
-      const statusValues = filters.status.length > 0 ? filters.status : [''];
-      for (const st of statusValues) {
-        page = 1;
-        while (true) {
-          const res = await getOrders({
-            page,
-            limit,
-            status: st || '',
-            paymentStatus: filters.paymentStatus || '',
-            dateFrom: filters.dateFrom || '',
-            dateTo: filters.dateTo || '',
-            search: filters.search || '',
-            vendorId: filters.vendorId || '',
-            customerId: filters.customerId || '',
-            driverId: filters.driverId || '',
-          });
-          all = all.concat(res.data);
-          if (!res.hasNext) break;
-          page += 1;
-        }
-      }
-
-      // de-dupe by _id
-      const uniq = Array.from(new Map(all.map((o) => [o._id, o])).values());
-      const num = (v: unknown, fb = 0) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : fb;
-      };
-      const rows = uniq.map((o) => {
-        const gross = num(o.grossAmount, num(o.total));
-        const commission = num(o.platformCommission);
-        const wifipay = num(o.wifipayFee);
-        const driverShare = num(o.driverShare, num(o.deliveryFee));
-        const vendorShare = num(
-          o.vendorShare,
-          Math.max(0, gross - commission - wifipay - driverShare)
-        );
-        const vendorIdStr = typeof o.vendorId === 'string' ? o.vendorId : o.vendorId?._id ?? '';
-        const vendorName = typeof o.vendorId === 'string' ? '' : o.vendorId?.name ?? '';
-        return {
-          orderId: o._id,
-          orderNumber: o.orderNumber,
-          customer: typeof o.customerId === 'string' ? o.customerId : o.customerId?._id ?? '',
-          customerPhone: typeof o.customerId === 'string' ? '' : o.customerId?.phone ?? '',
-          driver: o.driverId ? (typeof o.driverId === 'string' ? o.driverId : o.driverId._id) : '',
-          driverPhone: o.driverId && typeof o.driverId !== 'string' ? o.driverId.phone ?? '' : '',
-          vendorId: vendorIdStr,
-          vendorName,
-          itemsCount: o.items?.length ?? 0,
-          total: o.total,
-          grossAmount: gross,
-          platformCommission: commission,
-          wifipayFee: wifipay,
-          driverShare,
-          vendorShare,
-          paymentMethod: o.paymentMethod ?? '',
-          paymentStatus: o.paymentStatus,
-          status: o.status,
-          createdAt: o.createdAt,
-          wifipayRef: o.wifipayRef ?? '',
-        };
-      });
-      const csv = toCsv(rows);
-      downloadCsv(`orders-${new Date().toISOString().slice(0, 10)}.csv`, csv);
-      toast.push({ title: 'CSV exported', description: `${rows.length} order(s)`, variant: 'success' });
-    } catch (e) {
-      toast.push({ title: 'Export failed', description: e instanceof Error ? e.message : 'Unknown error', variant: 'danger' });
-    } finally {
-      setExporting(false);
-    }
   }
 
   function openOverride(orderId: string, currentStatus: OrderStatus) {
@@ -195,9 +167,6 @@ export default function OrdersPage() {
         <div className="row">
           <button className="btn" onClick={() => void dispatch(fetchOrders(undefined))} disabled={loading} aria-label="Refresh orders list">
             <RefreshCcw size={18} aria-hidden /> Refresh
-          </button>
-          <button className="btn btnPrimary" onClick={() => void exportCsv()} disabled={exporting} aria-label="Export orders to CSV">
-            <Download size={18} aria-hidden /> {exporting ? 'Exporting…' : 'Export CSV'}
           </button>
         </div>
       </div>
@@ -284,17 +253,53 @@ export default function OrdersPage() {
               <div className="label">Date to</div>
               <input className="input" type="date" value={filters.dateTo} onChange={(e) => dispatch(setFilters({ dateTo: e.target.value }))} />
             </div>
-            <div className="field" style={{ minWidth: 140 }}>
-              <div className="label">Customer ID</div>
-              <input className="input" value={filters.customerId} onChange={(e) => dispatch(setFilters({ customerId: e.target.value }))} placeholder="Optional" />
+            <div className="field" style={{ minWidth: 200 }}>
+              <div className="label">Customer</div>
+              <select
+                className="select"
+                value={filters.customerId}
+                disabled={filterOptionsLoading}
+                onChange={(e) => dispatch(setFilters({ customerId: e.target.value }))}
+              >
+                <option value="">All</option>
+                {customerOptions.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="field" style={{ minWidth: 140 }}>
-              <div className="label">Driver ID</div>
-              <input className="input" value={filters.driverId} onChange={(e) => dispatch(setFilters({ driverId: e.target.value }))} placeholder="Optional" />
+            <div className="field" style={{ minWidth: 200 }}>
+              <div className="label">Driver</div>
+              <select
+                className="select"
+                value={filters.driverId}
+                disabled={filterOptionsLoading}
+                onChange={(e) => dispatch(setFilters({ driverId: e.target.value }))}
+              >
+                <option value="">All</option>
+                {driverOptions.map((d) => (
+                  <option key={d._id} value={d._id}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="field" style={{ minWidth: 140 }}>
-              <div className="label">Vendor ID</div>
-              <input className="input" value={filters.vendorId} onChange={(e) => dispatch(setFilters({ vendorId: e.target.value }))} placeholder="Optional" />
+            <div className="field" style={{ minWidth: 200 }}>
+              <div className="label">Vendor</div>
+              <select
+                className="select"
+                value={filters.vendorId}
+                disabled={filterOptionsLoading}
+                onChange={(e) => dispatch(setFilters({ vendorId: e.target.value }))}
+              >
+                <option value="">All</option>
+                {vendorOptions.map((v) => (
+                  <option key={v._id} value={v._id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="field" style={{ minWidth: 120 }}>
@@ -382,7 +387,7 @@ export default function OrdersPage() {
                             <Link href={`/orders/${o._id}`} className="btn" aria-label="View order details">
                               <Eye size={18} aria-hidden />
                             </Link>
-                            <button
+                            {/* <button
                               type="button"
                               className="btn"
                               aria-label="Status override"
@@ -390,7 +395,7 @@ export default function OrdersPage() {
                               title="Status override (emergency)"
                             >
                               <ShieldAlert size={17} aria-hidden />
-                            </button>
+                            </button> */}
                           </div>
                         </td>
                       </tr>

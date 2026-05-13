@@ -152,7 +152,7 @@ export const ROUTES = [
     path: '/api/v1/vendor/dashboard',
     auth: true,
     description:
-      'Vendor app dashboard: store name + display storeId, today earnings & delivered-order count (vendor timezone, paid deliveries), vs-yesterday earnings %, average rating, new orders count (vendor_notified, matches New Orders card), wallet balance (sum vendorShare on delivered+paid), menu totalItems & totalCategories',
+      'Vendor app dashboard: store + storeId, today earnings (paid delivered, vendor timezone), vs-yesterday %, rating, newOrdersCount, embedded newOrders[] and activeOrders[] (same order documents + remainingTime as /vendor/orders/new and in-kitchen pipeline including ready; capped at 200 each with newOrdersTruncated/activeOrdersTruncated when more exist), activeOrdersCount, wallet, menu summary. Use GET /vendor/orders/new|current with page for full pagination when truncated.',
   },
   { method: 'GET', path: '/api/v1/vendor/orders', auth: true, description: 'Vendor: list orders; query: status, page, limit' },
   { method: 'GET', path: '/api/v1/vendor/orders/new', auth: true, description: 'Vendor: list NEW orders (status=vendor_notified); includes remainingTime; query: page, limit' },

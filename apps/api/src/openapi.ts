@@ -693,7 +693,23 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
                       earningsChangeLabel: { type: 'string', nullable: true, example: '+18.4%' },
                     },
                   },
-                  newOrdersCount: { type: 'integer', description: 'Orders awaiting vendor (vendor_notified)' },
+                  newOrdersCount: { type: 'integer', description: 'Total orders awaiting vendor (vendor_notified)' },
+                  newOrders: {
+                    type: 'array',
+                    items: { type: 'object' },
+                    description: 'Up to 200 new orders; same fields + remainingTime as GET /vendor/orders/new',
+                  },
+                  newOrdersTruncated: { type: 'boolean', description: 'True if more than 200 new orders exist' },
+                  activeOrdersCount: {
+                    type: 'integer',
+                    description: 'Total in-kitchen pipeline: accepted, preparing, ready, picked_up, on_the_way',
+                  },
+                  activeOrders: {
+                    type: 'array',
+                    items: { type: 'object' },
+                    description: 'Up to 200 active orders; same shape + remainingTime as new-tab lists (includes ready)',
+                  },
+                  activeOrdersTruncated: { type: 'boolean', description: 'True if more than 200 active orders exist' },
                   wallet: {
                     type: 'object',
                     properties: {
@@ -725,6 +741,11 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
                 earningsChangeLabel: '+18.4%',
               },
               newOrdersCount: 12,
+              newOrders: [],
+              newOrdersTruncated: false,
+              activeOrdersCount: 3,
+              activeOrders: [],
+              activeOrdersTruncated: false,
               wallet: { balance: 4820, currency: 'USD' },
               menuSummary: { totalItems: 156, totalCategories: 12 },
             },

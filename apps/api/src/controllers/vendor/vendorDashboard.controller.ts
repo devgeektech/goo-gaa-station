@@ -43,6 +43,22 @@ function displayStoreId(vendorId: mongoose.Types.ObjectId): string {
   return `#${hex}`;
 }
 
+/** Same `remainingTime` seconds as GET /vendor/orders/new and /current (vendor orderVendor.controller). */
+function withRemainingTime<T extends Record<string, unknown>>(order: T): T & { remainingTime: number } {
+  const deadline = (order as { vendorResponseDeadline?: Date | string | null }).vendorResponseDeadline;
+  if (!deadline) return { ...(order as object), remainingTime: 0 } as T & { remainingTime: number };
+  const ms = new Date(deadline).getTime() - Date.now();
+  return {
+    ...(order as object),
+    remainingTime: Math.max(0, Math.ceil(ms / 1000)),
+  } as T & { remainingTime: number };
+}
+
+/** Max orders per list embedded in dashboard (same shape as /vendor/orders/new and /current). */
+const DASHBOARD_ORDERS_LIST_CAP = 200;
+
+const ACTIVE_ORDER_STATUSES = ['accepted', 'preparing', 'ready', 'picked_up', 'on_the_way'] as const;
+
 async function sumDeliveredVendorShareForDayYmd(
   vendorId: mongoose.Types.ObjectId,
   timeZone: string,
@@ -103,7 +119,7 @@ async function sumWalletBalance(vendorId: mongoose.Types.ObjectId): Promise<numb
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
 }
 
-/** GET /api/v1/vendor/dashboard — vendor app home: today stats, new orders count, wallet, menu summary */
+/** GET /api/v1/vendor/dashboard — vendor app home + embedded new/active order lists (cap 200 each; use /orders/new|current?page when truncated) */
 export const getVendorDashboard = asyncHandler(async (req: Request, res: Response) => {
   const vendorId = getVendorId(req);
   const now = new Date();
@@ -123,6 +139,9 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
 
   const oid = vendorId;
 
+  const newFilter = { vendorId: oid, status: 'vendor_notified' as const };
+  const activeFilter = { vendorId: oid, status: { $in: [...ACTIVE_ORDER_STATUSES] } };
+
   const [
     todayAgg,
     yesterdayAgg,
@@ -131,14 +150,28 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
     totalItems,
     categoryIds,
     ratingRaw,
+    newOrdersLean,
+    activeOrdersLean,
+    activeOrdersCount,
   ] = await Promise.all([
     sumDeliveredVendorShareForDayYmd(oid, timeZone, todayYmd),
     sumDeliveredVendorShareForDayYmd(oid, timeZone, yesterdayYmd),
-    Order.countDocuments({ vendorId: oid, status: 'vendor_notified' }),
+    Order.countDocuments(newFilter),
     sumWalletBalance(oid),
     Product.countDocuments({ vendor: oid, isDeleted: { $ne: true } }),
     Product.distinct('category', { vendor: oid, isDeleted: { $ne: true } }),
     Promise.resolve(Number((vendor as { averageRating?: unknown }).averageRating)),
+    Order.find(newFilter)
+      .populate('customerId', 'name phone')
+      .sort({ createdAt: -1 })
+      .limit(DASHBOARD_ORDERS_LIST_CAP)
+      .lean(),
+    Order.find(activeFilter)
+      .populate('customerId', 'name phone')
+      .sort({ createdAt: -1 })
+      .limit(DASHBOARD_ORDERS_LIST_CAP)
+      .lean(),
+    Order.countDocuments(activeFilter),
   ]);
 
   const todayEarnings = Math.round(todayAgg.earnings * 100) / 100;
@@ -161,6 +194,9 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
 
   const rating = Number.isFinite(ratingRaw) && ratingRaw >= 0 ? Math.round(ratingRaw * 10) / 10 : 0;
 
+  const newOrders = (newOrdersLean as Record<string, unknown>[]).map((o) => withRemainingTime(o));
+  const activeOrders = (activeOrdersLean as Record<string, unknown>[]).map((o) => withRemainingTime(o));
+
   const data = {
     vendor: {
       name: String((vendor as { name?: string }).name ?? ''),
@@ -177,6 +213,11 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
       earningsChangeLabel,
     },
     newOrdersCount,
+    newOrders,
+    newOrdersTruncated: newOrdersCount > newOrders.length,
+    activeOrdersCount,
+    activeOrders,
+    activeOrdersTruncated: activeOrdersCount > activeOrders.length,
     wallet: {
       balance: walletBalance,
       currency: 'USD',
