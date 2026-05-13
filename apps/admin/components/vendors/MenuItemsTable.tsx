@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import type { MenuItem } from '@/lib/api/vendors.api';
 import { formatMoney } from '@/lib/utils/format';
-import { AddMenuItemModal } from './AddMenuItemModal';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 function publicFileBase(): string {
@@ -16,10 +14,8 @@ function imgSrc(url: string | null | undefined) {
 }
 
 export function MenuItemsTable({
-  vendorId,
   items,
   loading,
-  onRefresh,
   onEdit,
 }: {
   vendorId: string;
@@ -28,29 +24,10 @@ export function MenuItemsTable({
   onRefresh: () => void;
   onEdit?: (item: MenuItem) => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [createLoading, setCreateLoading] = useState(false);
-
-  const handleAddSubmit = async (formData: FormData) => {
-    setCreateLoading(true);
-    try {
-      const { createMenuItem } = await import('@/lib/api/vendors.api');
-      await createMenuItem(vendorId, formData);
-      onRefresh();
-      setAddOpen(false);
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
   return (
     <div className="card" style={{ boxShadow: 'none' }}>
       <div className="cardBody">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ fontWeight: 800 }}>Menu items</div>
-          <button type="button" className="btn btnPrimary" onClick={() => setAddOpen(true)}>Add item</button>
-        </div>
-        <AddMenuItemModal open={addOpen} onClose={() => setAddOpen(false)} onSubmit={handleAddSubmit} loading={createLoading} />
+        <div style={{ fontWeight: 800, marginBottom: 12 }}>Menu items</div>
         {loading && items.length === 0 ? (
           <Skeleton height={120} />
         ) : items.length === 0 ? (
