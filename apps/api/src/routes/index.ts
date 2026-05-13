@@ -18,6 +18,7 @@ import vendorProductsRoutes from './vendor/products.routes';
 import vendorOrdersRoutes from './vendor/orders.routes';
 import vendorTestRoutes from './vendor/vendorTest.routes';
 import vendorProfileRoutes from './vendor/profile.routes';
+import vendorDashboardRoutes from './vendor/dashboard.routes';
 import userAdminRoutes from './admin/userAdmin.routes';
 import customerAdminRoutes from './admin/customerAdmin.routes';
 import driverAdminRoutes from './admin/driverAdmin.routes';
@@ -83,6 +84,7 @@ v1Router.use('/vendor/products', authVendor, requireApproved, vendorProductsRout
 v1Router.use('/vendor/orders', authVendor, requireApproved, vendorOrdersRoutes);
 v1Router.use('/vendor/test', authVendor, requireApproved, vendorTestRoutes);
 v1Router.use('/vendor/profile', authVendor, requireApproved, vendorProfileRoutes);
+v1Router.use('/vendor/dashboard', authVendor, requireApproved, vendorDashboardRoutes);
 v1Router.use('/payment', paymentRoutes);
 v1Router.use('/admin/users', userAdminRoutes);
 v1Router.use('/admin/customers', customerAdminRoutes);

@@ -150,6 +150,7 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       query('isAvailable', { type: 'string', enum: ['true', 'false'] }, false, 'Filter by stock'),
       ...paginationParams,
     ],
+    'GET /api/v1/vendor/dashboard': [],
     'GET /api/v1/vendor/orders': [
       query('status', { type: 'string', enum: ['pending', 'vendor_notified', 'accepted', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] }, false, 'Filter by order status'),
       ...paginationParams,
@@ -657,6 +658,76 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
               },
             ],
             pagination: { page: 1, limit: 30, total: 1, totalPages: 1 },
+          },
+        },
+      },
+    },
+    'GET /api/v1/vendor/dashboard': {
+      description: 'Vendor app home dashboard',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  vendor: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      storeId: { type: 'string', example: '#A1B2', description: 'Short display id from vendor ObjectId' },
+                      slug: { type: 'string', nullable: true },
+                      logo: { type: 'string', nullable: true },
+                    },
+                  },
+                  todayStats: {
+                    type: 'object',
+                    properties: {
+                      earnings: { type: 'number', description: 'Sum vendorShare for paid deliveries completed today (vendor timezone)' },
+                      totalOrders: { type: 'integer', description: 'Count of those deliveries' },
+                      rating: { type: 'number', description: 'Vendor averageRating' },
+                      totalRatings: { type: 'integer' },
+                      earningsChangePercent: { type: 'number', nullable: true, description: 'vs yesterday; null if no baseline' },
+                      earningsChangeLabel: { type: 'string', nullable: true, example: '+18.4%' },
+                    },
+                  },
+                  newOrdersCount: { type: 'integer', description: 'Orders awaiting vendor (vendor_notified)' },
+                  wallet: {
+                    type: 'object',
+                    properties: {
+                      balance: { type: 'number', description: 'Lifetime sum vendorShare on delivered+paid' },
+                      currency: { type: 'string', example: 'USD' },
+                    },
+                  },
+                  menuSummary: {
+                    type: 'object',
+                    properties: {
+                      totalItems: { type: 'integer' },
+                      totalCategories: { type: 'integer', description: 'Distinct product categories for this vendor' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              vendor: { name: 'The Gourmet Kitchen', storeId: '#8829', slug: 'gourmet-kitchen', logo: '/uploads/logo.png' },
+              todayStats: {
+                earnings: 1284.5,
+                totalOrders: 42,
+                rating: 4.8,
+                totalRatings: 120,
+                earningsChangePercent: 18.4,
+                earningsChangeLabel: '+18.4%',
+              },
+              newOrdersCount: 12,
+              wallet: { balance: 4820, currency: 'USD' },
+              menuSummary: { totalItems: 156, totalCategories: 12 },
+            },
           },
         },
       },
@@ -1885,3 +1956,4 @@ export function openApiHandler(req: Request, res: Response): void {
   const baseUrl = `${protocol}://${host}`;
   res.json(getOpenApiSpec(baseUrl));
 }
+
