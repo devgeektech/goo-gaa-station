@@ -147,6 +147,13 @@ export const ROUTES = [
   { method: 'GET', path: '/api/v1/vendor/categories', auth: true, description: 'Vendor: list categories for store type (authVendor + requireApproved)' },
   { method: 'GET', path: '/api/v1/vendor/products', auth: true, description: 'Vendor: list products (authVendor + requireApproved); query: category, isAvailable, page, limit' },
   { method: 'GET', path: '/api/v1/vendor/products/:id', auth: true, description: 'Vendor: get product by id (403 if wrong vendor)' },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/dashboard',
+    auth: true,
+    description:
+      'Vendor app dashboard: store name + display storeId, today earnings & delivered-order count (vendor timezone, paid deliveries), vs-yesterday earnings %, average rating, new orders count (vendor_notified, matches New Orders card), wallet balance (sum vendorShare on delivered+paid), menu totalItems & totalCategories',
+  },
   { method: 'GET', path: '/api/v1/vendor/orders', auth: true, description: 'Vendor: list orders; query: status, page, limit' },
   { method: 'GET', path: '/api/v1/vendor/orders/new', auth: true, description: 'Vendor: list NEW orders (status=vendor_notified); includes remainingTime; query: page, limit' },
   { method: 'GET', path: '/api/v1/vendor/orders/current', auth: true, description: 'Vendor: list CURRENT orders (accepted, preparing, picked_up, on_the_way); query: page, limit' },
