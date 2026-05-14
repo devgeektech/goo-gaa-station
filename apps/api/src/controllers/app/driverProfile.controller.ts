@@ -156,21 +156,6 @@ export const getCurrentOrder = asyncHandler(async (req: Request, res: Response) 
   return sendSuccess(res, null);
 });
 
-/** GET /earnings */
-export const getEarnings = asyncHandler(async (req: Request, res: Response) => {
-  const id = req.user?._id;
-  if (!id) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
-  const driver = await Driver.findById(id).select('totalEarnings walletBalance totalDeliveries').lean();
-  if (!driver) throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404);
-  const d = driver as { totalEarnings?: number; walletBalance?: number; totalDeliveries?: number };
-  return sendSuccess(res, {
-    totalEarnings: d.totalEarnings ?? 0,
-    walletBalance: d.walletBalance ?? 0,
-    totalDeliveries: d.totalDeliveries ?? 0,
-    thisMonthEarnings: 0,
-  });
-});
-
 /** GET /delivery-history — Stub */
 export const getDeliveryHistory = asyncHandler(async (_req: Request, res: Response) => {
   return sendSuccess(res, [], 200, toPaginated([], 0, 1, 20));

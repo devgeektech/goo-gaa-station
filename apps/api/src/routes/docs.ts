@@ -84,6 +84,20 @@ export const ROUTES = [
   },
   {
     method: 'GET',
+    path: '/api/v1/driver/earnings',
+    auth: true,
+    description:
+      'Driver earnings dashboard (same payload as GET /api/v1/app/driver/earnings): `withdrawFunds` null; `lifetime` (totalEarnings, totalDeliveries, totalHoursWorked); `periods.daily|weekly|monthly` each with totalEarnings, dateRangeLabel, earningsChangePercent/Label, totalDeliveries, totalHoursWorked, performanceGraph (7-day bars for weekly only; null for daily/monthly), recentDeliveries. Bearer from /auth/driver/verify-otp; authDriver.',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/driver/dashboard',
+    auth: true,
+    description:
+      'Driver home dashboard (Figma-aligned): driverProfile (name, tierLabel, profileImageUrl, isOnline), todaysEarningsCard (periodLabel, totalEarnings, orderCount, hoursWorked, tipsAmount), totalEarningsCard (label Total Earnings, amount = lifetime delivered earnings — not walletBalance, cashOutCtaLabel, cashOutAvailable, withdrawFunds null), newOrdersCount, activeOrders (figmaDisplay, pickup/dropoff locations, estTimeLabel, distances, orderCard same as GET /driver/orders/active), map (openMapButtonLabel, previewUrl, center). Same auth as /driver/earnings.',
+  },
+  {
+    method: 'GET',
     path: '/api/v1/driver/orders/:id/detail',
     auth: true,
     description:
@@ -153,6 +167,13 @@ export const ROUTES = [
     auth: true,
     description:
       'Vendor app dashboard: store + storeId, today earnings (paid delivered, vendor timezone), vs-yesterday %, rating, newOrdersCount, embedded newOrders[] and activeOrders[] (same order documents + remainingTime as /vendor/orders/new and in-kitchen pipeline including ready; capped at 200 each with newOrdersTruncated/activeOrdersTruncated when more exist), activeOrdersCount, wallet, menu summary. Use GET /vendor/orders/new|current with page for full pagination when truncated.',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/wallet',
+    auth: true,
+    description:
+      'Vendor wallet / earnings (single GET): `overview` (summary + recentOrders), `revenueAnalytics` (periodRevenue, graphs.daily/monthly null, weekly bars, totals, changeByPeriod, recentOrders), `orderBuckets` (queued=pending|vendor_notified|placed, active=in-progress, delivered=delivered; max 50 each, totalAmount = sum order totals). Earnings use effective vendor revenue on delivered orders (stored vendorShare when positive, else same formula as order placement / PLATFORM_COMMISSION_RATE). COD; no payout fields.',
   },
   { method: 'GET', path: '/api/v1/vendor/orders', auth: true, description: 'Vendor: list orders; query: status, page, limit' },
   { method: 'GET', path: '/api/v1/vendor/orders/new', auth: true, description: 'Vendor: list NEW orders (status=vendor_notified); includes remainingTime; query: page, limit' },
@@ -229,7 +250,20 @@ export const ROUTES = [
   { method: 'PATCH', path: '/api/v1/app/driver/online-status', auth: true, description: 'Update online status (driver)' },
   { method: 'PUT', path: '/api/v1/app/driver/location', auth: true, description: 'Update location (driver)' },
   { method: 'GET', path: '/api/v1/app/driver/current-order', auth: true, description: 'Current order (driver)' },
-  { method: 'GET', path: '/api/v1/app/driver/earnings', auth: true, description: 'Earnings (driver)' },
+  {
+    method: 'GET',
+    path: '/api/v1/app/driver/earnings',
+    auth: true,
+    description:
+      'Driver earnings dashboard — identical to GET /api/v1/driver/earnings (JWT role driver via authenticateJWT). See /driver/earnings for payload shape.',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/app/driver/dashboard',
+    auth: true,
+    description:
+      'Driver home dashboard — same payload as GET /api/v1/driver/dashboard (JWT role driver via authenticateJWT).',
+  },
   { method: 'GET', path: '/api/v1/app/driver/delivery-history', auth: true, description: 'Delivery history (driver)' },
   { method: 'GET', path: '/api/v1/app/driver/orders/available', auth: true, description: 'Available orders (driver)' },
   { method: 'GET', path: '/api/v1/app/driver/orders/new', auth: true, description: 'New orders tab (driver); query: page, limit' },

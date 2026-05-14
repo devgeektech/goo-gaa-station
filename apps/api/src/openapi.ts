@@ -151,6 +151,7 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...paginationParams,
     ],
     'GET /api/v1/vendor/dashboard': [],
+    'GET /api/v1/vendor/wallet': [],
     'GET /api/v1/vendor/orders': [
       query('status', { type: 'string', enum: ['pending', 'vendor_notified', 'accepted', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] }, false, 'Filter by order status'),
       ...paginationParams,
@@ -169,6 +170,10 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...paginationParams,
       query('unreadOnly', { type: 'string', enum: ['true', 'false'] }, false, 'If true, only unread notifications (read=false)'),
     ],
+    'GET /api/v1/driver/earnings': [],
+    'GET /api/v1/driver/dashboard': [],
+    'GET /api/v1/app/driver/earnings': [],
+    'GET /api/v1/app/driver/dashboard': [],
     'GET /api/v1/app/driver/orders/new': [...paginationParams],
     'GET /api/v1/app/driver/orders/completed': [...paginationParams],
     'GET /api/v1/app/driver/orders/history': [...paginationParams],
@@ -209,6 +214,317 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
     category: { _id: '507f1f77bcf86cd799439011', name: 'Pizza' },
     isAvailable: true,
     sortOrder: 0,
+  };
+  const driverEarningsPeriodProps: Record<string, unknown> = {
+    totalEarnings: { type: 'number', description: 'Sum of effective driver share on delivered orders in this calendar window' },
+    dateRangeLabel: { type: 'string', description: 'Human-readable range for the tab (vendor default timezone)' },
+    earningsChangePercent: {
+      type: 'number',
+      nullable: true,
+      description: 'Vs prior comparable period (today vs yesterday, rolling 7d vs prior 7d, MTD vs prior-month MTD); null with label New when prior baseline was zero',
+    },
+    earningsChangeLabel: { type: 'string', nullable: true },
+    totalDeliveries: { type: 'integer', description: 'Count of delivered orders in the window' },
+    totalHoursWorked: { type: 'number', description: 'Approximate active delivery hours (see meta.hoursNote)' },
+    performanceGraph: {
+      description: 'Seven daily bars for the weekly tab only; null for daily and monthly',
+      anyOf: [
+        {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              date: { type: 'string', example: '2026-05-11' },
+              label: { type: 'string', example: 'MON' },
+              amount: { type: 'number' },
+              orderCount: { type: 'integer' },
+            },
+          },
+        },
+        { type: 'null' },
+      ],
+    },
+    recentDeliveries: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          orderNumber: { type: 'string' },
+          status: { type: 'string' },
+          paymentStatus: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+          deliveredAt: { type: 'string', format: 'date-time', nullable: true },
+          itemsCount: { type: 'integer' },
+          driverAmount: { type: 'number', description: 'Driver share; uses computeOrderFinancials when DB driverShare is 0' },
+          orderTotal: { type: 'number' },
+        },
+      },
+    },
+  };
+  const driverEarningsGetResponse: Record<string, unknown> = {
+    description: 'Driver earnings dashboard (daily / weekly / monthly tabs)',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                withdrawFunds: {
+                  nullable: true,
+                  description: 'Reserved for online wallet payouts; always JSON null',
+                  example: null,
+                },
+                lifetime: {
+                  type: 'object',
+                  properties: {
+                    totalEarnings: { type: 'number' },
+                    totalDeliveries: { type: 'integer' },
+                    totalHoursWorked: { type: 'number' },
+                  },
+                },
+                periods: {
+                  type: 'object',
+                  properties: {
+                    daily: { type: 'object', properties: { ...driverEarningsPeriodProps } },
+                    weekly: { type: 'object', properties: { ...driverEarningsPeriodProps } },
+                    monthly: { type: 'object', properties: { ...driverEarningsPeriodProps } },
+                  },
+                },
+                meta: {
+                  type: 'object',
+                  properties: {
+                    currency: { type: 'string', example: 'USD' },
+                    timeZone: { type: 'string', example: 'Asia/Kolkata' },
+                    earningsBasis: { type: 'string', example: 'delivered_orders_effective_driver_share' },
+                    earningsNote: { type: 'string' },
+                    hoursNote: { type: 'string' },
+                    withdrawNote: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        example: {
+          success: true,
+          data: {
+            withdrawFunds: null,
+            lifetime: { totalEarnings: 1240.5, totalDeliveries: 88, totalHoursWorked: 42.5 },
+            periods: {
+              daily: {
+                totalEarnings: 45.2,
+                dateRangeLabel: 'May 11, 2026',
+                earningsChangePercent: -5.2,
+                earningsChangeLabel: '-5.2%',
+                totalDeliveries: 3,
+                totalHoursWorked: 2.1,
+                performanceGraph: null,
+                recentDeliveries: [],
+              },
+              weekly: {
+                totalEarnings: 312,
+                dateRangeLabel: 'May 5, 2026 – May 11, 2026',
+                earningsChangePercent: 12,
+                earningsChangeLabel: '+12%',
+                totalDeliveries: 18,
+                totalHoursWorked: 14.2,
+                performanceGraph: [
+                  { date: '2026-05-05', label: 'MON', amount: 20, orderCount: 1 },
+                  { date: '2026-05-11', label: 'SUN', amount: 45, orderCount: 2 },
+                ],
+                recentDeliveries: [],
+              },
+              monthly: {
+                totalEarnings: 890,
+                dateRangeLabel: 'May 1, 2026 – May 11, 2026',
+                earningsChangePercent: null,
+                earningsChangeLabel: 'New',
+                totalDeliveries: 52,
+                totalHoursWorked: 38.5,
+                performanceGraph: null,
+                recentDeliveries: [],
+              },
+            },
+            meta: {
+              currency: 'USD',
+              timeZone: 'Asia/Kolkata',
+              earningsBasis: 'delivered_orders_effective_driver_share',
+              earningsNote: 'Uses stored driverShare when positive; otherwise delivery fee (computeOrderFinancials).',
+              hoursNote: 'Estimated from assignment to delivery per order, capped at 12h each.',
+              withdrawNote: 'No online wallet; withdrawFunds is always null.',
+            },
+          },
+        },
+      },
+    },
+  };
+  const driverDashboardOrderCardProps: Record<string, unknown> = {
+    orderId: { type: 'string' },
+    orderNumber: { type: 'string' },
+    status: { type: 'string' },
+    statusLabel: { type: 'string' },
+    estTime: { type: 'number', nullable: true },
+    distance: { type: 'number', nullable: true },
+    vendor: { type: 'object' },
+    dropoff: { type: 'object' },
+  };
+  const driverDashboardGetResponse: Record<string, unknown> = {
+    description: 'Driver home dashboard (Figma-aligned home screen)',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                driverProfile: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    tierLabel: { type: 'string', example: 'Gold Tier Driver' },
+                    profileImageUrl: { type: 'string', nullable: true },
+                    isOnline: { type: 'boolean' },
+                  },
+                },
+                todaysEarningsCard: {
+                  type: 'object',
+                  properties: {
+                    periodLabel: { type: 'string', example: "Today's Earnings" },
+                    totalEarnings: { type: 'number' },
+                    orderCount: { type: 'integer' },
+                    hoursWorked: { type: 'number' },
+                    tipsAmount: { type: 'number', description: '0 until tips are modeled on orders' },
+                  },
+                },
+                totalEarningsCard: {
+                  type: 'object',
+                  properties: {
+                    label: { type: 'string', example: 'Total Earnings' },
+                    amount: { type: 'number', description: 'Lifetime effective driver share (not walletBalance)' },
+                    cashOutCtaLabel: { type: 'string', example: 'Cash Out >' },
+                    cashOutAvailable: { type: 'boolean', example: false },
+                    withdrawFunds: { type: 'null', nullable: true },
+                  },
+                },
+                newOrdersCount: { type: 'integer' },
+                activeOrders: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      figmaDisplay: {
+                        type: 'object',
+                        properties: {
+                          orderNumberFormatted: { type: 'string', nullable: true },
+                          statusUiLabel: { type: 'string' },
+                          statusIndicator: { type: 'string', enum: ['green', 'amber', 'neutral'] },
+                          primaryActionLabel: { type: 'string', example: 'View Route' },
+                          queuePositionLabel: { type: 'string', nullable: true },
+                          statusBadge: { type: 'string', nullable: true },
+                        },
+                      },
+                      pickupLocation: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string', nullable: true },
+                          addressLine: { type: 'string', nullable: true },
+                          lat: { type: 'number', nullable: true },
+                          lng: { type: 'number', nullable: true },
+                        },
+                      },
+                      dropoffLocation: {
+                        type: 'object',
+                        properties: {
+                          label: { type: 'string', nullable: true },
+                          addressLine: { type: 'string', nullable: true },
+                          lat: { type: 'number', nullable: true },
+                          lng: { type: 'number', nullable: true },
+                        },
+                      },
+                      estMinutes: { type: 'number', nullable: true },
+                      estTimeLabel: { type: 'string', nullable: true, example: 'Est. 12 mins' },
+                      distanceKm: { type: 'number', nullable: true },
+                      distanceMiles: { type: 'number', nullable: true },
+                      orderCard: { type: 'object', properties: { ...driverDashboardOrderCardProps } },
+                    },
+                  },
+                },
+                map: {
+                  type: 'object',
+                  properties: {
+                    openMapButtonLabel: { type: 'string', example: 'Open Map View' },
+                    mapPreviewUrl: { type: 'string', nullable: true },
+                    center: {
+                      nullable: true,
+                      anyOf: [
+                        { type: 'object', properties: { lat: { type: 'number' }, lng: { type: 'number' } } },
+                        { type: 'null' },
+                      ],
+                    },
+                  },
+                },
+                meta: {
+                  type: 'object',
+                  properties: {
+                    currency: { type: 'string' },
+                    timeZone: { type: 'string' },
+                    tipsNote: { type: 'string' },
+                    tierNote: { type: 'string' },
+                    hoursNote: { type: 'string' },
+                    earningsBasis: { type: 'string' },
+                    totalEarningsNote: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        example: {
+          success: true,
+          data: {
+            driverProfile: {
+              name: 'Alex Johnson',
+              tierLabel: 'Gold Tier Driver',
+              profileImageUrl: '/uploads/driver.png',
+              isOnline: true,
+            },
+            todaysEarningsCard: {
+              periodLabel: "Today's Earnings",
+              totalEarnings: 184.2,
+              orderCount: 12,
+              hoursWorked: 6.5,
+              tipsAmount: 0,
+            },
+            totalEarningsCard: {
+              label: 'Total Earnings',
+              amount: 1240.5,
+              cashOutCtaLabel: 'Cash Out >',
+              cashOutAvailable: false,
+              withdrawFunds: null,
+            },
+            newOrdersCount: 2,
+            activeOrders: [],
+            map: { openMapButtonLabel: 'Open Map View', mapPreviewUrl: null, center: { lat: 52.52, lng: 13.405 } },
+            meta: {
+              currency: 'USD',
+              timeZone: 'Asia/Kolkata',
+              tipsNote: 'Order schema has no driver-tip field yet; tipsAmount is always 0 until modeled.',
+              tierNote: 'tierLabel is derived from totalDeliveries and rating.',
+              hoursNote: 'Same hourly estimate rules as /driver/earnings for today.',
+              earningsBasis: 'delivered_orders_effective_driver_share',
+              totalEarningsNote: 'Not walletBalance.',
+            },
+          },
+        },
+      },
+    },
   };
   const map: Record<string, Record<string, unknown>> = {
     'GET /api/v1/app/categories': {
@@ -753,6 +1069,395 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
         },
       },
     },
+    'GET /api/v1/vendor/wallet': {
+      description: 'Vendor wallet / earnings (single payload for wallet UI screens)',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  overview: {
+                    type: 'object',
+                    properties: {
+                      summary: {
+                        type: 'object',
+                        properties: {
+                          totalEarnings: {
+                            type: 'number',
+                            description: 'Lifetime delivered orders: sum of effective vendor revenue (stored vendorShare or recomputed from totals/fees)',
+                          },
+                          todayEarnings: { type: 'number' },
+                          weekEarnings: { type: 'number', description: 'Rolling last 7 local days (vendor timezone)' },
+                          todayVsYesterdayPercent: {
+                            type: 'number',
+                            nullable: true,
+                            description: 'Today vs yesterday; null only when prior day had zero baseline but today is positive ("New"); otherwise includes negatives (e.g. -100% if today is zero)',
+                          },
+                          todayVsYesterdayLabel: {
+                            type: 'string',
+                            nullable: true,
+                            example: '+12%',
+                            description: 'Human-readable change (+/- %); "New" when yesterday had no revenue/orders but today is positive (percent is null then)',
+                          },
+                          weekVsLastWeekPercent: {
+                            type: 'number',
+                            nullable: true,
+                            description: 'Rolling 7d vs prior 7d; null only for "New" baseline (prior window zero, current positive); negatives when revenue/orders decreased',
+                          },
+                          weekVsLastWeekLabel: {
+                            type: 'string',
+                            nullable: true,
+                            example: '+5%',
+                            description: 'Week-over-week label; "New" when prior week had zero baseline but this week is positive; otherwise +/- % including drops to zero',
+                          },
+                        },
+                      },
+                      recentOrders: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            _id: { type: 'string' },
+                            orderNumber: { type: 'string' },
+                            status: { type: 'string' },
+                            paymentStatus: { type: 'string' },
+                            createdAt: { type: 'string', format: 'date-time' },
+                            updatedAt: { type: 'string', format: 'date-time' },
+                            itemsCount: { type: 'integer' },
+                            vendorAmount: {
+                              type: 'number',
+                              description: 'Vendor portion after platform/driver share; recomputed when DB vendorShare is 0',
+                            },
+                            orderTotal: { type: 'number', description: 'Customer order total' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                  revenueAnalytics: {
+                    type: 'object',
+                    properties: {
+                      periodRevenue: {
+                        type: 'object',
+                        properties: {
+                          daily: { type: 'number' },
+                          weekly: { type: 'number' },
+                          monthly: { type: 'number', description: 'Month-to-date (calendar month, vendor TZ)' },
+                        },
+                      },
+                      graphs: {
+                        type: 'object',
+                        properties: {
+                          daily: { type: 'object', nullable: true, description: 'Reserved; API returns null' },
+                          weekly: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                date: { type: 'string', example: '2026-05-11' },
+                                label: { type: 'string', example: 'MON' },
+                                amount: { type: 'number' },
+                                orderCount: { type: 'integer' },
+                              },
+                            },
+                          },
+                          monthly: { type: 'object', nullable: true, description: 'Reserved; API returns null' },
+                        },
+                      },
+                      totals: {
+                        type: 'object',
+                        properties: {
+                          totalRevenue: { type: 'number', description: 'Same window as weekly (last 7 days)' },
+                          revenueChangePercent: {
+                            type: 'number',
+                            nullable: true,
+                            description: 'Week vs prior week; null only for "New" baseline; negative when revenue decreased (including -100% if current week is zero)',
+                          },
+                          revenueChangeLabel: {
+                            type: 'string',
+                            nullable: true,
+                            description: '"New" when prior week had zero revenue but this week is positive; otherwise +/- %',
+                          },
+                          totalOrders: { type: 'integer' },
+                          ordersChangePercent: {
+                            type: 'number',
+                            nullable: true,
+                            description: 'Week vs prior week orders; null only for "New" baseline; negative when count decreased',
+                          },
+                          ordersChangeLabel: {
+                            type: 'string',
+                            nullable: true,
+                            description: '"New" when prior week had zero orders but this week has orders; otherwise +/- %',
+                          },
+                        },
+                      },
+                      changeByPeriod: {
+                        type: 'object',
+                        properties: {
+                          daily: {
+                            type: 'object',
+                            properties: {
+                              revenue: { type: 'number' },
+                              revenueChangePercent: {
+                                type: 'number',
+                                nullable: true,
+                                description: 'Today vs yesterday revenue; null only for "New" baseline; negative when down',
+                              },
+                              revenueChangeLabel: {
+                                type: 'string',
+                                nullable: true,
+                                description: '"New" when yesterday had no revenue but today is positive; otherwise +/- %',
+                              },
+                              orders: { type: 'integer' },
+                              ordersChangePercent: {
+                                type: 'number',
+                                nullable: true,
+                                description: 'Today vs yesterday orders; null only for "New" baseline; negative when down',
+                              },
+                              ordersChangeLabel: {
+                                type: 'string',
+                                nullable: true,
+                                description: '"New" when yesterday had no orders but today has orders; otherwise +/- %',
+                              },
+                            },
+                          },
+                          weekly: {
+                            type: 'object',
+                            properties: {
+                              revenue: { type: 'number' },
+                              revenueChangePercent: {
+                                type: 'number',
+                                nullable: true,
+                                description: 'This week vs last week; null only for "New" baseline; negative when down',
+                              },
+                              revenueChangeLabel: {
+                                type: 'string',
+                                nullable: true,
+                                description: '"New" when last week had no revenue but this week is positive; otherwise +/- %',
+                              },
+                              orders: { type: 'integer' },
+                              ordersChangePercent: {
+                                type: 'number',
+                                nullable: true,
+                                description: 'This week vs last week orders; null only for "New" baseline; negative when down',
+                              },
+                              ordersChangeLabel: {
+                                type: 'string',
+                                nullable: true,
+                                description: '"New" when last week had no orders but this week has orders; otherwise +/- %',
+                              },
+                            },
+                          },
+                          monthly: {
+                            type: 'object',
+                            properties: {
+                              revenue: { type: 'number' },
+                              revenueChangePercent: {
+                                type: 'number',
+                                nullable: true,
+                                description: 'MTD vs same-length prior-month window; null only for "New" baseline; negative when down',
+                              },
+                              revenueChangeLabel: {
+                                type: 'string',
+                                nullable: true,
+                                description: '"New" when prior-month window had no revenue but current MTD is positive; otherwise +/- %',
+                              },
+                              orders: { type: 'integer' },
+                              ordersChangePercent: {
+                                type: 'number',
+                                nullable: true,
+                                description: 'MTD vs prior-month window orders; null only for "New" baseline; negative when down',
+                              },
+                              ordersChangeLabel: {
+                                type: 'string',
+                                nullable: true,
+                                description: '"New" when prior-month window had no orders but current MTD has orders; otherwise +/- %',
+                              },
+                            },
+                          },
+                        },
+                      },
+                      recentOrders: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            _id: { type: 'string' },
+                            orderNumber: { type: 'string' },
+                            status: { type: 'string' },
+                            paymentStatus: { type: 'string' },
+                            createdAt: { type: 'string', format: 'date-time' },
+                            updatedAt: { type: 'string', format: 'date-time' },
+                            itemsCount: { type: 'integer' },
+                            vendorAmount: { type: 'number' },
+                            orderTotal: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                  orderBuckets: {
+                    type: 'object',
+                    properties: {
+                      queued: {
+                        type: 'object',
+                        description: 'pending, vendor_notified, placed',
+                        properties: {
+                          orders: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                _id: { type: 'string' },
+                                orderNumber: { type: 'string' },
+                                status: { type: 'string' },
+                                paymentStatus: { type: 'string' },
+                                createdAt: { type: 'string', format: 'date-time' },
+                                updatedAt: { type: 'string', format: 'date-time' },
+                                itemsCount: { type: 'integer' },
+                                vendorAmount: { type: 'number' },
+                                orderTotal: { type: 'number' },
+                              },
+                            },
+                          },
+                          totalAmount: { type: 'number', description: 'Sum of orderTotal in this bucket (max 50 orders)' },
+                        },
+                      },
+                      active: {
+                        type: 'object',
+                        description: 'accepted, confirmed, preparing, ready, picked_up, on_the_way',
+                        properties: {
+                          orders: { type: 'array', items: { type: 'object' } },
+                          totalAmount: { type: 'number' },
+                        },
+                      },
+                      delivered: {
+                        type: 'object',
+                        description: 'status delivered only',
+                        properties: {
+                          orders: { type: 'array', items: { type: 'object' } },
+                          totalAmount: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                  meta: {
+                    type: 'object',
+                    properties: {
+                      currency: { type: 'string', example: 'USD' },
+                      timeZone: { type: 'string', example: 'Asia/Kolkata' },
+                      earningsBasis: { type: 'string', example: 'delivered_orders_effective_vendor_revenue' },
+                      earningsNote: { type: 'string' },
+                      note: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          example: {
+            success: true,
+            data: {
+              overview: {
+                summary: {
+                  totalEarnings: 1240.5,
+                  todayEarnings: 142,
+                  weekEarnings: 890.45,
+                  todayVsYesterdayPercent: 12,
+                  todayVsYesterdayLabel: '+12%',
+                  weekVsLastWeekPercent: 5,
+                  weekVsLastWeekLabel: '+5%',
+                },
+                recentOrders: [
+                  {
+                    _id: '507f1f77bcf86cd799439011',
+                    orderNumber: 'ORD-20260511-ABC123',
+                    status: 'delivered',
+                    paymentStatus: 'paid',
+                    createdAt: '2026-05-11T10:00:00.000Z',
+                    updatedAt: '2026-05-11T11:30:00.000Z',
+                    itemsCount: 3,
+                    vendorAmount: 35.5,
+                    orderTotal: 42.5,
+                  },
+                ],
+              },
+              revenueAnalytics: {
+                periodRevenue: { daily: 142, weekly: 890.45, monthly: 4240.5 },
+                graphs: {
+                  daily: null,
+                  weekly: [
+                    { date: '2026-05-05', label: 'MON', amount: 120, orderCount: 4 },
+                    { date: '2026-05-06', label: 'TUE', amount: 80, orderCount: 2 },
+                    { date: '2026-05-07', label: 'WED', amount: 0, orderCount: 0 },
+                    { date: '2026-05-08', label: 'THU', amount: 890, orderCount: 12 },
+                    { date: '2026-05-09', label: 'FRI', amount: 200, orderCount: 5 },
+                    { date: '2026-05-10', label: 'SAT', amount: 150, orderCount: 3 },
+                    { date: '2026-05-11', label: 'SUN', amount: 142, orderCount: 4 },
+                  ],
+                  monthly: null,
+                },
+                totals: {
+                  totalRevenue: 890.45,
+                  revenueChangePercent: 12.5,
+                  revenueChangeLabel: '+12.5%',
+                  totalOrders: 128,
+                  ordersChangePercent: 5.5,
+                  ordersChangeLabel: '+5.5%',
+                },
+                changeByPeriod: {
+                  daily: {
+                    revenue: 142,
+                    revenueChangePercent: 12,
+                    revenueChangeLabel: '+12%',
+                    orders: 6,
+                    ordersChangePercent: 10,
+                    ordersChangeLabel: '+10%',
+                  },
+                  weekly: {
+                    revenue: 890.45,
+                    revenueChangePercent: 12.5,
+                    revenueChangeLabel: '+12.5%',
+                    orders: 128,
+                    ordersChangePercent: 5.5,
+                    ordersChangeLabel: '+5.5%',
+                  },
+                  monthly: {
+                    revenue: 4240.5,
+                    revenueChangePercent: 3.2,
+                    revenueChangeLabel: '+3.2%',
+                    orders: 310,
+                    ordersChangePercent: 1.1,
+                    ordersChangeLabel: '+1.1%',
+                  },
+                },
+                recentOrders: [],
+              },
+              orderBuckets: {
+                queued: { orders: [], totalAmount: 0 },
+                active: { orders: [], totalAmount: 0 },
+                delivered: { orders: [], totalAmount: 0 },
+              },
+              meta: {
+                currency: 'USD',
+                timeZone: 'Asia/Kolkata',
+                earningsBasis: 'delivered_orders_effective_vendor_revenue',
+                earningsNote: 'Uses stored vendorShare when positive; otherwise recomputed from totals and fees.',
+                note: 'No payout or online-wallet fields; COD-only flows.',
+              },
+            },
+          },
+        },
+      },
+    },
+    'GET /api/v1/driver/earnings': driverEarningsGetResponse,
+    'GET /api/v1/driver/dashboard': driverDashboardGetResponse,
+    'GET /api/v1/app/driver/earnings': driverEarningsGetResponse,
+    'GET /api/v1/app/driver/dashboard': driverDashboardGetResponse,
     'GET /api/v1/vendor/orders': {
       description: 'Success',
       content: {
@@ -1924,7 +2629,7 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
     info: {
       title: 'Goo-Gaa Station API',
       description:
-        'Backend API: Admin (cookies). **App – Customer:** /app/cart, /app/orders, /app/customer, discovery. **Driver:** /driver/setup, /driver/kyc, /driver/profile, /driver/location, /driver/notifications, /driver/orders (Bearer from /auth/driver/verify-otp). Legacy paths under /app/driver/*. **Auth:** /auth/customer, /auth/vendor, /auth/driver (phone OTP). **Vendor:** /vendor/*. **Realtime (Socket.IO v4):** connect with Postman Socket.IO or `ws://host/socket.io/?EIO=4&transport=websocket`; client events e.g. `admin:join`, `customer:join`, `vendor:join`, `driver:join` (JWT), `driver:location_update`. Server emits order/driver events to rooms `vendor:{id}`, `customer:{id}`, `driver:{id}`, `admin`. Payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
+        'Backend API: Admin (cookies). **App – Customer:** /app/cart, /app/orders, /app/customer, discovery. **Driver:** /driver/setup, /driver/kyc, /driver/profile, /driver/location, /driver/notifications, **/driver/earnings** (wallet-style dashboard), **/driver/dashboard** (home screen), /driver/orders (Bearer from /auth/driver/verify-otp). Legacy paths under /app/driver/* (including **/app/driver/earnings**, **/app/driver/dashboard**, same payloads as /driver/*). **Auth:** /auth/customer, /auth/vendor, /auth/driver (phone OTP). **Vendor:** /vendor/*. **Realtime (Socket.IO v4):** connect with Postman Socket.IO or `ws://host/socket.io/?EIO=4&transport=websocket`; client events e.g. `admin:join`, `customer:join`, `vendor:join`, `driver:join` (JWT), `driver:location_update`. Server emits order/driver events to rooms `vendor:{id}`, `customer:{id}`, `driver:{id}`, `admin`. Payment: WifiPay. OpenAPI: GET /api/openapi.json. Swagger UI: /api-docs.',
       version: '1.0.0',
       contact: { name: 'API Team' },
     },
@@ -1955,7 +2660,7 @@ export function getOpenApiSpec(baseUrl: string): Record<string, unknown> {
       {
         name: 'Driver',
         description:
-          'Driver app (Bearer from /auth/driver/verify-otp): setup (/driver/setup), KYC (/driver/kyc), profile (/driver/profile), location (/driver/location), notifications (/driver/notifications), orders (/driver/orders/*, including /:id/detail). Duplicates under /app/driver/*.',
+          'Driver app (Bearer from /auth/driver/verify-otp): setup (/driver/setup), KYC (/driver/kyc), profile (/driver/profile), location (/driver/location), notifications (/driver/notifications), **earnings (/driver/earnings)**, **dashboard (/driver/dashboard)**, orders (/driver/orders/*, including /:id/detail). Duplicates under /app/driver/*.',
       },
       { name: 'Vendor', description: 'Vendor onboarding: status, business-info, address, contact, kyc-documents, submit (Bearer required)' },
       { name: 'Admin', description: 'Admin panel (cookies from /auth/admin/login)' },

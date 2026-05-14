@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Goo-Gaa Station API",
-    "description": "Goo-Gaa Station API — grouped like Swagger: **Health & Info**; **Auth – Admin / Customer / Vendor / Driver** (OTP); **Driver – Setup, KYC, Profile, Orders, live location & notifications** (Bearer {{driverAccessToken}}); **Realtime – Socket.IO** (reference payloads + connect URL); **Vendor – …**; **App – Customer** (Bearer {{accessToken}}); **Admin**; **Payment**. Variables: accessToken + refreshToken (customer), driverAccessToken + driverRefreshToken (driver), … **socketIoUrl** = `ws://` + host (e.g. `ws://localhost:5000`) for Postman **New → Socket.IO**. OpenAPI: {{baseUrl}}/api/openapi.json · Swagger: {{baseUrl}}/api-docs.",
+    "description": "Goo-Gaa Station API — grouped like Swagger: **Health & Info**; **Auth – Admin / Customer / Vendor / Driver** (OTP); **Driver – Setup, KYC, Profile, Earnings, Orders, live location & notifications** (Bearer {{driverAccessToken}}); **Realtime – Socket.IO** (reference payloads + connect URL); **Vendor – …**; **App – Customer** (Bearer {{accessToken}}); **Admin**; **Payment**. Variables: accessToken + refreshToken (customer), driverAccessToken + driverRefreshToken (driver), … **socketIoUrl** = `ws://` + host (e.g. `ws://localhost:5000`) for Postman **New → Socket.IO**. OpenAPI: {{baseUrl}}/api/openapi.json · Swagger: {{baseUrl}}/api-docs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -477,6 +477,50 @@
               "raw": "{\n  \"status\": \"online\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/driver/profile/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Driver – Earnings",
+      "description": "Driver earnings dashboard: **GET /api/v1/driver/earnings** (Bearer {{driverAccessToken}}, same as native driver auth) and **GET /api/v1/app/driver/earnings** (JWT driver role). Single payload: `withdrawFunds` null, `lifetime`, `periods` (daily | weekly | monthly) with `performanceGraph` only for weekly.",
+      "item": [
+        {
+          "name": "Get earnings (native /driver/earnings)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/earnings"
+          }
+        },
+        {
+          "name": "Get earnings (app /app/driver/earnings)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/driver/earnings"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Driver – Dashboard",
+      "description": "Driver home screen: **GET /api/v1/driver/dashboard** (authDriver) and **GET /api/v1/app/driver/dashboard** (JWT driver role). Payload: driverProfile, todaysEarningsCard, totalEarningsCard (lifetime earnings, not wallet), newOrdersCount, activeOrders, map.",
+      "item": [
+        {
+          "name": "Get dashboard (native /driver/dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/dashboard"
+          }
+        },
+        {
+          "name": "Get dashboard (app /app/driver/dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/app/driver/dashboard"
           }
         }
       ]
@@ -1010,6 +1054,25 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/vendor/products/{{productId}}",
             "description": "Soft delete (isDeleted: true). Returns 204. Emits product:deleted to admin."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendor – Wallet",
+      "description": "Vendor wallet / earnings (single GET for wallet UI). Bearer {{vendorAccessToken}}. authVendor + requireApproved. COD-oriented; no payout endpoints.",
+      "item": [
+        {
+          "name": "Get wallet (earnings + screens)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/wallet",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "wallet"]
+            },
+            "description": "Returns `overview` (summary + recentOrders), `revenueAnalytics` (period revenue, graphs, totals, changeByPeriod, recentOrders), `orderBuckets` (queued / active / delivered), `meta`. Earnings use effective vendor revenue when vendorShare was not persisted."
           }
         }
       ]

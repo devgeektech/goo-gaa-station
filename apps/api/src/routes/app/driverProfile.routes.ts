@@ -7,9 +7,10 @@ import {
   updateOnlineStatus,
   updateLocation,
   getCurrentOrder,
-  getEarnings,
   getDeliveryHistory,
 } from '../../controllers/app/driverProfile.controller';
+import { getDriverEarnings } from '../../controllers/driver/driverEarnings.controller';
+import { getDriverDashboard } from '../../controllers/driver/driverDashboard.controller';
 
 const router = Router();
 
@@ -22,7 +23,8 @@ router.put('/fcm-token', updateFcmToken);
 router.patch('/online-status', updateOnlineStatus);
 router.put('/location', updateLocation);
 router.get('/current-order', getCurrentOrder);
-router.get('/earnings', getEarnings);
+router.get('/earnings', getDriverEarnings);
+router.get('/dashboard', getDriverDashboard);
 router.get('/delivery-history', getDeliveryHistory);
 
 export default router;

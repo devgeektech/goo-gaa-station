@@ -394,7 +394,7 @@ function estimateMinutesFromDistanceKm(km: number): number {
 }
 
 /** Best-effort driver position: currentLocation first, else liveLocation [lng, lat] (ignore default [0,0]). */
-function resolveDriverLatLng(
+export function resolveDriverLatLng(
   driver: { currentLocation?: { lat?: unknown; lng?: unknown } | null; liveLocation?: { coordinates?: number[] } | null } | null
 ): { lat: number; lng: number } | null {
   if (!driver) return null;
@@ -415,7 +415,7 @@ function resolveDriverLatLng(
 }
 
 /** Same card shape as GET /active, plus completion fields (null when not delivered). */
-function toDriverOrderCardActiveShape(
+export function toDriverOrderCardActiveShape(
   order: any,
   driverPos: { lat: number; lng: number } | null,
   completion: {
