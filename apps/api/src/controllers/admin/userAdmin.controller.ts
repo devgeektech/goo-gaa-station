@@ -8,9 +8,9 @@ import { MESSAGES } from '../../constants/messages';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
-import { getUploadMiddleware, deleteLocalFile, getFileUrl } from '../../utils/storageProvider';
+import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
 
-const uploadUserImage = getUploadMiddleware('users');
+const uploadUserImage = getUploadMiddleware('users', MAX_FILE_SIZE_10MB);
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;

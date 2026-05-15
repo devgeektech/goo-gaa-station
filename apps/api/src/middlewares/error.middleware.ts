@@ -114,8 +114,8 @@ export function errorMiddleware(
         success: false,
         code: 'FILE_TOO_LARGE',
         message: {
-          en: 'File too large. Please upload a smaller file (e.g. logo max 2MB).',
-          de: 'Datei zu groß. Bitte eine kleinere Datei hochladen (z. B. Logo max. 2MB).',
+          en: 'File too large. Profile and vendor logo/cover images allow up to 10MB; product and category images up to 2MB; KYC documents up to 5MB.',
+          de: 'Datei zu groß. Profil- und Anbieterbilder max. 10 MB; Produkt- und Kategoriebilder max. 2 MB; KYC-Dokumente max. 5 MB.',
         },
         data: err.field ? { field: err.field } : null,
         requestId,

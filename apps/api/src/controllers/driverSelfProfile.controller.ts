@@ -5,9 +5,9 @@ import { Driver } from '../models/Driver';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/response';
-import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_2MB } from '../utils/storageProvider';
+import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../utils/storageProvider';
 
-const uploadDriverImage = getUploadMiddleware('drivers', MAX_FILE_SIZE_2MB).single('profileImage');
+const uploadDriverImage = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).single('profileImage');
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;

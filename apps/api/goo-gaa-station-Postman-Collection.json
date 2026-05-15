@@ -340,7 +340,7 @@
         },
         {
           "name": "PATCH profile-info",
-          "description": "Multipart/form-data. `name` required. `phone` optional (same number used at registration is allowed). `profileImage` optional (max 2MB, image/*).",
+          "description": "Multipart/form-data. `name` required. `phone` optional (same number used at registration is allowed). `profileImage` optional (max 10MB, image/*).",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
@@ -416,7 +416,7 @@
         },
         {
           "name": "PATCH my profile (multipart)",
-          "description": "All fields optional: name, phone, profileImage (max 2MB), vehicleType, vehicleNumber.",
+          "description": "All fields optional: name, phone, profileImage (max 10MB), vehicleType, vehicleNumber.",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
@@ -927,8 +927,8 @@
                 { "key": "deliveryTime", "value": "30", "type": "text", "disabled": true },
                 { "key": "minimumOrder", "value": "10", "type": "text", "disabled": true },
                 { "key": "address", "value": "{\"street\":\"123 Main St\",\"city\":\"Berlin\",\"lat\":52.52,\"lng\":13.405}", "type": "text", "disabled": true },
-                { "key": "logo", "type": "file", "src": [], "disabled": true, "description": "image/*, max 2MB" },
-                { "key": "coverImage", "type": "file", "src": [], "disabled": true, "description": "image/*, max 5MB" }
+                { "key": "logo", "type": "file", "src": [], "disabled": true, "description": "image/*, max 10MB" },
+                { "key": "coverImage", "type": "file", "src": [], "disabled": true, "description": "image/*, max 10MB" }
               ]
             },
             "url": "{{baseUrl}}/api/v1/vendor/profile"

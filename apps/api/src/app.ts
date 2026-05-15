@@ -28,7 +28,7 @@ app.set('trust proxy', 1);
 app.use('/api/v1/payment/callback', express.raw({ type: '*/*' }), paymentCallback);
 app.use('/api/v1/webhooks/wifipay', express.raw({ type: '*/*' }), wifipayWebhookHandler);
 
-// --- Body parsing: 10mb JSON, 10mb urlencoded; multipart (multer) uses 5mb per route ---
+// --- Body parsing: 10mb JSON, 10mb urlencoded; multipart limits vary per route (profile/vendor images 10MB, product 2MB, KYC 5MB) ---
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());

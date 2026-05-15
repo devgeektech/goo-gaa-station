@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { isVendorImageWithinLimit, VENDOR_IMAGE_SIZE_LABEL } from '@/lib/constants/uploads';
 
 export type AddVendorForm = {
   name: string;
@@ -33,8 +34,12 @@ export function AddVendorModal({
   loading: boolean;
 }) {
   const [form, setForm] = useState<AddVendorForm>(initialForm);
+  const [fileError, setFileError] = useState<string | null>(null);
 
-  const reset = () => setForm(initialForm);
+  const reset = () => {
+    setForm(initialForm);
+    setFileError(null);
+  };
 
   const handleClose = () => {
     reset();
@@ -44,6 +49,10 @@ export function AddVendorModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
+    if (form.logo && !isVendorImageWithinLimit(form.logo)) {
+      setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+      return;
+    }
     const fd = new FormData();
     fd.append('name', form.name.trim());
     if (form.slug.trim()) fd.append('slug', form.slug.trim());
@@ -57,6 +66,7 @@ export function AddVendorModal({
   return (
     <Modal open={open} title="Add Vendor" onClose={handleClose}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {fileError ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{fileError}</div> : null}
         <div className="field">
           <label className="label" htmlFor="add-vendor-name">Name *</label>
           <input
@@ -112,11 +122,21 @@ export function AddVendorModal({
           />
         </div>
         <div className="field">
-          <label className="label">Logo (optional, max 2MB)</label>
+          <label className="label">Logo (optional, max {VENDOR_IMAGE_SIZE_LABEL})</label>
           <input
             type="file"
-            accept="image/*"
-            onChange={(e) => setForm((f) => ({ ...f, logo: e.target.files?.[0] ?? null }))}
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              if (file && !isVendorImageWithinLimit(file)) {
+                setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+                setForm((f) => ({ ...f, logo: null }));
+                e.target.value = '';
+                return;
+              }
+              setFileError(null);
+              setForm((f) => ({ ...f, logo: file }));
+            }}
           />
         </div>
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>

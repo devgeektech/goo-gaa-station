@@ -10,8 +10,9 @@ import { AppError } from './AppError';
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_MIMES_KYC = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-export const MAX_FILE_SIZE_2MB = 2 * 1024 * 1024; // 2MB for profile/logo/item images
-export const MAX_FILE_SIZE_5MB = 5 * 1024 * 1024; // 5MB for vendor coverImage
+export const MAX_FILE_SIZE_2MB = 2 * 1024 * 1024; // 2MB for product/category images
+export const MAX_FILE_SIZE_5MB = 5 * 1024 * 1024; // 5MB for KYC documents
+export const MAX_FILE_SIZE_10MB = 10 * 1024 * 1024; // 10MB for profile and vendor logo/cover images
 
 function getExtension(mimetype: string): string {
   const map: Record<string, string> = {

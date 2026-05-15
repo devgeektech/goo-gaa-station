@@ -1872,9 +1872,9 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
           properties: {
             fullName: { type: 'string', description: 'Full name', example: 'John Doe' },
             phone: { type: 'string', description: 'Phone (E.164)', example: '+252612345678' },
-            profileImage: { type: 'string', format: 'binary', description: 'Profile image file' },
+            profileImage: { type: 'string', format: 'binary', description: 'Profile image file (JPEG/PNG/WEBP, max 10MB)' },
           },
-          description: 'Customer profile: only fullName, phone, profileImage.',
+          description: 'Customer profile: only fullName, phone, profileImage (max 10MB).',
         },
       },
     },
@@ -2007,7 +2007,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
   });
 
   const driverProfileInfoBody = {
-    description: 'Driver profile info (multipart). `name` required. `phone` optional (same phone as registration is allowed). `profileImage` optional (JPEG/PNG/WEBP, max 2MB).',
+    description: 'Driver profile info (multipart). `name` required. `phone` optional (same phone as registration is allowed). `profileImage` optional (JPEG/PNG/WEBP, max 10MB).',
     content: {
       'multipart/form-data': {
         schema: {
@@ -2016,7 +2016,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
           properties: {
             name: { type: 'string', description: 'Driver name', example: 'Ahmed Hassan' },
             phone: { type: 'string', description: 'Optional phone (string; usually E.164)', example: '+252612345678' },
-            profileImage: { type: 'string', format: 'binary', description: 'Optional profile image file (max 2MB)' },
+            profileImage: { type: 'string', format: 'binary', description: 'Optional profile image file (max 10MB)' },
           },
         },
       },
@@ -2024,7 +2024,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
   };
 
   const driverSelfProfilePatchBody = {
-    description: 'Driver self profile update (multipart). All fields optional: name, phone, profileImage (2MB, jpeg/png/webp), vehicleType, vehicleNumber.',
+    description: 'Driver self profile update (multipart). All fields optional: name, phone, profileImage (10MB, jpeg/png/webp), vehicleType, vehicleNumber.',
     content: {
       'multipart/form-data': {
         schema: {
@@ -2032,7 +2032,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
           properties: {
             name: { type: 'string', example: 'Ahmed Driver' },
             phone: { type: 'string', example: '+252612345678' },
-            profileImage: { type: 'string', format: 'binary', description: 'Optional image (max 2MB)' },
+            profileImage: { type: 'string', format: 'binary', description: 'Optional image (max 10MB)' },
             vehicleType: { type: 'string', enum: ['bike', 'car', 'scooter', 'van', 'bicycle'], example: 'car' },
             vehicleNumber: { type: 'string', example: 'ABC-123' },
           },
@@ -2152,8 +2152,8 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
             properties: {
               name: { type: 'string', example: 'My Restaurant' },
               phone: { type: 'string', example: '+252612345678', description: 'Unique phone (E.164)' },
-              logo: { type: 'string', format: 'binary', description: 'image/*, max 2MB' },
-              coverImage: { type: 'string', format: 'binary', description: 'image/*, max 5MB' },
+              logo: { type: 'string', format: 'binary', description: 'image/*, max 10MB' },
+              coverImage: { type: 'string', format: 'binary', description: 'image/*, max 10MB' },
               deliveryTime: { type: 'number', example: 30, description: 'Minutes (min 1)' },
               minimumOrder: { type: 'number', example: 10, description: 'Min 0' },
               address: {
@@ -2212,7 +2212,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
                 description: 'JSON array of { day, isOpen, from?, to? }. day: mon|tue|wed|thu|fri|sat|sun; from/to: "HH:MM"',
                 example: '[{"day":"mon","isOpen":true,"from":"09:00","to":"18:00"},{"day":"tue","isOpen":true,"from":"09:00","to":"18:00"},{"day":"wed","isOpen":true,"from":"09:00","to":"18:00"},{"day":"thu","isOpen":true,"from":"09:00","to":"18:00"},{"day":"fri","isOpen":true,"from":"09:00","to":"21:00"},{"day":"sat","isOpen":true,"from":"10:00","to":"20:00"},{"day":"sun","isOpen":false}]',
               },
-              logo: { type: 'string', format: 'binary', description: 'Image file, max 2MB' },
+              logo: { type: 'string', format: 'binary', description: 'Image file, max 10MB' },
             },
           },
         },

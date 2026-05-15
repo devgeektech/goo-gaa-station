@@ -5,7 +5,7 @@ import { Vendor } from '../../models/Vendor';
 import { AppError } from '../../utils/AppError';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
-import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_2MB, MAX_FILE_SIZE_5MB } from '../../utils/storageProvider';
+import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
 
 type ReqVendor = { _id: mongoose.Types.ObjectId | string };
 
@@ -46,7 +46,7 @@ function toProfileShape(vendor: any) {
   };
 }
 
-const uploadVendorProfile = getUploadMiddleware('vendors', MAX_FILE_SIZE_5MB).fields([
+const uploadVendorProfile = getUploadMiddleware('vendors', MAX_FILE_SIZE_10MB).fields([
   { name: 'logo', maxCount: 1 },
   { name: 'coverImage', maxCount: 1 },
 ]);
@@ -132,8 +132,11 @@ export const patchVendorProfile = asyncHandler(async (req: Request, res: Respons
   const logoFile = files.logo?.[0];
   const coverFile = files.coverImage?.[0];
 
-  if (logoFile?.size != null && logoFile.size > MAX_FILE_SIZE_2MB) {
-    throw new AppError({ en: 'Logo file too large (max 2MB)', de: 'Logo zu groß (max 2MB)' }, 413, 'FILE_TOO_LARGE');
+  if (logoFile?.size != null && logoFile.size > MAX_FILE_SIZE_10MB) {
+    throw new AppError({ en: 'Logo file too large (max 10MB)', de: 'Logo zu groß (max 10MB)' }, 413, 'FILE_TOO_LARGE');
+  }
+  if (coverFile?.size != null && coverFile.size > MAX_FILE_SIZE_10MB) {
+    throw new AppError({ en: 'Cover image too large (max 10MB)', de: 'Titelbild zu groß (max 10MB)' }, 413, 'FILE_TOO_LARGE');
   }
 
   if (logoFile) {

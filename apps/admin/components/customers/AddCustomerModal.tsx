@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { isProfileImageWithinLimit, PROFILE_IMAGE_SIZE_LABEL } from '@/lib/constants/uploads';
 
 export type AddCustomerForm = {
   name: string;
@@ -41,8 +42,12 @@ export function AddCustomerModal({
   error: string | null;
 }) {
   const [form, setForm] = useState<AddCustomerForm>(initialForm);
+  const [fileError, setFileError] = useState<string | null>(null);
 
-  const reset = () => setForm(initialForm);
+  const reset = () => {
+    setForm(initialForm);
+    setFileError(null);
+  };
 
   const handleClose = () => {
     reset();
@@ -56,6 +61,10 @@ export function AddCustomerModal({
     if (!form.password.trim()) return;
     if (form.addressStreet && (!form.addressCity || !form.addressCountry)) return;
     if (form.addressStreet && !form.addressLabel.trim()) return;
+    if (form.profileImage && !isProfileImageWithinLimit(form.profileImage)) {
+      setFileError(`Profile image must be at most ${PROFILE_IMAGE_SIZE_LABEL}`);
+      return;
+    }
     onSubmit(form);
   };
 
@@ -70,6 +79,9 @@ export function AddCustomerModal({
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {error ? (
           <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div>
+        ) : null}
+        {fileError ? (
+          <div style={{ color: 'var(--danger)', fontSize: 13 }}>{fileError}</div>
         ) : null}
         <div className="field">
           <label className="label" htmlFor="add-name">Name *</label>
@@ -163,11 +175,21 @@ export function AddCustomerModal({
           </div>
         </div>
         <div className="field">
-          <label className="label">Profile image</label>
+          <label className="label">Profile image (optional, max {PROFILE_IMAGE_SIZE_LABEL})</label>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setForm((f) => ({ ...f, profileImage: e.target.files?.[0] ?? null }))}
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              if (file && !isProfileImageWithinLimit(file)) {
+                setFileError(`Profile image must be at most ${PROFILE_IMAGE_SIZE_LABEL}`);
+                setForm((f) => ({ ...f, profileImage: null }));
+                e.target.value = '';
+                return;
+              }
+              setFileError(null);
+              setForm((f) => ({ ...f, profileImage: file }));
+            }}
           />
           {form.profileImage ? (
             <span className="muted" style={{ fontSize: 12 }}>{form.profileImage.name}</span>

@@ -12,11 +12,11 @@ import {
   getUploadMiddleware,
   deleteLocalFile,
   getFileUrl,
-  MAX_FILE_SIZE_2MB,
+  MAX_FILE_SIZE_10MB,
 } from '../../utils/storageProvider';
 import { invalidateAllRefreshTokensForUser } from '../../services/auth.service';
 
-const uploadUserImage = getUploadMiddleware('users', MAX_FILE_SIZE_2MB);
+const uploadUserImage = getUploadMiddleware('users', MAX_FILE_SIZE_10MB);
 const COORD_PRECISION = 6;
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {

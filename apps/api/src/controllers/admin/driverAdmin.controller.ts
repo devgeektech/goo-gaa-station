@@ -9,10 +9,10 @@ import { MESSAGES } from '../../constants/messages';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
-import { getUploadMiddleware, deleteLocalFile, getFileUrl } from '../../utils/storageProvider';
+import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
 import { sendPushToDriver } from '../../services/fcm.service';
 
-const uploadDriverImages = getUploadMiddleware('drivers').fields([
+const uploadDriverImages = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).fields([
   { name: 'profileImage', maxCount: 1 },
   { name: 'licenseImage', maxCount: 1 },
   { name: 'vehicleImage', maxCount: 1 },

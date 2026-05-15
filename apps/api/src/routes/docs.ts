@@ -36,7 +36,7 @@ export const ROUTES = [
   { method: 'POST', path: '/api/v1/auth/driver/refresh', auth: false, description: 'Driver: refresh tokens (body: refreshToken)' },
   { method: 'POST', path: '/api/v1/auth/driver/logout', auth: true, description: 'Driver: logout (Bearer required; optional body: refreshToken, fcmToken)' },
   { method: 'GET', path: '/api/v1/driver/setup/status', auth: true, description: 'Driver setup: status (approvalStatus, name, profileImage)' },
-  { method: 'PATCH', path: '/api/v1/driver/setup/profile-info', auth: true, description: 'Driver setup profile info (multipart: name required; phone optional; profileImage optional; same phone allowed)' },
+  { method: 'PATCH', path: '/api/v1/driver/setup/profile-info', auth: true, description: 'Driver setup profile info (multipart: name required; phone optional; profileImage optional max 10MB jpeg/png/webp; same phone allowed)' },
   { method: 'GET', path: '/api/v1/driver/kyc/status', auth: true, description: 'Driver KYC + profile summary (name, phone, profileImage, vehicleType, vehicleNumber, approvalStatus, kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments)' },
   {
     method: 'POST',
@@ -58,7 +58,7 @@ export const ROUTES = [
     description:
       'Driver self profile: full logged-in driver document (KYC, location, wallet, bankAccount, etc.); secrets omitted (password, OTP, refresh token).',
   },
-  { method: 'PATCH', path: '/api/v1/driver/profile', auth: true, description: 'Driver self profile: update profile (multipart optional: name, phone, profileImage, vehicleType, vehicleNumber)' },
+  { method: 'PATCH', path: '/api/v1/driver/profile', auth: true, description: 'Driver self profile: update profile (multipart optional: name, phone, profileImage max 10MB, vehicleType, vehicleNumber)' },
   { method: 'POST', path: '/api/v1/driver/profile/fcm-token', auth: true, description: 'Driver self profile: register FCM token (body: token required, device optional; max 5)' },
   { method: 'DELETE', path: '/api/v1/driver/profile/fcm-token', auth: true, description: 'Driver self profile: remove FCM token (body: token required)' },
   { method: 'PATCH', path: '/api/v1/driver/profile/status', auth: true, description: "Driver self profile: set status online/offline (body: { status: 'online'|'offline' }); approved only; emits driver:status_changed to admin room" },
@@ -192,7 +192,7 @@ export const ROUTES = [
       'TEMPORARY (remove later): same nearby-driver list as order accept — query radiusKm (1–50, default 5); requires vendor address lat/lng.',
   },
   { method: 'GET', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor self profile (authVendor + requireApproved)' },
-  { method: 'PATCH', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor update profile (multipart, all optional): name, phone (unique), logo (2MB), coverImage (5MB), deliveryTime, minimumOrder, address JSON' },
+  { method: 'PATCH', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor update profile (multipart, all optional): name, phone (unique), logo (10MB), coverImage (10MB), deliveryTime, minimumOrder, address JSON' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/toggle', auth: true, description: 'Vendor: toggle isOpen (manual override); emits vendor:availability_changed to admin' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/operating-hours', auth: true, description: 'Vendor: replace operatingHours (JSON body); requires all 7 days; 422 on validation errors' },
   { method: 'POST', path: '/api/v1/vendor/profile/fcm-token', auth: true, description: 'Vendor self profile: register FCM token (body: token required, device optional; max 5)' },
@@ -220,7 +220,7 @@ export const ROUTES = [
   { method: 'PATCH', path: '/api/v1/app/cart/item', auth: true, description: 'Update cart item (customer); body: productId, qty (0 to remove)' },
   { method: 'DELETE', path: '/api/v1/app/cart', auth: true, description: 'Clear cart (customer)' },
   { method: 'GET', path: '/api/v1/app/customer/profile', auth: true, description: 'Get customer profile (fullName, phone, profileImage, points, totalOrders only)' },
-  { method: 'PUT', path: '/api/v1/app/customer/profile', auth: true, description: 'Update customer profile (fullName, phone, profileImage only; multipart)' },
+  { method: 'PUT', path: '/api/v1/app/customer/profile', auth: true, description: 'Update customer profile (fullName, phone, profileImage only; multipart; profileImage max 10MB)' },
   { method: 'PUT', path: '/api/v1/app/customer/fcm-token', auth: true, description: 'Update FCM token (body: fcmToken)' },
   {
     method: 'GET',

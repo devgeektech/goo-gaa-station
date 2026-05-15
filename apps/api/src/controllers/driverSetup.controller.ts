@@ -4,9 +4,9 @@ import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/response';
 import { type DriverDocument } from '../models/Driver';
-import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_2MB } from '../utils/storageProvider';
+import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../utils/storageProvider';
 
-const uploadDriverImage = getUploadMiddleware('drivers', MAX_FILE_SIZE_2MB);
+const uploadDriverImage = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB);
 
 function normalizePhone(phone: string): string {
   const trimmed = String(phone).trim().replace(/\s/g, '');

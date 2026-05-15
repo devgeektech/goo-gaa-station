@@ -4,10 +4,10 @@ import { AppError } from '../../utils/AppError';
 import { MESSAGES } from '../../constants/messages';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { getUploadMiddleware, deleteLocalFile, getFileUrl } from '../../utils/storageProvider';
+import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
 import type { Server as SocketIOServer } from 'socket.io';
 
-const uploadDriverImage = getUploadMiddleware('drivers').single('profileImage');
+const uploadDriverImage = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).single('profileImage');
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;

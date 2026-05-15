@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { VendorListItem, VendorDetail } from '@/lib/api/vendors.api';
+import { isVendorImageWithinLimit, VENDOR_IMAGE_SIZE_LABEL } from '@/lib/constants/uploads';
 
 export type EditVendorForm = {
   name: string;
@@ -50,6 +51,7 @@ export function EditVendorDrawer({
   loading: boolean;
 }) {
   const [form, setForm] = useState<EditVendorForm>(toForm(vendor));
+  const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) setForm(toForm(vendor));
@@ -58,6 +60,10 @@ export function EditVendorDrawer({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
+    if (form.logo && !isVendorImageWithinLimit(form.logo)) {
+      setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+      return;
+    }
     const fd = new FormData();
     fd.append('name', form.name.trim());
     fd.append('slug', form.slug.trim());
@@ -103,6 +109,7 @@ export function EditVendorDrawer({
         </div>
         <div className="modalBody" style={{ overflow: 'auto', flex: 1 }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {fileError ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{fileError}</div> : null}
             <div className="field">
               <label className="label">Name *</label>
               <input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
@@ -131,9 +138,23 @@ export function EditVendorDrawer({
               </select>
             </div>
             <div className="field">
-              <label className="label">Logo (replace)</label>
+              <label className="label">Logo (replace, max {VENDOR_IMAGE_SIZE_LABEL})</label>
               {logoUrl && <img src={logoUrl} alt="" style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover', marginBottom: 8 }} />}
-              <input type="file" accept="image/*" onChange={(e) => setForm((f) => ({ ...f, logo: e.target.files?.[0] ?? null }))} />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  if (file && !isVendorImageWithinLimit(file)) {
+                    setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+                    setForm((f) => ({ ...f, logo: null }));
+                    e.target.value = '';
+                    return;
+                  }
+                  setFileError(null);
+                  setForm((f) => ({ ...f, logo: file }));
+                }}
+              />
             </div>
             <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="btn" onClick={onClose}>Cancel</button>

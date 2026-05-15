@@ -12,10 +12,10 @@ import {
   getUploadMiddleware,
   deleteLocalFile,
   getFileUrl,
-  MAX_FILE_SIZE_2MB,
+  MAX_FILE_SIZE_10MB,
 } from '../../utils/storageProvider';
 
-const uploadCustomerImage = getUploadMiddleware('users', MAX_FILE_SIZE_2MB);
+const uploadCustomerImage = getUploadMiddleware('users', MAX_FILE_SIZE_10MB);
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
@@ -84,7 +84,7 @@ export const getCustomer = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-/** POST /api/v1/admin/customers — Create customer + optional profile image (Multer 2MB) */
+/** POST /api/v1/admin/customers — Create customer + optional profile image (Multer 10MB) */
 export const createCustomer = asyncHandler(async (req: Request, res: Response) => {
   const upload = uploadCustomerImage.single('profileImage');
   await new Promise<void>((resolve, reject) => {

@@ -12,15 +12,14 @@ import {
   deleteLocalFile,
   getFileUrl,
   MAX_FILE_SIZE_2MB,
-  MAX_FILE_SIZE_5MB,
+  MAX_FILE_SIZE_10MB,
 } from '../../utils/storageProvider';
 import type { Server as SocketIOServer } from 'socket.io';
 import { sendPushToVendor } from '../../services/fcm.service';
 
-const LOGO_MAX = MAX_FILE_SIZE_2MB;
-const COVER_MAX = MAX_FILE_SIZE_5MB;
+const VENDOR_IMAGE_MAX = MAX_FILE_SIZE_10MB;
 
-const uploadVendorFiles = getUploadMiddleware('vendors', COVER_MAX).fields([
+const uploadVendorFiles = getUploadMiddleware('vendors', VENDOR_IMAGE_MAX).fields([
   { name: 'logo', maxCount: 1 },
   { name: 'coverImage', maxCount: 1 },
 ]);
@@ -78,7 +77,7 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, { ...vendor, menuItems });
 });
 
-/** POST /api/v1/admin/vendors — Create vendor (logo 2MB, coverImage 5MB) */
+/** POST /api/v1/admin/vendors — Create vendor (logo and coverImage max 10MB each) */
 export const createVendor = asyncHandler(async (req: Request, res: Response) => {
   await new Promise<void>((resolve, reject) => {
     uploadVendorFiles(req as any, res as any, (err: unknown) => (err ? reject(err) : resolve()));
@@ -95,8 +94,11 @@ export const createVendor = asyncHandler(async (req: Request, res: Response) => 
   const files = req.files as Record<string, Express.Multer.File[]> | undefined;
   const logoFile = files?.logo?.[0];
   const coverFile = files?.coverImage?.[0];
-  if (logoFile?.size && logoFile.size > LOGO_MAX) {
-    throw new AppError({ en: 'Logo must be at most 2MB', de: 'Logo max. 2MB' }, 400, 'VALIDATION_ERROR');
+  if (logoFile?.size && logoFile.size > VENDOR_IMAGE_MAX) {
+    throw new AppError({ en: 'Logo must be at most 10MB', de: 'Logo max. 10MB' }, 400, 'VALIDATION_ERROR');
+  }
+  if (coverFile?.size && coverFile.size > VENDOR_IMAGE_MAX) {
+    throw new AppError({ en: 'Cover image must be at most 10MB', de: 'Titelbild max. 10MB' }, 400, 'VALIDATION_ERROR');
   }
 
   const payload: Record<string, unknown> = {
@@ -164,8 +166,11 @@ export const updateVendor = asyncHandler(async (req: Request, res: Response) => 
   const files = req.files as Record<string, Express.Multer.File[]> | undefined;
   const logoFile = files?.logo?.[0];
   const coverFile = files?.coverImage?.[0];
-  if (logoFile?.size && logoFile.size > LOGO_MAX) {
-    throw new AppError({ en: 'Logo must be at most 2MB', de: 'Logo max. 2MB' }, 400, 'VALIDATION_ERROR');
+  if (logoFile?.size && logoFile.size > VENDOR_IMAGE_MAX) {
+    throw new AppError({ en: 'Logo must be at most 10MB', de: 'Logo max. 10MB' }, 400, 'VALIDATION_ERROR');
+  }
+  if (coverFile?.size && coverFile.size > VENDOR_IMAGE_MAX) {
+    throw new AppError({ en: 'Cover image must be at most 10MB', de: 'Titelbild max. 10MB' }, 400, 'VALIDATION_ERROR');
   }
   if (logoFile?.filename) {
     if (vendor.logo) deleteLocalFile(vendor.logo);

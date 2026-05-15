@@ -7,7 +7,7 @@ import {
   getUploadMiddleware,
   getUploadMiddlewareKyc,
   getFileUrl,
-  MAX_FILE_SIZE_2MB,
+  MAX_FILE_SIZE_10MB,
 } from '../utils/storageProvider';
 import type { Server as SocketIOServer } from 'socket.io';
 import { sendToMultiple } from '../services/fcm.service';
@@ -19,7 +19,7 @@ const AdminModel = Admin as any;
 
 const MAX_KYC_SIZE = 5 * 1024 * 1024; // 5MB
 
-const uploadBusinessInfo = getUploadMiddleware('vendors', MAX_FILE_SIZE_2MB).single('logo');
+const uploadBusinessInfo = getUploadMiddleware('vendors', MAX_FILE_SIZE_10MB).single('logo');
 const uploadKyc = getUploadMiddlewareKyc('kyc', MAX_KYC_SIZE).fields([
   { name: 'businessRegistration', maxCount: 1 },
   { name: 'identityDocument', maxCount: 20 },

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { CustomerDetail, CustomerAddress } from '@/lib/api/customers.api';
+import { isProfileImageWithinLimit, PROFILE_IMAGE_SIZE_LABEL } from '@/lib/constants/uploads';
 
 export type EditCustomerForm = {
   name: string;
@@ -49,6 +50,7 @@ export function EditCustomerDrawer({
   error: string | null;
 }) {
   const [form, setForm] = useState<EditCustomerForm>(toForm(customer));
+  const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) setForm(toForm(customer));
@@ -58,6 +60,10 @@ export function EditCustomerDrawer({
     e.preventDefault();
     if (!form.name.trim()) return;
     if (!form.phone.trim()) return;
+    if (form.profileImage && !isProfileImageWithinLimit(form.profileImage)) {
+      setFileError(`Profile image must be at most ${PROFILE_IMAGE_SIZE_LABEL}`);
+      return;
+    }
     const validAddresses = form.addresses.filter((a) => a.street?.trim() && a.city?.trim() && a.country?.trim() && a.label?.trim());
     onSubmit({ ...form, addresses: validAddresses.length > 0 ? form.addresses : [] });
   };
@@ -118,8 +124,9 @@ export function EditCustomerDrawer({
         <div className="modalBody" style={{ overflow: 'auto', flex: 1 }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {error ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div> : null}
+            {fileError ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{fileError}</div> : null}
             <div className="field">
-              <label className="label">Profile image</label>
+              <label className="label">Profile image (max {PROFILE_IMAGE_SIZE_LABEL})</label>
               <div className="row" style={{ alignItems: 'center', gap: 12 }}>
                 {imgSrc(imageUrl) ? (
                   <img src={imgSrc(imageUrl)!} alt="" style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover' }} />
@@ -127,7 +134,21 @@ export function EditCustomerDrawer({
                   <div style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No image</div>
                 )}
                 <div>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setForm((f) => ({ ...f, profileImage: e.target.files?.[0] ?? null }))} />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      if (file && !isProfileImageWithinLimit(file)) {
+                        setFileError(`Profile image must be at most ${PROFILE_IMAGE_SIZE_LABEL}`);
+                        setForm((f) => ({ ...f, profileImage: null }));
+                        e.target.value = '';
+                        return;
+                      }
+                      setFileError(null);
+                      setForm((f) => ({ ...f, profileImage: file }));
+                    }}
+                  />
                   <span className="muted" style={{ fontSize: 12 }}>{form.profileImage ? form.profileImage.name : 'Replace'}</span>
                 </div>
               </div>
