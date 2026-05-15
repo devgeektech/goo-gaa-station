@@ -326,7 +326,7 @@ export default function CustomersPage() {
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="row" style={{ gap: 6 }}>
                           <button className="btn" onClick={() => openDetail(c._id)} aria-label="View"><Eye size={16} /></button>
-                          <button className="btn" onClick={() => openEdit(c._id)} aria-label="Edit"><Pencil size={16} /></button>
+                          {/* <button className="btn" onClick={() => openEdit(c._id)} aria-label="Edit"><Pencil size={16} /></button> */}
                           {c.status !== 'deleted' && (
                             <button className="btn" onClick={() => openBlockDialog(c._id)} aria-label={c.status === 'blocked' ? 'Unblock' : 'Block'}><Ban size={16} /></button>
                           )}
