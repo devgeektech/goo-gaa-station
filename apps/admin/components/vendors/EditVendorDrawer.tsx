@@ -52,10 +52,25 @@ export function EditVendorDrawer({
 }) {
   const [form, setForm] = useState<EditVendorForm>(toForm(vendor));
   const [fileError, setFileError] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setForm(toForm(vendor));
+    if (open) {
+      setForm(toForm(vendor));
+      setFileError(null);
+      setLogoPreview(null);
+    }
   }, [open, vendor]);
+
+  useEffect(() => {
+    if (!form.logo) {
+      setLogoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(form.logo);
+    setLogoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [form.logo]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +92,7 @@ export function EditVendorDrawer({
 
   if (!open) return null;
 
-  const logoUrl = imgSrc(vendor?.logo);
+  const logoUrl = logoPreview ?? imgSrc(vendor?.logo);
 
   return (
     <div

@@ -8,6 +8,18 @@ export const apiClient = axios.create({
   },
 });
 
+/** Let the browser set multipart boundary (required for file uploads on PATCH/POST). */
+apiClient.interceptors.request.use((config) => {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.headers && typeof config.headers === 'object') {
+      const headers = config.headers as Record<string, unknown>;
+      delete headers['Content-Type'];
+      delete headers['content-type'];
+    }
+  }
+  return config;
+});
+
 // Redirect to login on 401 when in browser (e.g. session expired or not logged in)
 apiClient.interceptors.response.use(
   (res) => res,

@@ -19,7 +19,8 @@ export type DriverListItem = {
   status?: string;
   isAvailable?: boolean;
   isOnline?: boolean;
-  rating?: number;
+  rating?: number | null;
+  ratingCount?: number;
   totalDeliveries?: number;
   totalEarnings?: number;
   createdAt?: string;

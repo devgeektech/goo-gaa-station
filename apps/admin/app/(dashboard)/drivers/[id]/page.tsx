@@ -10,6 +10,8 @@ import { DriverMap } from '@/components/drivers/DriverMap';
 import { DriverKycCard } from '@/components/drivers/DriverKycCard';
 import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
+import { accountStatusBadge, approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
+import { formatDriverRating } from '@/lib/utils/driverRating';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 
@@ -92,11 +94,12 @@ export default function DriverDetailPage() {
       .finally(() => setOrdersLoading(false));
   };
 
-  const coords = location?.liveLocation?.coordinates;
+  const coords = location?.liveLocation?.coordinates ?? driver?.liveLocation?.coordinates;
   const coordsTuple: [number, number] | null =
     coords && coords.length >= 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number'
       ? [coords[0], coords[1]]
       : null;
+  const isOnline = driver?.isOnline === true;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -127,9 +130,10 @@ export default function DriverDetailPage() {
                   <div style={{ fontWeight: 800, fontSize: 20 }}>{driver.name}</div>
                   <div className="muted">{driver.phone}</div>
                   {driver.email ? <div className="muted">{driver.email}</div> : null}
-                  <div className="row" style={{ gap: 8, marginTop: 8 }}>
-                    <span className="badge" style={{ background: driver.approvalStatus === 'approved' ? 'var(--success-light)' : driver.approvalStatus === 'rejected' ? 'var(--danger-light)' : 'var(--warning-light)' }}>{driver.approvalStatus}</span>
-                    <span className="badge" style={{ background: driver.status === 'blocked' ? 'var(--danger-light)' : driver.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>{driver.status}</span>
+                  <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ background: approvalStatusBadge(driver.approvalStatus).background }}>{approvalStatusBadge(driver.approvalStatus).label}</span>
+                    <span className="badge" style={{ background: accountStatusBadge(driver.status).background }}>{accountStatusBadge(driver.status).label}</span>
+                    <span className="badge" style={{ background: onlineStatusBadge(isOnline).background }}>{onlineStatusBadge(isOnline).label}</span>
                   </div>
                 </div>
               </div>
@@ -140,7 +144,15 @@ export default function DriverDetailPage() {
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
                 <div className="muted">Rating</div>
-                <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{driver.rating != null ? Number(driver.rating).toFixed(1) : '—'}</div>
+                {(() => {
+                  const { value, subtitle } = formatDriverRating(driver.rating, driver.ratingCount);
+                  return (
+                    <>
+                      <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{value}</div>
+                      <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>{subtitle}</div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
@@ -168,7 +180,8 @@ export default function DriverDetailPage() {
               <div className="muted" style={{ marginBottom: 8 }}>Live location</div>
               {location ? (
                 <>
-                  <div className="muted" style={{ fontSize: 13 }}>Online: {location.isOnline ? 'Yes' : 'No'}</div>
+                  <div className="muted" style={{ fontSize: 13 }}>Online: {isOnline ? 'Yes' : 'No'}</div>
+                  <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div>
                   {location.lastLocationAt ? <div className="muted" style={{ fontSize: 12 }}>Updated {formatDateTime(location.lastLocationAt)}</div> : null}
                   <div style={{ marginTop: 12 }}>
                     <DriverMap coordinates={coordsTuple} driverName={driver.name} height={320} />

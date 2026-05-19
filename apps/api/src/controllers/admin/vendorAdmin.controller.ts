@@ -172,13 +172,19 @@ export const updateVendor = asyncHandler(async (req: Request, res: Response) => 
   if (coverFile?.size && coverFile.size > VENDOR_IMAGE_MAX) {
     throw new AppError({ en: 'Cover image must be at most 10MB', de: 'Titelbild max. 10MB' }, 400, 'VALIDATION_ERROR');
   }
-  if (logoFile?.filename) {
-    if (vendor.logo) deleteLocalFile(vendor.logo);
-    vendor.logo = getFileUrl(logoFile, 'vendors');
+  if (logoFile) {
+    const logoUrl = getFileUrl(logoFile, 'vendors');
+    if (logoUrl) {
+      if (vendor.logo) deleteLocalFile(vendor.logo);
+      vendor.logo = logoUrl;
+    }
   }
-  if (coverFile?.filename) {
-    if (vendor.coverImage) deleteLocalFile(vendor.coverImage);
-    vendor.coverImage = getFileUrl(coverFile, 'vendors');
+  if (coverFile) {
+    const coverUrl = getFileUrl(coverFile, 'vendors');
+    if (coverUrl) {
+      if (vendor.coverImage) deleteLocalFile(vendor.coverImage);
+      vendor.coverImage = coverUrl;
+    }
   }
 
   await vendor.save();
@@ -392,9 +398,12 @@ export const updateMenuItem = asyncHandler(async (req: Request, res: Response) =
   if (body.sortOrder !== undefined) item.sortOrder = parseInt(String(body.sortOrder), 10) || 0;
 
   const file = req.file as Express.Multer.File | undefined;
-  if (file?.filename) {
-    if (item.image) deleteLocalFile(item.image);
-    item.image = getFileUrl(file, 'menu-items');
+  if (file) {
+    const imageUrl = getFileUrl(file, 'menu-items');
+    if (imageUrl) {
+      if (item.image) deleteLocalFile(item.image);
+      item.image = imageUrl;
+    }
   }
 
   await item.save();

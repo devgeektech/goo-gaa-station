@@ -11,6 +11,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
 import { sendPushToDriver } from '../../services/fcm.service';
+import { attachDriverRatingStats, computeDriverRatingStats } from '../../services/driverRating.service';
 
 const uploadDriverImages = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).fields([
   { name: 'profileImage', maxCount: 1 },
@@ -75,7 +76,8 @@ export const listDrivers = asyncHandler(async (req: Request, res: Response) => {
     Driver.countDocuments(filter),
   ]);
 
-  return sendSuccess(res, drivers, 200, toPaginated(drivers, total, page, limit));
+  const driversWithRating = await attachDriverRatingStats(drivers);
+  return sendSuccess(res, driversWithRating, 200, toPaginated(driversWithRating, total, page, limit));
 });
 
 /** GET /stats/pending-count */
@@ -101,7 +103,8 @@ export const getPendingApprovals = asyncHandler(async (req: Request, res: Respon
     Driver.find(filter).select('-password').lean().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     Driver.countDocuments(filter),
   ]);
-  return sendSuccess(res, drivers, 200, toPaginated(drivers, total, page, limit));
+  const driversWithRating = await attachDriverRatingStats(drivers);
+  return sendSuccess(res, driversWithRating, 200, toPaginated(driversWithRating, total, page, limit));
 });
 
 /** GET /:id — Driver detail */
@@ -115,7 +118,9 @@ export const getDriver = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
   }
   const doc = driver as Record<string, unknown>;
-  if (typeof doc.rating === 'number') doc.rating = Math.round(doc.rating * 10) / 10;
+  const { rating, ratingCount } = await computeDriverRatingStats(id);
+  doc.rating = rating;
+  doc.ratingCount = ratingCount;
   attachNormalizedKyc(doc);
   return sendSuccess(res, driver);
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Eye, Ban, Trash2, RefreshCcw, CheckCircle, XCircle, Users } from 'lucide-react';
 import {
   searchDrivers,
@@ -22,6 +22,7 @@ import { DriverDetailDrawer } from '@/components/drivers/DriverDetailDrawer';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { formatDriverRating } from '@/lib/utils/driverRating';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -76,6 +77,7 @@ export default function DriversPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionDriverId, setActionDriverId] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
+  const selectedDriverIdRef = useRef<string | null>(null);
   const [rejectLoading, setRejectLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [approveLoadingId, setApproveLoadingId] = useState<string | null>(null);
@@ -150,16 +152,30 @@ export default function DriversPage() {
   };
 
   const openDetail = (id: string) => {
+    selectedDriverIdRef.current = id;
     setSelectedDriver(null);
     setDriverLocation(null);
     setDriverOrders([]);
     setDetailOpen(true);
-    getDriver(id).then((res) => setSelectedDriver(res.data)).catch(() => setSelectedDriver(null));
+    getDriver(id)
+      .then((res) => {
+        if (selectedDriverIdRef.current === id) setSelectedDriver(res.data);
+      })
+      .catch(() => {
+        if (selectedDriverIdRef.current === id) setSelectedDriver(null);
+      });
   };
 
-  const fetchLocation = () => {
-    if (!selectedDriver?._id) return;
-    getDriverLocation(selectedDriver._id).then((res) => setDriverLocation(res.data)).catch(() => setDriverLocation(null));
+  const fetchLocation = (driverId?: string) => {
+    const id = driverId ?? selectedDriver?._id;
+    if (!id) return;
+    getDriverLocation(id)
+      .then((res) => {
+        if (selectedDriverIdRef.current === id) setDriverLocation(res.data);
+      })
+      .catch(() => {
+        if (selectedDriverIdRef.current === id) setDriverLocation(null);
+      });
   };
 
   const fetchOrders = (page?: number) => {
@@ -471,7 +487,7 @@ export default function DriversPage() {
                             <span className="badge" style={{ background: d.status === 'blocked' ? 'var(--danger-light)' : d.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>{d.status}</span>
                           </td>
                           <td className="muted">{d.vehicleType ?? '—'}</td>
-                          <td>{d.rating != null ? Number(d.rating).toFixed(1) : '—'}</td>
+                          <td>{formatDriverRating(d.rating, d.ratingCount).value}</td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div className="row" style={{ gap: 6 }}>
                               <button className="btn" onClick={() => openDetail(d._id)} aria-label="View"><Eye size={16} /></button>
@@ -507,12 +523,23 @@ export default function DriversPage() {
         orders={driverOrders}
         ordersLoading={ordersLoading}
         ordersPagination={driverOrdersPagination}
-        onClose={() => { setDetailOpen(false); setSelectedDriver(null); setDriverLocation(null); }}
+        onClose={() => {
+          setDetailOpen(false);
+          setSelectedDriver(null);
+          setDriverLocation(null);
+          selectedDriverIdRef.current = null;
+        }}
         onFetchLocation={fetchLocation}
         onFetchOrders={(page) => selectedDriver && fetchOrders(page)}
         onRefreshDriver={() => {
           if (!selectedDriver?._id) return;
-          getDriver(selectedDriver._id).then((res) => setSelectedDriver(res.data)).catch(() => {});
+          const id = selectedDriver._id;
+          getDriver(id)
+            .then((res) => {
+              if (selectedDriverIdRef.current === id) setSelectedDriver(res.data);
+            })
+            .catch(() => {});
+          fetchLocation(id);
         }}
       />
       <BlockUnblockDialog

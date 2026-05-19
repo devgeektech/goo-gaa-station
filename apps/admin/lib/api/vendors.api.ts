@@ -94,13 +94,23 @@ export type CreateVendorPayload = {
   sortOrder?: number;
 };
 
+function multipartConfig() {
+  return {
+    headers: { 'Content-Type': undefined as unknown as string },
+  };
+}
+
 export async function createVendor(formData: FormData) {
-  const res = await apiClient.post<ApiSuccess<VendorDetail>>('/admin/vendors', formData);
+  const res = await apiClient.post<ApiSuccess<VendorDetail>>('/admin/vendors', formData, multipartConfig());
   return res.data;
 }
 
 export async function updateVendor(id: string, formData: FormData) {
-  const res = await apiClient.patch<ApiSuccess<VendorDetail>>(`/admin/vendors/${id}`, formData);
+  const res = await apiClient.patch<ApiSuccess<VendorDetail>>(
+    `/admin/vendors/${id}`,
+    formData,
+    multipartConfig()
+  );
   return res.data;
 }
 

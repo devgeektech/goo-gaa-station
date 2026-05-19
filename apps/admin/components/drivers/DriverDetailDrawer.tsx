@@ -8,6 +8,8 @@ import { approveDriver, rejectDriver } from '@/lib/api/drivers.api';
 import { DriverKycCard } from '@/components/drivers/DriverKycCard';
 import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { formatMoney, formatDateTime } from '@/lib/utils/format';
+import { accountStatusBadge, approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
+import { formatDriverRating } from '@/lib/utils/driverRating';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 
@@ -68,10 +70,16 @@ export function DriverDetailDrawer({
 
   if (!open) return null;
 
-  const coords = location?.liveLocation?.coordinates;
+  const coords =
+    location?.liveLocation?.coordinates ?? driver?.liveLocation?.coordinates;
   const mapsUrl = coords && coords.length >= 2
     ? `https://www.google.com/maps?q=${coords[1]},${coords[0]}`
     : null;
+
+  const isOnline = driver?.isOnline === true;
+  const approvalBadge = driver ? approvalStatusBadge(driver.approvalStatus) : null;
+  const accountBadge = driver ? accountStatusBadge(driver.status) : null;
+  const onlineBadge = onlineStatusBadge(isOnline);
 
   return (
     <div
@@ -116,9 +124,10 @@ export function DriverDetailDrawer({
                   <div style={{ fontWeight: 800, fontSize: 18 }}>{driver.name}</div>
                   <div className="muted">{driver.phone}</div>
                   {driver.email ? <div className="muted">{driver.email}</div> : null}
-                  <div className="row" style={{ gap: 8, marginTop: 8 }}>
-                    <span className="badge" style={{ background: driver.approvalStatus === 'approved' ? 'var(--success-light)' : driver.approvalStatus === 'rejected' ? 'var(--danger-light)' : 'var(--warning-light)' }}>{driver.approvalStatus}</span>
-                    <span className="badge" style={{ background: driver.status === 'blocked' ? 'var(--danger-light)' : driver.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>{driver.status}</span>
+                  <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ background: approvalBadge!.background }}>{approvalBadge!.label}</span>
+                    <span className="badge" style={{ background: accountBadge!.background }}>{accountBadge!.label}</span>
+                    <span className="badge" style={{ background: onlineBadge.background }}>{onlineBadge.label}</span>
                   </div>
                   <div style={{ marginTop: 8 }}>
                     <Link href={`/drivers/${driver._id}`} className="btn" style={{ fontSize: 13 }}>View full page</Link>
@@ -126,16 +135,6 @@ export function DriverDetailDrawer({
                 </div>
               </div>
 
-              <div className="card" style={{ boxShadow: 'none' }}>
-                <div className="cardBody">
-                  <div className="muted" style={{ marginBottom: 8 }}>Photos</div>
-                  <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-                    {imgSrc(driver.profileImage) && <div><img src={imgSrc(driver.profileImage)!} alt="Profile" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} /></div>}
-                    {imgSrc(driver.licenseImage) && <div><div className="muted" style={{ fontSize: 11 }}>License</div><img src={imgSrc(driver.licenseImage)!} alt="License" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} /></div>}
-                    {imgSrc(driver.vehicleImage) && <div><div className="muted" style={{ fontSize: 11 }}>Vehicle</div><img src={imgSrc(driver.vehicleImage)!} alt="Vehicle" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} /></div>}
-                  </div>
-                </div>
-              </div>
 
               <div className="grid2">
                 <div className="card" style={{ boxShadow: 'none' }}>
@@ -147,7 +146,15 @@ export function DriverDetailDrawer({
                 <div className="card" style={{ boxShadow: 'none' }}>
                   <div className="cardBody">
                     <div className="muted">Rating</div>
-                    <div style={{ marginTop: 6, fontWeight: 800 }}>{driver.rating != null ? Number(driver.rating).toFixed(1) : '—'}</div>
+                    {(() => {
+                      const { value, subtitle } = formatDriverRating(driver.rating, driver.ratingCount);
+                      return (
+                        <>
+                          <div style={{ marginTop: 6, fontWeight: 800 }}>{value}</div>
+                          <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>{subtitle}</div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -165,21 +172,23 @@ export function DriverDetailDrawer({
               <div className="card" style={{ boxShadow: 'none' }}>
                 <div className="cardBody">
                   <div className="muted">Current location</div>
-                  {location ? (
-                    <div style={{ marginTop: 8 }}>
-                      <div className="muted" style={{ fontSize: 13 }}>Online: {location.isOnline ? 'Yes' : 'No'}</div>
-                      {coords && coords.length >= 2 ? (
-                        <a href={mapsUrl!} target="_blank" rel="noopener noreferrer" className="btn" style={{ marginTop: 8 }}>
-                          View on map ({coords[1].toFixed(4)}, {coords[0].toFixed(4)})
-                        </a>
-                      ) : (
-                        <div className="muted" style={{ marginTop: 8 }}>No location yet</div>
-                      )}
-                      {location.lastLocationAt ? <div className="muted" style={{ fontSize: 12 }}>Updated {formatDateTime(location.lastLocationAt)}</div> : null}
-                    </div>
-                  ) : (
-                    <div style={{ marginTop: 8 }}><Skeleton height={40} /></div>
-                  )}
+                  <div style={{ marginTop: 8 }}>
+                    <div className="muted" style={{ fontSize: 13 }}>Online: {isOnline ? 'Yes' : 'No'}</div>
+                    <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div>
+                    {!location ? <div style={{ marginTop: 8 }}><Skeleton height={24} /></div> : null}
+                    {coords && coords.length >= 2 ? (
+                      <a href={mapsUrl!} target="_blank" rel="noopener noreferrer" className="btn" style={{ marginTop: 8 }}>
+                        View on map ({coords[1].toFixed(4)}, {coords[0].toFixed(4)})
+                      </a>
+                    ) : location ? (
+                      <div className="muted" style={{ marginTop: 8 }}>No location yet</div>
+                    ) : null}
+                    {(location?.lastLocationAt ?? driver.lastLocationAt) ? (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        Updated {formatDateTime(String(location?.lastLocationAt ?? driver.lastLocationAt))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
