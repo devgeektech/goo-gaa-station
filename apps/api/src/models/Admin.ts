@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const SALT_ROUNDS = 12;
 
@@ -51,6 +52,4 @@ AdminSchema.methods.comparePassword = function (plain: string): Promise<boolean>
   return bcrypt.compare(plain, this.password);
 };
 
-export const Admin: mongoose.Model<AdminDocument> =
-  (mongoose.models.Admin as mongoose.Model<AdminDocument> | undefined) ??
-  mongoose.model<AdminDocument>('Admin', AdminSchema);
+export const Admin = getOrCreateModel<AdminDocument>('Admin', AdminSchema);

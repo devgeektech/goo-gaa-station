@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const MenuItemSchema = new mongoose.Schema(
   {
@@ -17,5 +18,4 @@ const MenuItemSchema = new mongoose.Schema(
 MenuItemSchema.index({ vendorId: 1 });
 MenuItemSchema.index({ vendorId: 1, category: 1 });
 
-export const MenuItem =
-  mongoose.models.MenuItem ?? mongoose.model('MenuItem', MenuItemSchema);
+export const MenuItem = getOrCreateModel('MenuItem', MenuItemSchema);

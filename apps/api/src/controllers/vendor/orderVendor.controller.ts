@@ -437,7 +437,9 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
       orderNumber: acceptedOrder.orderNumber,
     },
   }));
-  await DriverNotification.insertMany(notifDocs, { ordered: false });
+  await DriverNotification.insertMany(notifDocs as Parameters<typeof DriverNotification.insertMany>[0], {
+    ordered: false,
+  });
   // ── End notification persistence ────────────────────────────────────
 
   await Order.findByIdAndUpdate(acceptedOrder._id, {

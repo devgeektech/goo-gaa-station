@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import ChatMessage from '../models/ChatMessage';
-import Order from '../models/Order';
+import { Order } from '../models/Order';
 
 interface AuthPayload { id: string; role: 'customer' | 'driver'; }
 

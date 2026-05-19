@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const SALT_ROUNDS = 12;
 
@@ -143,6 +144,15 @@ export type DriverDocument = mongoose.Document & {
   name: string;
   email?: string | null;
   phone: string;
+  profileImage?: string | null;
+  licenseImage?: string | null;
+  vehicleImage?: string | null;
+  nationalIdImage?: string | null;
+  vehicleType?: 'bike' | 'scooter' | 'car' | 'van' | null;
+  vehiclePlate?: string | null;
+  vehicleNumber?: string | null;
+  licenseNumber?: string | null;
+  nationalId?: string | null;
   isOnline?: boolean;
   isAvailable?: boolean;
   phoneOtp?: string | null;
@@ -153,6 +163,9 @@ export type DriverDocument = mongoose.Document & {
   password: string;
   approvalStatus: 'pending' | 'approved' | 'rejected';
   status: 'active' | 'blocked' | 'deleted';
+  setupStep?: number;
+  currentOrderId?: mongoose.Types.ObjectId | null;
+  liveLocation?: { type?: string; coordinates?: number[] };
   fcmTokens?: Array<{ token: string | null | undefined; device?: string | null }>;
   kycDocuments?: {
     driversLicense?: string | null;
@@ -165,6 +178,4 @@ export type DriverDocument = mongoose.Document & {
   currentLocation?: { lat: number | null; lng: number | null; updatedAt: Date | null };
 };
 
-export const Driver: mongoose.Model<DriverDocument> =
-  (mongoose.models.Driver as mongoose.Model<DriverDocument> | undefined) ??
-  mongoose.model<DriverDocument>('Driver', DriverSchema);
+export const Driver = getOrCreateModel<DriverDocument>('Driver', DriverSchema);

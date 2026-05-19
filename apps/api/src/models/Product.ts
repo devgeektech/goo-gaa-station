@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const ProductSchema = new mongoose.Schema(
   {
@@ -19,5 +20,4 @@ ProductSchema.index({ vendor: 1, isDeleted: 1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ vendor: 1, category: 1, isDeleted: 1 });
 
-export const Product =
-  mongoose.models.Product ?? mongoose.model('Product', ProductSchema);
+export const Product = getOrCreateModel('Product', ProductSchema);

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import ChatMessage from '../../models/ChatMessage';
-import Order from '../../models/Order';
+import { Order } from '../../models/Order';
 
 // POST /api/v1/app/orders/:orderId/chat
 export const sendMessage = async (req: Request, res: Response): Promise<Response> => {

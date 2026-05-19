@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 import { VENDOR_RESPONSE_WINDOW_MS } from '../constants/vendorResponse';
 
 const ORDER_STATUSES = ['pending', 'vendor_notified', 'placed', 'accepted', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] as const;
@@ -130,4 +131,4 @@ OrderSchema.pre('save', function (next) {
   next();
 });
 
-export const Order = mongoose.models.Order ?? mongoose.model('Order', OrderSchema);
+export const Order = getOrCreateModel('Order', OrderSchema);

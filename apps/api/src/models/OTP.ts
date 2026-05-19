@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const OTP_TTL_MINUTES = 10;
 
@@ -16,7 +17,7 @@ const OTPSchema = new mongoose.Schema(
 OTPSchema.index({ phone: 1, role: 1 }, { unique: true });
 OTPSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export const OTP = mongoose.models.OTP ?? mongoose.model('OTP', OTPSchema);
+export const OTP = getOrCreateModel('OTP', OTPSchema);
 
 export function getOTPExpiry(): Date {
   const d = new Date();

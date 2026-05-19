@@ -130,7 +130,7 @@ export const adminDeleteCategory = asyncHandler(async (req: Request, res: Respon
     return res.status(409).json({
       success: false,
       message: 'Category is in use',
-      vendors: vendors.map((v) => ({ _id: v._id, name: (v as { name: string }).name })),
+      vendors: vendors.map((v) => ({ _id: v._id, name: String((v as { name?: unknown }).name ?? '') })),
     });
   }
   const category = await Category.findOne({ _id: id, isDeleted: false });

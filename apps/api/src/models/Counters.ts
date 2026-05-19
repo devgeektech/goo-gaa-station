@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const CounterSchema = new mongoose.Schema(
   {
@@ -10,8 +11,7 @@ const CounterSchema = new mongoose.Schema(
 
 CounterSchema.index({ name: 1 }, { unique: true });
 
-export const Counter =
-  mongoose.models.Counter ?? mongoose.model('Counter', CounterSchema);
+export const Counter = getOrCreateModel('Counter', CounterSchema);
 
 /** Get next order number in format #ORD-YYYY-NNNN */
 export async function getNextOrderNumber(): Promise<string> {

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 import slugify from 'slugify';
 
 const CATEGORY_TYPES = ['food', 'grocery', 'pharmacy', 'fashion', 'retail'] as const;
@@ -28,7 +29,6 @@ CategorySchema.index({ slug: 1 });
 CategorySchema.index({ type: 1 });
 CategorySchema.index({ isActive: 1, isDeleted: 1 });
 
-export const Category =
-  mongoose.models.Category ?? mongoose.model('Category', CategorySchema);
+export const Category = getOrCreateModel('Category', CategorySchema);
 
 export type CategoryType = (typeof CATEGORY_TYPES)[number];

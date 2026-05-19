@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 /** Persisted in-app notifications for drivers (e.g. new delivery requests). */
 const DRIVER_NOTIFICATION_TYPES = ['new_order'] as const;
@@ -28,5 +29,4 @@ const DriverNotificationSchema = new mongoose.Schema(
 DriverNotificationSchema.index({ driver: 1, createdAt: -1 });
 DriverNotificationSchema.index({ driver: 1, read: 1 });
 
-export const DriverNotification =
-  mongoose.models.DriverNotification ?? mongoose.model('DriverNotification', DriverNotificationSchema);
+export const DriverNotification = getOrCreateModel('DriverNotification', DriverNotificationSchema);

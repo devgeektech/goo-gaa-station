@@ -116,7 +116,7 @@ function createS3Storage(folder: string): StorageEngine {
               buffer: undefined,
               location,
               key,
-            } as Express.Multer.File);
+            } as unknown as Express.Multer.File);
           } catch (err) {
             cb(err instanceof Error ? err : new Error(String(err)));
           }

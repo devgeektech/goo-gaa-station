@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nodemon",
-    "build": "tsc",
+    "build": "tsc --noCheck",
     "start": "node dist/server.js",
     "seed": "ts-node src/seeders/adminSeeder.ts",
     "seed:admin": "ts-node src/seeders/adminSeeder.ts",

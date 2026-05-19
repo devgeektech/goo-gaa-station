@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const TransactionSchema = new mongoose.Schema(
   {
@@ -26,5 +27,4 @@ TransactionSchema.index({ status: 1 });
 TransactionSchema.index({ type: 1 });
 TransactionSchema.index({ createdAt: -1 });
 
-export const Transaction =
-  mongoose.models.Transaction ?? mongoose.model('Transaction', TransactionSchema);
+export const Transaction = getOrCreateModel('Transaction', TransactionSchema);

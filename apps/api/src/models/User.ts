@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const SALT_ROUNDS = 12;
 
@@ -88,4 +89,4 @@ UserSchema.methods.comparePassword = function (plain: string): Promise<boolean> 
   return bcrypt.compare(plain, this.password);
 };
 
-export const User = mongoose.models.User ?? mongoose.model('User', UserSchema);
+export const User = getOrCreateModel('User', UserSchema);

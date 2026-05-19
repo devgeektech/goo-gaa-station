@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 export type UserModelType = 'Admin' | 'User' | 'Driver' | 'Vendor';
 
@@ -14,5 +15,4 @@ const RefreshTokenSchema = new mongoose.Schema(
 
 RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export const RefreshToken =
-  mongoose.models.RefreshToken ?? mongoose.model('RefreshToken', RefreshTokenSchema);
+export const RefreshToken = getOrCreateModel('RefreshToken', RefreshTokenSchema);

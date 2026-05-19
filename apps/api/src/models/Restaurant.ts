@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 /** Stub for future restaurant module */
 const RestaurantSchema = new mongoose.Schema(
@@ -9,5 +10,4 @@ const RestaurantSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export const Restaurant =
-  mongoose.models.Restaurant ?? mongoose.model('Restaurant', RestaurantSchema);
+export const Restaurant = getOrCreateModel('Restaurant', RestaurantSchema);

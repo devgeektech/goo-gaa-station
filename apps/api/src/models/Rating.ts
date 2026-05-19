@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const RatingSchema = new mongoose.Schema(
   {
@@ -14,5 +15,5 @@ const RatingSchema = new mongoose.Schema(
 RatingSchema.index({ vendorId: 1, createdAt: -1 });
 RatingSchema.index({ customerId: 1, vendorId: 1, createdAt: -1 });
 
-export const Rating = (mongoose.models.Rating ?? mongoose.model('Rating', RatingSchema)) as mongoose.Model<any>;
+export const Rating = getOrCreateModel('Rating', RatingSchema);
 

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const FcmTokenSchema = new mongoose.Schema(
   {
@@ -97,4 +98,4 @@ VendorSchema.index({ slug: 1 });
 VendorSchema.index({ categoryIds: 1 });
 VendorSchema.index({ phone: 1 }, { unique: true, sparse: true });
 
-export const Vendor = (mongoose.models.Vendor ?? mongoose.model('Vendor', VendorSchema)) as mongoose.Model<any>;
+export const Vendor = getOrCreateModel('Vendor', VendorSchema);

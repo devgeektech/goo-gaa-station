@@ -129,10 +129,9 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
     .lean();
   if (!vendor) throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
 
+  const vendorTz = (vendor as { timezone?: unknown }).timezone;
   const timeZone =
-    typeof (vendor as { timezone?: unknown }).timezone === 'string' && (vendor as { timezone: string }).timezone.trim()
-      ? String((vendor as { timezone: string }).timezone).trim()
-      : 'Asia/Kolkata';
+    typeof vendorTz === 'string' && vendorTz.trim() ? vendorTz.trim() : 'Asia/Kolkata';
 
   const todayYmd = ymdInTimeZone(now, timeZone);
   const yesterdayYmd = getYesterdayYmd(now, timeZone);

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const CartItemSchema = new mongoose.Schema(
   {
@@ -24,5 +25,4 @@ const CartSchema = new mongoose.Schema(
 
 CartSchema.index({ customer: 1 }, { unique: true });
 
-export const Cart =
-  mongoose.models.Cart ?? mongoose.model('Cart', CartSchema);
+export const Cart = getOrCreateModel('Cart', CartSchema);

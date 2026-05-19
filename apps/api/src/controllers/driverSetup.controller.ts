@@ -17,7 +17,7 @@ function normalizePhone(phone: string): string {
 
 /** GET /api/v1/driver/setup/status */
 export const getSetupStatus = asyncHandler(async (req: Request, res: Response) => {
-  const driver = req.driver as DriverDocument | undefined;
+  const driver = req.driver as unknown as DriverDocument | undefined;
   if (!driver?._id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
   return sendSuccess(res, {
@@ -29,7 +29,7 @@ export const getSetupStatus = asyncHandler(async (req: Request, res: Response) =
 
 /** PATCH /api/v1/driver/setup/profile-info (Step 1) */
 export const updateProfileInfo = asyncHandler(async (req: Request, res: Response) => {
-  const driver = req.driver as DriverDocument | undefined;
+  const driver = req.driver as unknown as DriverDocument | undefined;
   if (!driver?._id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
   // Parse multipart/form-data for profileImage using multer.

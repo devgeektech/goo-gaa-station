@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getOrCreateModel } from '../utils/getOrCreateModel';
 
 const AppSettingsSchema = new mongoose.Schema(
   {
@@ -27,7 +28,5 @@ export type AppSettingsDocument = mongoose.Document & {
   serviceZones: string[];
 };
 
-export const AppSettings: mongoose.Model<AppSettingsDocument> =
-  (mongoose.models.AppSettings as mongoose.Model<AppSettingsDocument> | undefined) ??
-  mongoose.model<AppSettingsDocument>('AppSettings', AppSettingsSchema);
+export const AppSettings = getOrCreateModel<AppSettingsDocument>('AppSettings', AppSettingsSchema);
 
