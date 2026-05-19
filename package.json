@@ -4,6 +4,9 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "start": "turbo run start --filter=@delivereats/api --filter=@delivereats/admin",
+    "start:api": "pnpm --filter @delivereats/api start",
+    "start:admin": "pnpm --filter @delivereats/admin start",
     "lint": "turbo run lint",
     "test": "turbo run test"
   },
