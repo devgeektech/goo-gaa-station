@@ -306,14 +306,23 @@ export default function VendorDetailPage() {
               {vendor.email ? <div className="muted">{vendor.email}</div> : null}
               {vendor.phone ? <div className="muted">{vendor.phone}</div> : null}
               <span className="badge" style={{ marginTop: 8, background: vendor.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{vendor.status}</span>
-              <div style={{ marginTop: 12, fontSize: 15 }}>
-                <span className="muted">Revenue </span>
-                <span style={{ fontWeight: 800 }}>{formatMoney(vendor.revenue ?? 0)}</span>
-                <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>
-                  (delivered · order − driver fee − commission)
-                </span>
-              </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid2">
+        <div className="card" style={{ boxShadow: 'none' }}>
+          <div className="cardBody">
+            <div className="muted">Total earnings</div>
+            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{formatMoney(vendor.revenue ?? 0)}</div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>Delivered orders · order − driver fee − commission</div>
+          </div>
+        </div>
+        <div className="card" style={{ boxShadow: 'none' }}>
+          <div className="cardBody">
+            <div className="muted">Total delivered orders</div>
+            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{vendor.deliveredOrderCount ?? 0}</div>
           </div>
         </div>
       </div>
