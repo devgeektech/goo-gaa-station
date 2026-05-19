@@ -81,9 +81,9 @@ export default function GeneralSettingsPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>General settings</h1>
           <div className="muted" style={{ marginTop: 6 }}>
-            Basic platform configuration for MVP (currency, timezone, service zones). Delivery fee and tax remain on{' '}
+            Basic platform configuration for MVP (currency, timezone, service zones). Delivery fee and commission remain on{' '}
             <a href="/fees" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-              Fees &amp; Tax
+              Fees &amp; Commission
             </a>
             .
           </div>

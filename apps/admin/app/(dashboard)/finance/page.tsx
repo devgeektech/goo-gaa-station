@@ -33,6 +33,20 @@ function toNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(num) ? num : fallback;
 }
 
+function revenueFromOrder(order: OrderListItem) {
+  return {
+    orderAmount: toNumber(order.orderAmount, toNumber(order.total)),
+    driverFee: toNumber(order.driverFee, toNumber(order.deliveryFee)),
+    netOrderAmount: toNumber(order.netOrderAmount),
+    commission: toNumber(order.commission, toNumber(order.adminRevenue)),
+    adminRevenue: toNumber(order.adminRevenue, toNumber(order.commission)),
+    vendorRevenue: toNumber(order.vendorRevenue),
+    driverRevenue: toNumber(order.driverRevenue, toNumber(order.driverFee, toNumber(order.deliveryFee))),
+    refundAmount: toNumber(order.refundAmount),
+    countsTowardRevenue: order.countsTowardRevenue ?? (order.status === 'delivered' && order.paymentStatus !== 'refunded'),
+  };
+}
+
 export default function FinancePage() {
   const toast = useToast();
   const [items, setItems] = useState<OrderListItem[]>([]);
@@ -105,14 +119,7 @@ export default function FinancePage() {
         page += 1;
       }
       const rows = all.map((order) => {
-        const grossAmount = toNumber(order.grossAmount, toNumber(order.total));
-        const platformCommission = toNumber(order.platformCommission);
-        const wifipayFee = toNumber(order.wifipayFee);
-        const driverShare = toNumber(order.driverShare, toNumber(order.deliveryFee));
-        const vendorShare = toNumber(
-          order.vendorShare,
-          Math.max(0, grossAmount - platformCommission - wifipayFee - driverShare)
-        );
+        const r = revenueFromOrder(order);
         const vendorIdStr = typeof order.vendorId === 'string' ? order.vendorId : order.vendorId?._id ?? '';
         const vendorName = typeof order.vendorId === 'string' ? '' : order.vendorId?.name ?? '';
         const customerIdStr =
@@ -122,17 +129,17 @@ export default function FinancePage() {
           orderNumber: order.orderNumber,
           status: order.status,
           paymentStatus: order.paymentStatus,
-          paymentMethod: order.paymentMethod ?? '',
           vendorId: vendorIdStr,
           vendorName,
           customerId: customerIdStr,
-          grossAmount,
-          platformCommission,
-          wifipayFee,
-          driverShare,
-          vendorShare,
-          orderTotal: toNumber(order.total),
-          deliveryFee: toNumber(order.deliveryFee),
+          orderAmount: r.orderAmount,
+          driverFee: r.driverFee,
+          netOrderAmount: r.netOrderAmount,
+          commission: r.commission,
+          adminRevenue: r.adminRevenue,
+          vendorRevenue: r.vendorRevenue,
+          driverRevenue: r.driverRevenue,
+          refundAmount: r.refundAmount,
           createdAt: order.createdAt,
         };
       });
@@ -153,19 +160,15 @@ export default function FinancePage() {
   const totals = useMemo(() => {
     return items.reduce(
       (acc, order) => {
-        const grossAmount = toNumber(order.grossAmount, toNumber(order.total));
-        const platformCommission = toNumber(order.platformCommission);
-        const wifipayFee = toNumber(order.wifipayFee);
-        const driverShare = toNumber(order.driverShare, toNumber(order.deliveryFee));
-        const vendorShare = toNumber(order.vendorShare, grossAmount - platformCommission - wifipayFee - driverShare);
-        acc.grossAmount += grossAmount;
-        acc.platformCommission += platformCommission;
-        acc.wifipayFee += wifipayFee;
-        acc.driverShare += driverShare;
-        acc.vendorShare += Math.max(0, vendorShare);
+        const r = revenueFromOrder(order);
+        if (!r.countsTowardRevenue) return acc;
+        acc.orderAmount += r.orderAmount;
+        acc.adminRevenue += r.adminRevenue;
+        acc.vendorRevenue += r.vendorRevenue;
+        acc.driverRevenue += r.driverRevenue;
         return acc;
       },
-      { grossAmount: 0, platformCommission: 0, wifipayFee: 0, driverShare: 0, vendorShare: 0 }
+      { orderAmount: 0, adminRevenue: 0, vendorRevenue: 0, driverRevenue: 0 }
     );
   }, [items]);
 
@@ -174,7 +177,9 @@ export default function FinancePage() {
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 className="pageTitle">Finance & Ledger</h1>
-          <div className="pageSubtitle">Per-order breakdown: gross, commission, WaafiPay fee, vendor share, driver share.</div>
+          <div className="pageSubtitle">
+            Admin = commission on net order · Vendor = order − driver fee − commission · Driver = delivery fees (delivered, not refunded).
+          </div>
         </div>
         <div className="row">
           <button className="btn" onClick={() => void load(pagination.page)} disabled={loading}>
@@ -192,10 +197,10 @@ export default function FinancePage() {
       </div>
 
       <div className="grid4">
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Gross (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.grossAmount)}</div></div></div>
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Commission (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.platformCommission)}</div></div></div>
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>WaafiPay fee (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.wifipayFee)}</div></div></div>
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Vendor share (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.vendorShare)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Order amount (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.orderAmount)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Admin revenue (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.adminRevenue)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Vendor revenue (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.vendorRevenue)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Driver fees (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.driverRevenue)}</div></div></div>
       </div>
 
       <div className="card">
@@ -264,21 +269,18 @@ export default function FinancePage() {
                     <th>Order#</th>
                     <th>Vendor</th>
                     <th>Status</th>
-                    <th>Gross</th>
+                    <th>Order amt</th>
+                    <th>Driver fee</th>
                     <th>Commission</th>
-                    <th>WaafiPay fee</th>
-                    <th>Driver share</th>
-                    <th>Vendor share</th>
+                    <th>Admin</th>
+                    <th>Vendor</th>
+                    <th>Driver</th>
                     <th>Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((order) => {
-                    const grossAmount = toNumber(order.grossAmount, toNumber(order.total));
-                    const platformCommission = toNumber(order.platformCommission);
-                    const wifipayFee = toNumber(order.wifipayFee);
-                    const driverShare = toNumber(order.driverShare, toNumber(order.deliveryFee));
-                    const vendorShare = toNumber(order.vendorShare, Math.max(0, grossAmount - platformCommission - wifipayFee - driverShare));
+                    const r = revenueFromOrder(order);
                     const vendorName = typeof order.vendorId === 'string' ? order.vendorId : order.vendorId?.name ?? '—';
                     return (
                       <tr key={order._id}>
@@ -287,11 +289,12 @@ export default function FinancePage() {
                         </td>
                         <td>{vendorName}</td>
                         <td>{order.status}</td>
-                        <td style={{ fontWeight: 700 }}>{formatMoney(grossAmount)}</td>
-                        <td>{formatMoney(platformCommission)}</td>
-                        <td>{formatMoney(wifipayFee)}</td>
-                        <td>{formatMoney(driverShare)}</td>
-                        <td style={{ fontWeight: 700 }}>{formatMoney(vendorShare)}</td>
+                        <td>{formatMoney(r.orderAmount)}</td>
+                        <td>{formatMoney(r.driverFee)}</td>
+                        <td>{formatMoney(r.commission)}</td>
+                        <td>{formatMoney(r.adminRevenue)}</td>
+                        <td style={{ fontWeight: 700 }}>{formatMoney(r.vendorRevenue)}</td>
+                        <td>{formatMoney(r.driverRevenue)}</td>
                         <td className="muted">{formatDateTime(order.createdAt)}</td>
                       </tr>
                     );

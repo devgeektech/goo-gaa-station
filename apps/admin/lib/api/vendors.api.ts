@@ -15,6 +15,8 @@ export type VendorListItem = {
   createdAt?: string;
   /** Phase 3 approval */
   approvalStatus?: string | null;
+  /** Sum of vendor revenue on delivered, non-refunded orders */
+  revenue?: number;
 };
 
 export type VendorDetail = VendorListItem & {
@@ -38,6 +40,8 @@ export type VendorDetail = VendorListItem & {
   approvedAt?: string | null;
   rejectedAt?: string | null;
   reviewedBy?: { _id: string; name?: string } | string | null;
+  revenue?: number;
+  deliveredOrderCount?: number;
 };
 
 export type MenuItem = {

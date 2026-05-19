@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Copy, Search, RefreshCcw } from 'lucide-react';
+import { ArrowLeft, Copy, Search, RefreshCcw, RotateCcw } from 'lucide-react';
 import type { OrderListItem, OrderStatus } from '@/lib/api/orders.api';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -11,6 +11,7 @@ import {
   adminUpdateOrderStatus,
   adminCancelOrder,
   adminAssignDriver,
+  adminRecordOrderRefund,
 } from '@/store/slices/ordersSlice';
 import { searchDrivers, type DriverListItem } from '@/lib/api/drivers.api';
 import { formatDateTime, formatMoney, copyToClipboard } from '@/lib/utils/format';
@@ -44,6 +45,9 @@ export default function OrderDetailPage() {
   const [driverResults, setDriverResults] = useState<DriverListItem[]>([]);
   const [driverLoading, setDriverLoading] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<DriverListItem | null>(null);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refunding, setRefunding] = useState(false);
 
   const order = selectedOrder?._id === id ? selectedOrder : null;
 
@@ -56,6 +60,8 @@ export default function OrderDetailPage() {
 
   const isFinal = order?.status === 'delivered' || order?.status === 'cancelled';
   const isAssignable = order && !isFinal;
+  const canRecordRefund = order?.status === 'delivered' && order.paymentStatus !== 'refunded';
+  const isRefunded = order?.paymentStatus === 'refunded';
 
   useEffect(() => {
     if (isAssignable) runDriverSearch('');
@@ -115,6 +121,26 @@ export default function OrderDetailPage() {
     }
   }
 
+  async function onRecordRefund() {
+    if (!order) return;
+    setRefunding(true);
+    const action = await dispatch(
+      adminRecordOrderRefund({ id: order._id, reason: refundReason.trim() || undefined })
+    );
+    setRefunding(false);
+    if (adminRecordOrderRefund.fulfilled.match(action)) {
+      toast.push({ title: 'Refund recorded', description: 'Payment status updated for ledger.', variant: 'success' });
+      setRefundOpen(false);
+      setRefundReason('');
+    } else {
+      toast.push({
+        title: 'Refund failed',
+        description: String(action.payload ?? action.error?.message),
+        variant: 'danger',
+      });
+    }
+  }
+
   async function onCancelOrder() {
     if (!order) return;
     if (!cancelReason.trim()) {
@@ -131,13 +157,14 @@ export default function OrderDetailPage() {
 
   const itemsSubtotal = (order?.items ?? []).reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
   const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
-  const grossAmount = Number(order?.grossAmount ?? order?.total ?? 0);
-  const platformCommission = Number(order?.platformCommission ?? 0);
-  const wifipayFee = Number(order?.wifipayFee ?? 0);
-  const driverShare = Number(order?.driverShare ?? order?.deliveryFee ?? 0);
-  const vendorShare = Number(
-    order?.vendorShare ?? Math.max(0, grossAmount - platformCommission - wifipayFee - driverShare)
-  );
+  const orderAmount = Number(order?.orderAmount ?? order?.total ?? 0);
+  const driverFee = Number(order?.driverFee ?? order?.deliveryFee ?? 0);
+  const netOrderAmount = Number(order?.netOrderAmount ?? Math.max(0, orderAmount - driverFee));
+  const commission = Number(order?.commission ?? order?.adminRevenue ?? 0);
+  const adminRevenue = Number(order?.adminRevenue ?? commission);
+  const vendorRevenue = Number(order?.vendorRevenue ?? Math.max(0, orderAmount - driverFee - commission));
+  const driverRevenue = Number(order?.driverRevenue ?? driverFee);
+  const refundAmount = Number(order?.refundAmount ?? orderAmount + driverFee + commission);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -207,7 +234,7 @@ export default function OrderDetailPage() {
                 <div className="muted">Order info</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>{order.orderNumber}</div>
                 <div className="muted" style={{ fontSize: 12 }}>Created {formatDateTime(order.createdAt)}</div>
-                <div style={{ marginTop: 12 }}>{statusBadge(order.status)} {paymentBadge(order.paymentStatus)}</div>
+                <div style={{ marginTop: 12 }}>{statusBadge(order.status)}</div>
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
@@ -216,6 +243,53 @@ export default function OrderDetailPage() {
                 <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>{formatMoney(order.total)}</div>
                 <div className="muted" style={{ fontSize: 12 }}>Method: {order.paymentMethod ?? '—'}</div>
                 <div className="muted" style={{ fontSize: 12 }}>WifiPay ref: {order.wifipayRef ?? '—'}</div>
+                <div style={{ marginTop: 10 }}>{paymentBadge(order.paymentStatus)}</div>
+                {isRefunded ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>Refund recorded in transactions.</div>
+                ) : canRecordRefund ? (
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {!refundOpen ? (
+                      <button type="button" className="btn btnPrimary" onClick={() => setRefundOpen(true)}>
+                        <RotateCcw size={16} /> Record refund
+                      </button>
+                    ) : (
+                      <>
+                        <textarea
+                          className="input"
+                          rows={2}
+                          placeholder="Refund reason (optional)"
+                          value={refundReason}
+                          onChange={(e) => setRefundReason(e.target.value)}
+                          disabled={refunding}
+                        />
+                        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="btn btnPrimary"
+                            onClick={() => void onRecordRefund()}
+                            disabled={refunding}
+                          >
+                            {refunding ? 'Recording…' : 'Confirm refund'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => {
+                              setRefundOpen(false);
+                              setRefundReason('');
+                            }}
+                            disabled={refunding}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          Manual record for COD — admin processes cash return offline.
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -227,24 +301,37 @@ export default function OrderDetailPage() {
               <div className="divider" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Gross amount</span>
-                  <span>{formatMoney(grossAmount)}</span>
+                  <span className="muted">Order amount</span>
+                  <span>{formatMoney(orderAmount)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Platform commission</span>
-                  <span>{formatMoney(platformCommission)}</span>
+                  <span className="muted">Driver fee</span>
+                  <span>{formatMoney(driverFee)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">WaafiPay fee</span>
-                  <span>{formatMoney(wifipayFee)}</span>
+                  <span className="muted">Net order amount</span>
+                  <span>{formatMoney(netOrderAmount)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Driver share</span>
-                  <span>{formatMoney(driverShare)}</span>
+                  <span className="muted">Commission</span>
+                  <span>{formatMoney(commission)}</span>
                 </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Admin revenue</span>
+                  <span>{formatMoney(adminRevenue)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Vendor revenue</span>
+                  <span>{formatMoney(vendorRevenue)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Driver delivery fee</span>
+                  <span>{formatMoney(driverRevenue)}</span>
+                </div>
+                <div className="divider" />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
-                  <span>Vendor share</span>
-                  <span>{formatMoney(vendorShare)}</span>
+                  <span>Refund record amount</span>
+                  <span>{formatMoney(refundAmount)}</span>
                 </div>
               </div>
             </div>

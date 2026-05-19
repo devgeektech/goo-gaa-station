@@ -1,6 +1,9 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Vendor } from '../../models/Vendor';
+import { Order } from '../../models/Order';
+import { getCommissionPercent } from '../../services/appSettings.service';
+import { REVENUE_ELIGIBLE_MATCH, vendorRevenueMongoExpr } from '../../services/orderRevenue.service';
 import { MenuItem } from '../../models/MenuItem';
 import { Product } from '../../models/Product';
 import { AppError } from '../../utils/AppError';
@@ -57,24 +60,61 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     filter.$or = [{ name: re }, { slug: re }, { description: re }, { email: re }, { phone: re }];
   }
 
+  const commissionPercent = await getCommissionPercent();
+  const commissionRate = commissionPercent / 100;
+
   const [vendors, total, pendingCount] = await Promise.all([
     Vendor.find(filter).lean().sort({ sortOrder: 1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     Vendor.countDocuments(filter),
     Vendor.countDocuments({ status: { $ne: 'deleted' }, approvalStatus: 'pending' }),
   ]);
-  const meta = toPaginated(vendors, total, page, limit);
-  return sendSuccess(res, vendors, 200, { ...meta, pendingCount });
+
+  const vendorIds = vendors.map((v) => (v as { _id: mongoose.Types.ObjectId })._id);
+  let revenueByVendor = new Map<string, number>();
+  if (vendorIds.length > 0) {
+    const revenueRows = await Order.aggregate<{ _id: mongoose.Types.ObjectId; revenue: number }>([
+      { $match: { ...REVENUE_ELIGIBLE_MATCH, vendorId: { $in: vendorIds } } },
+      { $addFields: { __vendorRev: vendorRevenueMongoExpr(commissionRate) } },
+      { $group: { _id: '$vendorId', revenue: { $sum: '$__vendorRev' } } },
+    ]);
+    revenueByVendor = new Map(
+      revenueRows.map((r) => [String(r._id), Math.round((Number(r.revenue) || 0) * 100) / 100])
+    );
+  }
+
+  const vendorsWithRevenue = vendors.map((v) => {
+    const id = String((v as { _id: mongoose.Types.ObjectId })._id);
+    return { ...v, revenue: revenueByVendor.get(id) ?? 0 };
+  });
+
+  const meta = toPaginated(vendorsWithRevenue, total, page, limit);
+  return sendSuccess(res, vendorsWithRevenue, 200, { ...meta, pendingCount });
 });
 
 /** GET /api/v1/admin/vendors/:id — Full vendor detail */
 export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id;
-  const vendor = await Vendor.findById(id).populate('reviewedBy', 'name').lean();
+  const vendorId = new mongoose.Types.ObjectId(id);
+  const commissionPercent = await getCommissionPercent();
+  const commissionRate = commissionPercent / 100;
+
+  const [vendor, menuItems, revenueRows, orderCount] = await Promise.all([
+    Vendor.findById(id).populate('reviewedBy', 'name').lean(),
+    MenuItem.find({ vendorId }).lean().sort({ sortOrder: 1, name: 1 }),
+    Order.aggregate<{ revenue: number }>([
+      { $match: { ...REVENUE_ELIGIBLE_MATCH, vendorId } },
+      { $addFields: { __vendorRev: vendorRevenueMongoExpr(commissionRate) } },
+      { $group: { _id: null, revenue: { $sum: '$__vendorRev' } } },
+    ]),
+    Order.countDocuments({ vendorId, status: 'delivered' }),
+  ]);
+
   if (!vendor || (vendor as { status?: string }).status === 'deleted') {
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
   }
-  const menuItems = await MenuItem.find({ vendorId: new mongoose.Types.ObjectId(id) }).lean().sort({ sortOrder: 1, name: 1 });
-  return sendSuccess(res, { ...vendor, menuItems });
+
+  const revenue = Math.round((Number(revenueRows[0]?.revenue) || 0) * 100) / 100;
+  return sendSuccess(res, { ...vendor, menuItems, revenue, deliveredOrderCount: orderCount });
 });
 
 /** POST /api/v1/admin/vendors — Create vendor (logo and coverImage max 10MB each) */

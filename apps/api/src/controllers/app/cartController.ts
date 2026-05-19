@@ -16,25 +16,21 @@ export const getCart = asyncHandler(async (req: Request, res: Response) => {
   const customerIdObj = new mongoose.Types.ObjectId(customerId);
   const [cart, settings] = await Promise.all([
     (Cart as any).findOne({ customer: customerIdObj }).populate('items.product', '_id name price image isAvailable').lean(),
-    (AppSettings as any).findOne().select('deliveryFee taxPercent').lean(),
+    (AppSettings as any).findOne().select('deliveryFee').lean(),
   ]);
 
   const deliveryFee = Number((settings as { deliveryFee?: number })?.deliveryFee ?? 0) || 0;
-  const taxPercent = Number((settings as { taxPercent?: number })?.taxPercent ?? 0) || 0;
 
   const subtotal = cart ? Number((cart as { subtotal?: number }).subtotal ?? 0) || 0 : 0;
-  const taxAmount = Math.max(0, subtotal * (taxPercent / 100));
-  const grandTotal = subtotal + deliveryFee + taxAmount;
+  const grandTotal = subtotal + deliveryFee;
 
   if (!cart) {
-    return sendSuccess(res, { cart: null, subtotal, deliveryFee, taxPercent, taxAmount, grandTotal });
+    return sendSuccess(res, { cart: null, subtotal, deliveryFee, grandTotal });
   }
 
   return sendSuccess(res, {
     ...cart,
     deliveryFee,
-    taxPercent,
-    taxAmount,
     grandTotal,
   });
 });

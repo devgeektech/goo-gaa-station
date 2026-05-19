@@ -5,8 +5,10 @@ const AppSettingsSchema = new mongoose.Schema(
   {
     /** Flat delivery fee applied to cart/order totals. */
     deliveryFee: { type: Number, default: 0, min: 0 },
-    /** Tax percentage applied to subtotal (e.g. 5 => 5%). */
-    taxPercent: { type: Number, default: 0, min: 0, max: 100 },
+    /** Admin platform commission % on order gross (e.g. 15 => 15%). */
+    commissionPercent: { type: Number, default: 2, min: 0, max: 100 },
+    /** @deprecated Use commissionPercent. Kept for existing DB documents. */
+    taxPercent: { type: Number, min: 0, max: 100 },
     /** ISO 4217 code for display / future pricing (MVP metadata). */
     defaultCurrency: { type: String, default: 'USD', trim: true, maxlength: 8 },
     /** IANA timezone for platform-wide defaults (MVP metadata). */
@@ -22,7 +24,8 @@ AppSettingsSchema.index({ updatedAt: 1 });
 
 export type AppSettingsDocument = mongoose.Document & {
   deliveryFee: number;
-  taxPercent: number;
+  commissionPercent: number;
+  taxPercent?: number;
   defaultCurrency: string;
   defaultTimezone: string;
   serviceZones: string[];

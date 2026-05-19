@@ -120,6 +120,18 @@ export const adminAssignDriver = createAsyncThunk(
   }
 );
 
+export const adminRecordOrderRefund = createAsyncThunk(
+  'orders/adminRecordOrderRefund',
+  async (args: { id: string; reason?: string }, { rejectWithValue }) => {
+    try {
+      const res = await ordersApi.recordOrderRefund(args.id, args.reason);
+      return res.data;
+    } catch (e) {
+      return rejectWithValue(getErrorMessage(e));
+    }
+  }
+);
+
 const ordersSlice = createSlice({
   name: 'orders',
   initialState,
@@ -181,6 +193,11 @@ const ordersSlice = createSlice({
         if (idx >= 0) state.items[idx] = action.payload;
       })
       .addCase(adminAssignDriver.fulfilled, (state, action) => {
+        state.selectedOrder = action.payload;
+        const idx = state.items.findIndex((o) => o._id === action.payload._id);
+        if (idx >= 0) state.items[idx] = action.payload;
+      })
+      .addCase(adminRecordOrderRefund.fulfilled, (state, action) => {
         state.selectedOrder = action.payload;
         const idx = state.items.findIndex((o) => o._id === action.payload._id);
         if (idx >= 0) state.items[idx] = action.payload;

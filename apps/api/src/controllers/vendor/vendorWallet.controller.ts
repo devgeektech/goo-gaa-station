@@ -6,14 +6,13 @@ import { AppError } from '../../utils/AppError';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
 import { computeOrderFinancials } from '../../services/orderFinancials.service';
+import { getPlatformCommissionRate } from '../../services/appSettings.service';
 
 const OrderM = Order as any;
 const VendorM = Vendor as any;
 
 type ReqVendor = { _id: mongoose.Types.ObjectId | string };
 
-/** Same defaults as `orderFinancials.service.ts` (keep in sync with aggregation). */
-const PLATFORM_COMMISSION_RATE = Number(process.env.PLATFORM_COMMISSION_RATE ?? 0.15);
 const WIFIPAY_FEE_RATE = Number(process.env.WIFIPAY_FEE_RATE ?? 0.02);
 
 function getVendorId(req: Request): mongoose.Types.ObjectId {
@@ -71,8 +70,8 @@ const TAB_LIST_LIMIT = 50;
 /**
  * Mongo expression: vendor revenue for one order document (matches `computeOrderFinancials` policy).
  */
-function effectiveVendorRevenueMongoExpr(): Record<string, unknown> {
-  const cr = PLATFORM_COMMISSION_RATE;
+function effectiveVendorRevenueMongoExpr(commissionRate: number): Record<string, unknown> {
+  const cr = commissionRate;
   const wr = WIFIPAY_FEE_RATE;
   return {
     $let: {
@@ -136,7 +135,8 @@ function effectiveVendorRevenueMongoExpr(): Record<string, unknown> {
 async function sumEffectiveVendorRevenueForDays(
   vendorId: mongoose.Types.ObjectId,
   timeZone: string,
-  ymds: string[]
+  ymds: string[],
+  commissionRate: number
 ): Promise<{ revenue: number; orderCount: number }> {
   if (ymds.length === 0) return { revenue: 0, orderCount: 0 };
   const rows = await OrderM.aggregate([
@@ -146,7 +146,7 @@ async function sumEffectiveVendorRevenueForDays(
         ...EARNINGS_MATCH,
       },
     },
-    { $addFields: { __evr: effectiveVendorRevenueMongoExpr() } },
+    { $addFields: { __evr: effectiveVendorRevenueMongoExpr(commissionRate) } },
     {
       $addFields: {
         deliveryDay: {
@@ -174,10 +174,13 @@ async function sumEffectiveVendorRevenueForDays(
   };
 }
 
-async function totalLifetimeEffectiveVendorRevenue(vendorId: mongoose.Types.ObjectId): Promise<number> {
+async function totalLifetimeEffectiveVendorRevenue(
+  vendorId: mongoose.Types.ObjectId,
+  commissionRate: number
+): Promise<number> {
   const rows = await OrderM.aggregate([
     { $match: { vendorId, ...EARNINGS_MATCH } },
-    { $addFields: { __evr: effectiveVendorRevenueMongoExpr() } },
+    { $addFields: { __evr: effectiveVendorRevenueMongoExpr(commissionRate) } },
     { $group: { _id: null, total: { $sum: '$__evr' } } },
   ]);
   const n = Number(rows[0]?.total);
@@ -187,9 +190,10 @@ async function totalLifetimeEffectiveVendorRevenue(vendorId: mongoose.Types.Obje
 async function sumEffectiveVendorRevenueSingleDay(
   vendorId: mongoose.Types.ObjectId,
   timeZone: string,
-  dayYmd: string
+  dayYmd: string,
+  commissionRate: number
 ): Promise<{ revenue: number; orderCount: number }> {
-  return sumEffectiveVendorRevenueForDays(vendorId, timeZone, [dayYmd]);
+  return sumEffectiveVendorRevenueForDays(vendorId, timeZone, [dayYmd], commissionRate);
 }
 
 function rollingLast7Ymds(now: Date, timeZone: string): string[] {
@@ -220,7 +224,8 @@ function weekdayShortFromYmd(ymd: string): string {
 async function dailyBarLast7Days(
   vendorId: mongoose.Types.ObjectId,
   timeZone: string,
-  ymds: string[]
+  ymds: string[],
+  commissionRate: number
 ): Promise<Array<{ date: string; label: string; amount: number; orderCount: number }>> {
   const rows = await OrderM.aggregate([
     {
@@ -229,7 +234,7 @@ async function dailyBarLast7Days(
         ...EARNINGS_MATCH,
       },
     },
-    { $addFields: { __evr: effectiveVendorRevenueMongoExpr() } },
+    { $addFields: { __evr: effectiveVendorRevenueMongoExpr(commissionRate) } },
     {
       $addFields: {
         deliveryDay: {
@@ -293,7 +298,8 @@ async function monthToDateEffectiveRevenue(
   vendorId: mongoose.Types.ObjectId,
   timeZone: string,
   monthStartYmd: string,
-  throughYmd: string
+  throughYmd: string,
+  commissionRate: number
 ): Promise<{ revenue: number; orderCount: number }> {
   const rows = await OrderM.aggregate([
     {
@@ -302,7 +308,7 @@ async function monthToDateEffectiveRevenue(
         ...EARNINGS_MATCH,
       },
     },
-    { $addFields: { __evr: effectiveVendorRevenueMongoExpr() } },
+    { $addFields: { __evr: effectiveVendorRevenueMongoExpr(commissionRate) } },
     {
       $addFields: {
         deliveryDay: {
@@ -330,7 +336,7 @@ async function monthToDateEffectiveRevenue(
   };
 }
 
-function effectiveVendorAmountFromOrder(o: Record<string, unknown>): number {
+function effectiveVendorAmountFromOrder(o: Record<string, unknown>, commissionRate: number): number {
   const stored = Number(o.vendorShare);
   if (Number.isFinite(stored) && stored > 0) return round2(stored);
   const f = computeOrderFinancials({
@@ -338,11 +344,12 @@ function effectiveVendorAmountFromOrder(o: Record<string, unknown>): number {
     deliveryFee: Number(o.deliveryFee) || 0,
     discount: Number(o.discount) || 0,
     total: Number(o.total),
+    platformCommissionRate: commissionRate,
   });
   return round2(f.vendorShare);
 }
 
-function mapOrderListRow(o: Record<string, unknown>) {
+function mapOrderListRow(o: Record<string, unknown>, commissionRate: number) {
   const items = (o.items as Array<{ qty?: number }> | undefined) ?? [];
   const itemsCount = items.reduce((s, it) => s + (Number(it?.qty) || 0), 0);
   return {
@@ -354,7 +361,7 @@ function mapOrderListRow(o: Record<string, unknown>) {
     updatedAt: o.updatedAt,
     itemsCount,
     /** Vendor portion after platform/driver share; uses `computeOrderFinancials` when DB `vendorShare` is 0. */
-    vendorAmount: effectiveVendorAmountFromOrder(o),
+    vendorAmount: effectiveVendorAmountFromOrder(o, commissionRate),
     orderTotal: round2(Number(o.total) || 0),
   };
 }
@@ -362,7 +369,8 @@ function mapOrderListRow(o: Record<string, unknown>) {
 async function fetchOrdersForStatuses(
   vendorId: mongoose.Types.ObjectId,
   statuses: readonly string[],
-  limit: number
+  limit: number,
+  commissionRate: number
 ): Promise<{ orders: ReturnType<typeof mapOrderListRow>[]; totalAmount: number }> {
   const filter = { vendorId, status: { $in: [...statuses] } };
   const docs = await OrderM
@@ -371,7 +379,7 @@ async function fetchOrdersForStatuses(
     .limit(limit)
     .select('orderNumber status paymentStatus createdAt updatedAt items vendorShare total subtotal deliveryFee discount')
     .lean();
-  const orders = docs.map((d) => mapOrderListRow(d as Record<string, unknown>));
+  const orders = docs.map((d) => mapOrderListRow(d as Record<string, unknown>, commissionRate));
   const totalAmount = round2(orders.reduce((s, r) => s + r.orderTotal, 0));
   return { orders, totalAmount };
 }
@@ -397,6 +405,7 @@ export const getVendorWallet = asyncHandler(async (req: Request, res: Response) 
   const monthStartYmd = firstDayOfMonthYmd(todayYmd);
   const prevMonthStart = firstDayOfPreviousMonthYmd(todayYmd);
   const prevMonthMtdEnd = previousMonthMtdEndYmd(todayYmd);
+  const commissionRate = await getPlatformCommissionRate();
 
   const [
     totalEarningsLifetime,
@@ -412,23 +421,23 @@ export const getVendorWallet = asyncHandler(async (req: Request, res: Response) 
     activeTab,
     deliveredTab,
   ] = await Promise.all([
-    totalLifetimeEffectiveVendorRevenue(vendorId),
-    sumEffectiveVendorRevenueSingleDay(vendorId, timeZone, todayYmd),
-    sumEffectiveVendorRevenueSingleDay(vendorId, timeZone, yesterdayYmd),
-    sumEffectiveVendorRevenueForDays(vendorId, timeZone, last7Ymds),
-    sumEffectiveVendorRevenueForDays(vendorId, timeZone, prev7Ymds),
-    dailyBarLast7Days(vendorId, timeZone, last7Ymds),
-    monthToDateEffectiveRevenue(vendorId, timeZone, monthStartYmd, todayYmd),
-    monthToDateEffectiveRevenue(vendorId, timeZone, prevMonthStart, prevMonthMtdEnd),
+    totalLifetimeEffectiveVendorRevenue(vendorId, commissionRate),
+    sumEffectiveVendorRevenueSingleDay(vendorId, timeZone, todayYmd, commissionRate),
+    sumEffectiveVendorRevenueSingleDay(vendorId, timeZone, yesterdayYmd, commissionRate),
+    sumEffectiveVendorRevenueForDays(vendorId, timeZone, last7Ymds, commissionRate),
+    sumEffectiveVendorRevenueForDays(vendorId, timeZone, prev7Ymds, commissionRate),
+    dailyBarLast7Days(vendorId, timeZone, last7Ymds, commissionRate),
+    monthToDateEffectiveRevenue(vendorId, timeZone, monthStartYmd, todayYmd, commissionRate),
+    monthToDateEffectiveRevenue(vendorId, timeZone, prevMonthStart, prevMonthMtdEnd, commissionRate),
     OrderM
       .find({ vendorId })
       .sort({ updatedAt: -1 })
       .limit(RECENT_LIMIT)
       .select('orderNumber status paymentStatus createdAt updatedAt items vendorShare total subtotal deliveryFee discount')
       .lean(),
-    fetchOrdersForStatuses(vendorId, STATUS_QUEUED, TAB_LIST_LIMIT),
-    fetchOrdersForStatuses(vendorId, STATUS_ACTIVE, TAB_LIST_LIMIT),
-    fetchOrdersForStatuses(vendorId, ['delivered'], TAB_LIST_LIMIT),
+    fetchOrdersForStatuses(vendorId, STATUS_QUEUED, TAB_LIST_LIMIT, commissionRate),
+    fetchOrdersForStatuses(vendorId, STATUS_ACTIVE, TAB_LIST_LIMIT, commissionRate),
+    fetchOrdersForStatuses(vendorId, ['delivered'], TAB_LIST_LIMIT, commissionRate),
   ]);
 
   const todayEarnings = todayAgg.revenue;
@@ -437,7 +446,7 @@ export const getVendorWallet = asyncHandler(async (req: Request, res: Response) 
   const todayVsYesterday = pctChangeLabel(todayEarnings, yesterdayAgg.revenue);
   const weekVsPrior = pctChangeLabel(weekAgg.revenue, prevWeekAgg.revenue);
 
-  const recentOrders = recentDocs.map((d) => mapOrderListRow(d as Record<string, unknown>));
+  const recentOrders = recentDocs.map((d) => mapOrderListRow(d as Record<string, unknown>, commissionRate));
 
   const weeklyRevenueChange = pctChangeLabel(weekAgg.revenue, prevWeekAgg.revenue);
   const weeklyOrdersChange = pctChangeLabel(weekAgg.orderCount, prevWeekAgg.orderCount);
@@ -527,7 +536,7 @@ export const getVendorWallet = asyncHandler(async (req: Request, res: Response) 
       timeZone,
       earningsBasis: 'delivered_orders_effective_vendor_revenue',
       earningsNote:
-        'Uses stored vendorShare when positive; otherwise recomputed from order totals and fees (same rules as order placement). Commission and wifipay rates follow PLATFORM_COMMISSION_RATE and WIFIPAY_FEE_RATE.',
+        'Uses stored vendorShare when positive; otherwise recomputed from order totals and fees (same rules as order placement). Commission rate follows admin AppSettings commissionPercent; wifipay follows WIFIPAY_FEE_RATE.',
       note: 'No payout or online-wallet fields; COD-only flows.',
     },
   };

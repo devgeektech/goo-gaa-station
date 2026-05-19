@@ -3,6 +3,8 @@ type FinancialInput = {
   deliveryFee: number;
   discount: number;
   total?: number;
+  /** Override platform commission rate as decimal (e.g. 0.15 for 15%). */
+  platformCommissionRate?: number;
 };
 
 export type OrderFinancialBreakdown = {
@@ -36,7 +38,10 @@ export function computeOrderFinancials(input: FinancialInput): OrderFinancialBre
       : subtotal + deliveryFee - discount
   );
 
-  const commissionRate = safeRate(DEFAULT_PLATFORM_COMMISSION_RATE);
+  const commissionRate =
+    input.platformCommissionRate != null
+      ? safeRate(input.platformCommissionRate)
+      : safeRate(DEFAULT_PLATFORM_COMMISSION_RATE);
   const wifipayRate = safeRate(DEFAULT_WIFIPAY_FEE_RATE);
 
   const platformCommission = round2(grossAmount * commissionRate);

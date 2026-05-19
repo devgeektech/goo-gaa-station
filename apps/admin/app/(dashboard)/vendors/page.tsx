@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useVendorPending } from '@/lib/context/VendorPendingContext';
 import { getErrorMessage } from '@/lib/api/client';
+import { formatMoney } from '@/lib/utils/format';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -254,13 +255,14 @@ export default function VendorsPage() {
                     <th>Approval</th>
                     <th>Status</th>
                     <th>Rating</th>
+                    <th>Revenue</th>
                     <th>Orders</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}><td colSpan={7}><Skeleton height={18} /></td></tr>
+                    <tr key={i}><td colSpan={8}><Skeleton height={18} /></td></tr>
                   ))}
                 </tbody>
               </table>
@@ -301,6 +303,7 @@ export default function VendorsPage() {
                         <span className="badge" style={{ background: v.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{v.status}</span>
                       </td>
                       <td className="muted">—</td>
+                      <td style={{ fontWeight: 700 }}>{formatMoney(v.revenue ?? 0)}</td>
                       <td className="muted">—</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="row" style={{ gap: 6 }}>

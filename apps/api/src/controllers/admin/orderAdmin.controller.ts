@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Order } from '../../models/Order';
+import { Transaction } from '../../models/Transaction';
 import { Driver } from '../../models/Driver';
 import { User } from '../../models/User';
 import { AppError } from '../../utils/AppError';
@@ -10,6 +11,15 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { transitionOrderStatus } from '../../services/orderStatus.service';
 import { enrichOrderFinancials } from '../../services/orderFinancials.service';
+import { getCommissionPercent } from '../../services/appSettings.service';
+import {
+  adminRevenueMongoExpr,
+  computeOrderRevenueBreakdown,
+  driverRevenueMongoExpr,
+  enrichOrderWithRevenue,
+  REVENUE_ELIGIBLE_MATCH,
+  vendorRevenueMongoExpr,
+} from '../../services/orderRevenue.service';
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
@@ -41,11 +51,14 @@ export const listOrders = asyncHandler(async (req: Request, res: Response) => {
     if (dateTo) (filter.createdAt as Record<string, Date>).$lte = dateTo;
   }
 
+  const commissionPercent = await getCommissionPercent();
   const [orders, total] = await Promise.all([
     Order.find(filter).populate('customerId', 'name phone email').populate('driverId', 'name phone').populate('vendorId', 'name slug').lean().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     Order.countDocuments(filter),
   ]);
-  const ordersWithFinancials = orders.map((order) => enrichOrderFinancials(order));
+  const ordersWithFinancials = orders.map((order) =>
+    enrichOrderWithRevenue(enrichOrderFinancials(order) as Record<string, unknown>, commissionPercent)
+  );
   return sendSuccess(res, ordersWithFinancials, 200, toPaginated(ordersWithFinancials, total, page, limit));
 });
 
@@ -55,9 +68,12 @@ export const getOrder = asyncHandler(async (req: Request, res: Response) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
   }
-  const order = await Order.findById(id).populate('customerId').populate('driverId').populate('vendorId', 'name slug logo').lean();
+  const [order, commissionPercent] = await Promise.all([
+    Order.findById(id).populate('customerId').populate('driverId').populate('vendorId', 'name slug logo').lean(),
+    getCommissionPercent(),
+  ]);
   if (!order) throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
-  return sendSuccess(res, enrichOrderFinancials(order));
+  return sendSuccess(res, enrichOrderWithRevenue(enrichOrderFinancials(order) as Record<string, unknown>, commissionPercent));
 });
 
 /** PATCH /:id/status — Manual status push; appends history, sends FCM to customer, emits socket */
@@ -113,6 +129,74 @@ export const cancelOrder = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, doc);
 });
 
+/** POST /:id/refund — Record manual refund (COD / admin bookkeeping; no WifiPay call) */
+export const recordOrderRefund = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params.id;
+  const adminId = req.user?._id;
+  const reason = req.body?.reason != null ? String(req.body.reason).trim().slice(0, 500) : '';
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
+  }
+
+  const order = await Order.findById(id);
+  if (!order) throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
+
+  if (order.status !== 'delivered') {
+    throw new AppError(
+      { en: 'Only delivered orders can be refunded', de: 'Nur gelieferte Bestellungen können erstattet werden' },
+      400,
+      'INVALID_STATUS'
+    );
+  }
+
+  if (order.paymentStatus === 'refunded') {
+    throw new AppError({ en: 'Order already refunded', de: 'Bereits erstattet' }, 400, 'ALREADY_REFUNDED');
+  }
+
+  const commissionPercent = await getCommissionPercent();
+  const { refundAmount } = computeOrderRevenueBreakdown(
+    {
+      total: order.total,
+      deliveryFee: order.deliveryFee,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+    },
+    commissionPercent
+  );
+
+  const existingRefund = await Transaction.findOne({ orderId: order._id, type: 'refund' });
+  if (!existingRefund) {
+    await Transaction.create({
+      orderId: order._id,
+      customerId: order.customerId ?? null,
+      type: 'refund',
+      amount: refundAmount,
+      currency: 'EUR',
+      status: 'success',
+      wifipayRef: null,
+      wifipayRawResponse: {
+        reason: reason || 'Manual refund recorded by admin',
+        manual: true,
+        recordedBy: adminId ?? null,
+      },
+      completedAt: new Date(),
+    });
+  }
+
+  order.paymentStatus = 'refunded';
+  await order.save();
+
+  const populated = await Order.findById(order._id)
+    .populate('customerId')
+    .populate('driverId')
+    .populate('vendorId', 'name slug logo')
+    .lean();
+  if (!populated) throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
+
+  return sendSuccess(res, enrichOrderWithRevenue(enrichOrderFinancials(populated) as Record<string, unknown>, commissionPercent));
+});
+
 /** PATCH /:id/assign-driver */
 export const assignDriver = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id;
@@ -163,15 +247,53 @@ export const getStatsSummary = asyncHandler(async (_req: Request, res: Response)
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const [totalOrders, ordersToday, ordersByStatus, revenuePaid, revenueTodayPaid, last7Days, pendingDrivers, activeDrivers, totalCustomers] = await Promise.all([
+  const commissionPercent = await getCommissionPercent();
+  const commissionRate = commissionPercent / 100;
+  const revenueMatch = REVENUE_ELIGIBLE_MATCH;
+
+  const revenueGroupStages = [
+    { $addFields: { __adminRev: adminRevenueMongoExpr(commissionRate) } },
+    { $addFields: { __vendorRev: vendorRevenueMongoExpr(commissionRate) } },
+    { $addFields: { __driverRev: driverRevenueMongoExpr() } },
+    {
+      $group: {
+        _id: null,
+        adminRevenue: { $sum: '$__adminRev' },
+        vendorRevenue: { $sum: '$__vendorRev' },
+        driverRevenue: { $sum: '$__driverRev' },
+      },
+    },
+  ];
+
+  const [
+    totalOrders,
+    ordersToday,
+    ordersByStatus,
+    revenueTotals,
+    revenueTodayTotals,
+    last7Days,
+    pendingDrivers,
+    activeDrivers,
+    totalCustomers,
+  ] = await Promise.all([
     Order.countDocuments(),
     Order.countDocuments({ createdAt: { $gte: todayStart } }),
     Order.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
-    Order.aggregate([{ $match: { paymentStatus: 'paid' } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
-    Order.aggregate([{ $match: { paymentStatus: 'paid', createdAt: { $gte: todayStart } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+    Order.aggregate([{ $match: revenueMatch }, ...revenueGroupStages]),
     Order.aggregate([
-      { $match: { paymentStatus: 'paid', createdAt: { $gte: sevenDaysAgo } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, revenue: { $sum: '$total' }, count: { $sum: 1 } } },
+      { $match: { ...revenueMatch, createdAt: { $gte: todayStart } } },
+      ...revenueGroupStages,
+    ]),
+    Order.aggregate([
+      { $match: { ...revenueMatch, createdAt: { $gte: sevenDaysAgo } } },
+      { $addFields: { __adminRev: adminRevenueMongoExpr(commissionRate) } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          revenue: { $sum: '$__adminRev' },
+          count: { $sum: 1 },
+        },
+      },
       { $sort: { _id: 1 } },
     ]),
     Driver.countDocuments({ approvalStatus: 'pending' }),
@@ -182,13 +304,31 @@ export const getStatsSummary = asyncHandler(async (_req: Request, res: Response)
   const statusMap: Record<string, number> = {};
   ordersByStatus.forEach((s: { _id: string; count: number }) => { statusMap[s._id] = s.count; });
 
+  const totals = revenueTotals[0] as { adminRevenue?: number; vendorRevenue?: number; driverRevenue?: number } | undefined;
+  const todayTotals = revenueTodayTotals[0] as
+    | { adminRevenue?: number; vendorRevenue?: number; driverRevenue?: number }
+    | undefined;
+
+  const round = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
+
   return sendSuccess(res, {
     totalOrders,
     ordersToday,
     ordersByStatus: statusMap,
-    totalRevenue: revenuePaid[0]?.total ?? 0,
-    revenueToday: revenueTodayPaid[0]?.total ?? 0,
-    last7DaysRevenue: last7Days.map((d: { _id: string; revenue: number; count: number }) => ({ date: d._id, revenue: d.revenue, count: d.count })),
+    commissionPercent,
+    totalRevenue: round(totals?.adminRevenue),
+    adminRevenue: round(totals?.adminRevenue),
+    vendorRevenue: round(totals?.vendorRevenue),
+    driverRevenue: round(totals?.driverRevenue),
+    revenueToday: round(todayTotals?.adminRevenue),
+    adminRevenueToday: round(todayTotals?.adminRevenue),
+    vendorRevenueToday: round(todayTotals?.vendorRevenue),
+    driverRevenueToday: round(todayTotals?.driverRevenue),
+    last7DaysRevenue: last7Days.map((d: { _id: string; revenue: number; count: number }) => ({
+      date: d._id,
+      revenue: round(d.revenue),
+      count: d.count,
+    })),
     pendingDriverApprovals: pendingDrivers,
     activeDrivers,
     totalCustomers,

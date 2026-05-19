@@ -42,6 +42,15 @@ export type OrderListItem = {
   wifipayFee?: number;
   vendorShare?: number;
   driverShare?: number;
+  orderAmount?: number;
+  driverFee?: number;
+  netOrderAmount?: number;
+  commission?: number;
+  adminRevenue?: number;
+  vendorRevenue?: number;
+  driverRevenue?: number;
+  refundAmount?: number;
+  countsTowardRevenue?: boolean;
   cancellationReason?: string | null;
   cancelledBy?: string | null;
   actualDeliveryAt?: string | null;
@@ -114,12 +123,28 @@ export async function assignDriver(id: string, driverId: string) {
   return res.data;
 }
 
+/** Record manual refund for a delivered order (COD bookkeeping). */
+export async function recordOrderRefund(id: string, reason?: string) {
+  const res = await apiClient.post<ApiSuccess<OrderListItem>>(`/admin/orders/${id}/refund`, {
+    reason: reason?.trim() || undefined,
+  });
+  return res.data;
+}
+
 export type OrderStatsSummary = {
   totalOrders: number;
   ordersToday: number;
   ordersByStatus: Record<string, number>;
+  commissionPercent?: number;
+  /** Admin revenue (commission on net order amount); same as adminRevenue */
   totalRevenue: number;
+  adminRevenue: number;
+  vendorRevenue: number;
+  driverRevenue: number;
   revenueToday: number;
+  adminRevenueToday?: number;
+  vendorRevenueToday?: number;
+  driverRevenueToday?: number;
   last7DaysRevenue: Array<{ date: string; revenue: number; count: number }>;
   pendingDriverApprovals: number;
   activeDrivers: number;

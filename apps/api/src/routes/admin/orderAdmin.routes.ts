@@ -8,6 +8,7 @@ import {
   updateOrderStatus,
   cancelOrder,
   assignDriver,
+  recordOrderRefund,
   getStatsSummary,
 } from '../../controllers/admin/orderAdmin.controller';
 
@@ -23,5 +24,6 @@ router.get('/:id', getOrder);
 router.patch('/:id/status', updateOrderStatus);
 router.patch('/:id/cancel', cancelOrder);
 router.patch('/:id/assign-driver', assignDriver);
+router.post('/:id/refund', recordOrderRefund);
 
 export default router;

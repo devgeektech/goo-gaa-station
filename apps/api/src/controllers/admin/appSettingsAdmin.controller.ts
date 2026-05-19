@@ -3,6 +3,7 @@ import { AppError } from '../../utils/AppError';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
 import { AppSettings } from '../../models/AppSettings';
+import { normalizeAppSettingsForApi } from '../../services/appSettings.service';
 
 async function getOrCreateSettings() {
   const existing = await AppSettings.findOne().lean();
@@ -14,7 +15,7 @@ async function getOrCreateSettings() {
 /** GET /api/v1/admin/app-settings */
 export const getAppSettings = asyncHandler(async (_req: Request, res: Response) => {
   const settings = await getOrCreateSettings();
-  return sendSuccess(res, settings);
+  return sendSuccess(res, normalizeAppSettingsForApi(settings as Record<string, unknown>));
 });
 
 function assertValidTimezone(tz: string): void {
@@ -27,18 +28,23 @@ function assertValidTimezone(tz: string): void {
 
 /** PATCH /api/v1/admin/app-settings */
 export const patchAppSettings = asyncHandler(async (req: Request, res: Response) => {
-  const { deliveryFee, taxPercent, defaultCurrency, defaultTimezone, serviceZones } = req.body ?? {};
+  const { deliveryFee, commissionPercent, taxPercent, defaultCurrency, defaultTimezone, serviceZones } = req.body ?? {};
 
   const update: Record<string, unknown> = {};
+  const unset: Record<string, 1> = {};
   if (deliveryFee !== undefined) {
     const n = Number(deliveryFee);
     if (!Number.isFinite(n) || n < 0) throw new AppError({ en: 'deliveryFee must be >= 0', de: 'deliveryFee muss >= 0 sein' }, 400, 'VALIDATION_ERROR');
     update.deliveryFee = n;
   }
-  if (taxPercent !== undefined) {
-    const n = Number(taxPercent);
-    if (!Number.isFinite(n) || n < 0 || n > 100) throw new AppError({ en: 'taxPercent must be 0-100', de: 'taxPercent muss 0-100 sein' }, 400, 'VALIDATION_ERROR');
-    update.taxPercent = n;
+  const commissionRaw = commissionPercent !== undefined ? commissionPercent : taxPercent;
+  if (commissionRaw !== undefined) {
+    const n = Number(commissionRaw);
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      throw new AppError({ en: 'commissionPercent must be 0-100', de: 'commissionPercent muss 0-100 sein' }, 400, 'VALIDATION_ERROR');
+    }
+    update.commissionPercent = n;
+    unset.taxPercent = 1;
   }
   if (defaultCurrency !== undefined) {
     const code = String(defaultCurrency).trim().toUpperCase();
@@ -69,7 +75,13 @@ export const patchAppSettings = asyncHandler(async (req: Request, res: Response)
     update.serviceZones = cleaned;
   }
 
-  const settings = await AppSettings.findOneAndUpdate({}, update, { new: true, upsert: true, setDefaultsOnInsert: true }).lean();
-  return sendSuccess(res, settings);
+  const mongoUpdate =
+    Object.keys(unset).length > 0 ? { $set: update, $unset: unset } : { $set: update };
+  const settings = await AppSettings.findOneAndUpdate({}, mongoUpdate, {
+    new: true,
+    upsert: true,
+    setDefaultsOnInsert: true,
+  }).lean();
+  return sendSuccess(res, normalizeAppSettingsForApi((settings ?? {}) as Record<string, unknown>));
 });
 

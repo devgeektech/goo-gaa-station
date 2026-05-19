@@ -82,8 +82,10 @@ export default function DashboardHome() {
         </div>
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Revenue (paid)</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--primary)', marginTop: 4 }}>{kpiLoading ? <Skeleton height={32} width={100} /> : formatMoney(stats?.totalRevenue ?? 0)}</div>
+            <div className="muted" style={{ fontSize: 13 }}>Commission rate</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>
+              {kpiLoading ? <Skeleton height={32} width={60} /> : `${stats?.commissionPercent ?? 2}%`}
+            </div>
           </div>
         </div>
         <div className="card">
@@ -94,12 +96,42 @@ export default function DashboardHome() {
         </div>
       </div>
 
+      <div className="grid3">
+        <div className="card">
+          <div className="cardBody">
+            <div className="muted" style={{ fontSize: 13 }}>Admin revenue</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Commission on net order (delivered)</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--primary)', marginTop: 6 }}>
+              {kpiLoading ? <Skeleton height={32} width={100} /> : formatMoney(stats?.adminRevenue ?? stats?.totalRevenue ?? 0)}
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="cardBody">
+            <div className="muted" style={{ fontSize: 13 }}>Vendor revenue</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Order − driver fee − commission</div>
+            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>
+              {kpiLoading ? <Skeleton height={32} width={100} /> : formatMoney(stats?.vendorRevenue ?? 0)}
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="cardBody">
+            <div className="muted" style={{ fontSize: 13 }}>Driver delivery fees</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Delivery fee totals</div>
+            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>
+              {kpiLoading ? <Skeleton height={32} width={100} /> : formatMoney(stats?.driverRevenue ?? 0)}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid2">
         <div className="card">
           <div className="cardHeader">
             <div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>Revenue (last 7 days)</div>
-              <div className="muted" style={{ fontSize: 13 }}>Paid orders only</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>Admin revenue (last 7 days)</div>
+              <div className="muted" style={{ fontSize: 13 }}>Delivered · commission on net order</div>
             </div>
           </div>
           <div className="cardBody" style={{ height: 280, minHeight: 280 }}>

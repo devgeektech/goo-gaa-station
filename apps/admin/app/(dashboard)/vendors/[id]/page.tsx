@@ -9,6 +9,7 @@ import type { VendorDetail, MenuItem } from '@/lib/api/vendors.api';
 import { MenuItemsTable } from '@/components/vendors/MenuItemsTable';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { formatMoney } from '@/lib/utils/format';
 import { useGetVendorProductsQuery } from '@/store/api';
 import type { VendorProductItem } from '@/store/api';
 
@@ -305,6 +306,13 @@ export default function VendorDetailPage() {
               {vendor.email ? <div className="muted">{vendor.email}</div> : null}
               {vendor.phone ? <div className="muted">{vendor.phone}</div> : null}
               <span className="badge" style={{ marginTop: 8, background: vendor.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{vendor.status}</span>
+              <div style={{ marginTop: 12, fontSize: 15 }}>
+                <span className="muted">Revenue </span>
+                <span style={{ fontWeight: 800 }}>{formatMoney(vendor.revenue ?? 0)}</span>
+                <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>
+                  (delivered · order − driver fee − commission)
+                </span>
+              </div>
             </div>
           </div>
         </div>
