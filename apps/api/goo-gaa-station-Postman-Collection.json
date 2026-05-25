@@ -792,7 +792,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/docs",
-            "description": "**Event:** `driver:location_update` (socket path; still supported alongside REST `PATCH /driver/location`)  \n**Example payload:**\n```json\n{\n  \"driverId\": \"{{driverId}}\",\n  \"lat\": 52.52,\n  \"lng\": 13.405\n}\n```\n**Effect:** Updates driver DB location; server emits **`driver:location_update`** to room `admin` with `{ driverId, lat, lng, coordinates, timestamp }`."
+            "description": "**Event:** `driver:location_update` (socket path; still supported alongside REST `PATCH /driver/location`)  \n**Emit payload:**\n```json\n{\n  \"driverId\": \"{{driverId}}\",\n  \"lat\": 52.52,\n  \"lng\": 13.405\n}\n```\n**Listen (same event name):** server replies to your socket with `{ success: true, driverId, lat, lng, timestamp }` or `{ success: false, error, message }`.  \n**Admin (unchanged):** server also emits to room `admin` with `{ driverId, lat, lng, coordinates, timestamp }` (no `success` field)."
           }
         },
         {
@@ -801,7 +801,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/docs",
-            "description": "| Server event | Typical room | Notes |\n|---|---|---|\n| `order:new` | vendor, admin | New customer order |\n| `order:accepted` | customer, admin | Vendor accepted |\n| `order:driver_request` | driver | Nearby delivery request; large payload with pickup/dropoff |\n| `order:taken` | driver | Another driver accepted |\n| `order:driver_assigned` | vendor, admin | Driver assigned |\n| `order:preparing` | customer | After driver accepts |\n| `driver:location` | customer, vendor | Live GPS from REST `PATCH /driver/location` |\n| `driver:location_update` | admin | From socket `driver:location_update` |\n| `order:status_changed` / `order:status_updated` | customer, vendor | Status sync |\n| `order:delivered` | customer, vendor, admin | OTP verified |\n| `driver:kyc_submitted` | admin | After KYC upload |\n| `driver:kyc_approved` / `driver:kyc_rejected` | driver | After admin decision |\n\nPayload shapes match server code in `apps/api/src` (search for `.emit(`)."
+            "description": "| Server event | Typical room | Notes |\n|---|---|---|\n| `order:new` | vendor, admin | New customer order |\n| `order:accepted` | customer, admin | Vendor accepted |\n| `order:driver_request` | driver | Nearby delivery request; large payload with pickup/dropoff |\n| `order:taken` | driver | Another driver accepted |\n| `order:driver_assigned` | vendor, admin | Driver assigned |\n| `order:preparing` | customer | After driver accepts |\n| `driver:location` | customer, vendor | Live GPS from REST `PATCH /driver/location` |\n| `driver:location_update` | emitting driver socket (ack with `success`) + `admin` room (map, no `success`) | Driver emit → DB update → ack; admin broadcast unchanged |\n| `order:status_changed` / `order:status_updated` | customer, vendor | Status sync |\n| `order:delivered` | customer, vendor, admin | OTP verified |\n| `driver:kyc_submitted` | admin | After KYC upload |\n| `driver:kyc_approved` / `driver:kyc_rejected` | driver | After admin decision |\n\nPayload shapes match server code in `apps/api/src` (search for `.emit(`)."
           }
         }
       ]

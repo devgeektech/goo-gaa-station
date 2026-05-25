@@ -74,15 +74,52 @@ io.on('connection', (socket) => {
   });
 
   socket.on('driver:location_update', async (payload: { driverId?: string; lat?: number; lng?: number }) => {
-    const driverId = payload?.driverId;
+    const driverId = payload?.driverId != null ? String(payload.driverId).trim() : '';
     const lat = payload?.lat != null ? Number(payload.lat) : null;
     const lng = payload?.lng != null ? Number(payload.lng) : null;
     const now = new Date();
-    if (!driverId || !mongoose.Types.ObjectId.isValid(driverId) || lat == null || lng == null) return;
+
+    const emitDriverLocationAck = (ack: {
+      success: boolean;
+      driverId?: string;
+      lat?: number;
+      lng?: number;
+      timestamp?: string;
+      error?: string;
+      message?: string;
+    }) => {
+      socket.emit('driver:location_update', ack);
+    };
+
+    if (!driverId || !mongoose.Types.ObjectId.isValid(driverId) || lat == null || lng == null) {
+      emitDriverLocationAck({
+        success: false,
+        error: 'INVALID_PAYLOAD',
+        message: 'driverId, lat, and lng are required',
+      });
+      return;
+    }
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      emitDriverLocationAck({
+        success: false,
+        driverId,
+        error: 'INVALID_COORDINATES',
+        message: 'lat must be between -90 and 90; lng between -180 and 180',
+      });
+      return;
+    }
 
     // Best-effort sanity-check: if join was validated, enforce the same driverId on updates.
     const joinedDriverId = socket.data?.driverId as string | undefined;
-    if (joinedDriverId && joinedDriverId !== driverId) return;
+    if (joinedDriverId && joinedDriverId !== driverId) {
+      emitDriverLocationAck({
+        success: false,
+        driverId,
+        error: 'DRIVER_MISMATCH',
+        message: 'driverId does not match authenticated driver session',
+      });
+      return;
+    }
 
     try {
       await Driver.findByIdAndUpdate(driverId, {
@@ -92,6 +129,14 @@ io.on('connection', (socket) => {
         isOnline: true,
         lastActiveAt: now,
       });
+      emitDriverLocationAck({
+        success: true,
+        driverId,
+        lat,
+        lng,
+        timestamp: now.toISOString(),
+      });
+      // Admin map: unchanged payload shape (no `success` field).
       io.to('admin').emit('driver:location_update', {
         driverId,
         lat,
@@ -100,7 +145,12 @@ io.on('connection', (socket) => {
         timestamp: now.toISOString(),
       });
     } catch {
-      // ignore
+      emitDriverLocationAck({
+        success: false,
+        driverId,
+        error: 'UPDATE_FAILED',
+        message: 'Could not persist driver location',
+      });
     }
   });
 

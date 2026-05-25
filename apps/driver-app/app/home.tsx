@@ -28,6 +28,11 @@ export default function DriverHomeScreen() {
       router.replace('/login');
     });
 
+    s.on('driver:location_update', (payload: { success?: boolean }) => {
+      if (payload?.success !== true) return;
+      // Server ack on same event name after DB persist (admin uses separate room broadcast).
+    });
+
     return () => {
       s.disconnect();
       socketRef.current = null;
