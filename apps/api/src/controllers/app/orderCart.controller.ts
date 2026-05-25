@@ -13,6 +13,11 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { mapOrderStatusForCustomer, toCustomerOrderStatus } from '../../utils/customerOrderStatus';
+import {
+  buildTrackPartyLocation,
+  resolvePickupLatLng,
+  toCurrentLocation,
+} from '../../utils/orderTrackLocations';
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import { initiatePayment } from '../../services/wifipay.service';
 import { sendPushToVendor } from '../../services/fcm.service';
@@ -729,7 +734,7 @@ export const rateOrder = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-/** GET /:id/track — status, statusHistory, estimatedDelivery, driver { name, phone, currentLocation }; strip deliveryOtp unless picked_up|on_the_way */
+/** GET /:id/track — status, statusHistory, estimatedDelivery, driver/customer/vendor locations; strip deliveryOtp unless picked_up|on_the_way */
 export const trackOrder = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user?._id;
   const id = req.params.id;
@@ -739,23 +744,90 @@ export const trackOrder = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const order = await Order.findById(id)
-    .select('customerId status statusHistory estimatedDeliveryTime deliveryOtp driverId')
-    .populate('driverId', 'name phone liveLocation')
+    .select(
+      'customerId status statusHistory estimatedDeliveryTime deliveryOtp driverId deliveryAddress pickupAddress vendorId'
+    )
+    .populate('driverId', 'name phone liveLocation currentLocation')
+    .populate('vendorId', 'name phone address')
     .lean();
   if (!order) throw new AppError({ en: 'Order not found', de: 'Bestellung nicht gefunden' }, 404, 'NOT_FOUND');
-  const o = order as { customerId?: unknown; status?: string; statusHistory?: unknown[]; estimatedDeliveryTime?: number | null; deliveryOtp?: string | null; driverId?: { name?: string; phone?: string; liveLocation?: { coordinates?: number[] } } | null };
+  const o = order as {
+    customerId?: unknown;
+    status?: string;
+    statusHistory?: unknown[];
+    estimatedDeliveryTime?: number | null;
+    deliveryOtp?: string | null;
+    deliveryAddress?: {
+      street?: string;
+      city?: string;
+      country?: string;
+      lat?: number | null;
+      lng?: number | null;
+      contactName?: string | null;
+      contactPhone?: string | null;
+    } | null;
+    pickupAddress?: {
+      street?: string;
+      city?: string;
+      country?: string;
+      lat?: number | null;
+      lng?: number | null;
+      name?: string | null;
+    } | null;
+    vendorId?: {
+      name?: string;
+      phone?: string;
+      address?: {
+        street?: string;
+        city?: string;
+        country?: string;
+        landmark?: string | null;
+        lat?: number | null;
+        lng?: number | null;
+      } | null;
+    } | null;
+    driverId?: {
+      name?: string;
+      phone?: string;
+      liveLocation?: { coordinates?: number[] };
+      currentLocation?: { lat?: number | null; lng?: number | null };
+    } | null;
+  };
   if (String(o.customerId) !== customerId) {
     throw new AppError({ en: 'Forbidden', de: 'Verboten' }, 403, 'FORBIDDEN');
   }
 
   const driver = o.driverId;
-  const coords = driver?.liveLocation?.coordinates;
-  const currentLocation = coords && coords.length >= 2 ? { lat: coords[1], lng: coords[0] } : null;
+  let driverLocation: { lat: number; lng: number } | null = toCurrentLocation(driver?.currentLocation ?? null);
+  if (!driverLocation) {
+    const coords = driver?.liveLocation?.coordinates;
+    driverLocation =
+      coords && coords.length >= 2 && Number.isFinite(coords[1]) && Number.isFinite(coords[0])
+        ? { lat: Number(coords[1]), lng: Number(coords[0]) }
+        : null;
+  }
+
+  const deliveryAddress = o.deliveryAddress ?? null;
+  const vendor = o.vendorId ?? null;
+  const vendorAddress = vendor?.address ?? null;
+  const pickupCoords = resolvePickupLatLng(o.pickupAddress, vendorAddress);
+  const customerLocation = buildTrackPartyLocation(deliveryAddress, toCurrentLocation(deliveryAddress));
+  const pickupAddr = o.pickupAddress ?? null;
+  const vendorAddressForSummary =
+    pickupAddr?.street || pickupAddr?.city ? pickupAddr : vendorAddress;
+  const vendorLocation = {
+    name: vendor?.name ?? null,
+    phone: vendor?.phone ?? null,
+    ...buildTrackPartyLocation(vendorAddressForSummary, pickupCoords),
+  };
+
   const out: Record<string, unknown> = {
     status: o.status,
     statusHistory: o.statusHistory ?? [],
     estimatedDelivery: o.estimatedDeliveryTime ?? null,
-    driver: driver ? { name: driver.name, phone: driver.phone, currentLocation } : null,
+    driver: driver ? { name: driver.name, phone: driver.phone, currentLocation: driverLocation } : null,
+    customer: customerLocation,
+    vendor: vendor ? vendorLocation : null,
   };
   if (o.status === 'picked_up' || o.status === 'on_the_way') {
     out.deliveryOtp = o.deliveryOtp ?? null;

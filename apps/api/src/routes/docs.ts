@@ -243,7 +243,13 @@ export const ROUTES = [
   { method: 'POST', path: '/api/v1/app/orders/:id/chat', auth: true, description: 'Send customer chat message for order; body: message' },
   { method: 'PATCH', path: '/api/v1/app/orders/:id/cancel', auth: true, description: 'Cancel order (customer)' },
   { method: 'POST', path: '/api/v1/app/orders/:id/rate', auth: true, description: 'Rate order (customer)' },
-  { method: 'GET', path: '/api/v1/app/orders/:id/track', auth: true, description: 'Track order (customer)' },
+  {
+    method: 'GET',
+    path: '/api/v1/app/orders/:id/track',
+    auth: true,
+    description:
+      'Track order (customer): status, statusHistory, estimatedDelivery, driver { name, phone, currentLocation }, customer { currentLocation, address }, vendor { name, phone, currentLocation, address }, deliveryOtp when pickup/on_the_way',
+  },
   { method: 'GET', path: '/api/v1/app/driver/profile', auth: true, description: 'Get driver profile' },
   { method: 'PUT', path: '/api/v1/app/driver/profile', auth: true, description: 'Update driver profile' },
   { method: 'PUT', path: '/api/v1/app/driver/fcm-token', auth: true, description: 'Update FCM token (driver)' },
