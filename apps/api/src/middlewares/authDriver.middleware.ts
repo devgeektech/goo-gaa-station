@@ -5,13 +5,24 @@ import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { MESSAGES } from '../constants/messages';
 import { Driver } from '../models/Driver';
+import { driverSessionMatches } from '../services/driverSession.service';
 
 export interface DriverJwtPayload {
   _id: string;
   role: string;
   model: 'Driver';
   type?: 'access' | 'refresh';
+  sessionVersion?: number;
 }
+
+const SESSION_REVOKED_ERROR = new AppError(
+  {
+    en: 'Session ended. Please sign in again (logged in on another device).',
+    de: 'Sitzung beendet. Bitte erneut anmelden (Anmeldung auf anderem Gerät).',
+  },
+  401,
+  'SESSION_REVOKED'
+);
 
 declare global {
   namespace Express {
@@ -53,7 +64,9 @@ export function authDriver(req: Request, _res: Response, next: NextFunction): vo
     return;
   }
 
-  Driver.findById(decoded._id).exec()
+  Driver.findById(decoded._id)
+    .select('+sessionVersion')
+    .exec()
     .then((driver) => {
       if (!driver) {
         next(new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND'));
@@ -63,7 +76,42 @@ export function authDriver(req: Request, _res: Response, next: NextFunction): vo
         next(new AppError({ en: 'Driver account is blocked', de: 'Fahrer-Konto ist gesperrt' }, 403, 'FORBIDDEN'));
         return;
       }
+      const driverVersion = (driver as { sessionVersion?: number }).sessionVersion;
+      if (!driverSessionMatches(decoded.sessionVersion, driverVersion)) {
+        next(SESSION_REVOKED_ERROR);
+        return;
+      }
       req.driver = driver as unknown as Request['driver'];
+      next();
+    })
+    .catch(next);
+}
+
+/** After authenticateJWT + requireRole('driver') on /app/driver/* routes */
+export function enforceDriverSession(req: Request, _res: Response, next: NextFunction): void {
+  if (req.user?.model !== 'Driver' || !req.user._id) {
+    next();
+    return;
+  }
+
+  const tokenVersion = (req.user as { sessionVersion?: number }).sessionVersion;
+
+  Driver.findById(req.user._id)
+    .select('sessionVersion status')
+    .lean()
+    .then((driver) => {
+      if (!driver) {
+        next(new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND'));
+        return;
+      }
+      if (driver.status === 'blocked') {
+        next(new AppError({ en: 'Driver account is blocked', de: 'Fahrer-Konto ist gesperrt' }, 403, 'FORBIDDEN'));
+        return;
+      }
+      if (!driverSessionMatches(tokenVersion, driver.sessionVersion)) {
+        next(SESSION_REVOKED_ERROR);
+        return;
+      }
       next();
     })
     .catch(next);

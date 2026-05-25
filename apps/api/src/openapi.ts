@@ -104,7 +104,13 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
         'category',
         { type: 'string', enum: ['all', 'food', 'grocery', 'pharmacy', 'fashion', 'retail'], example: 'food' },
         false,
-        'Optional category filter. Use `all` (or omit) for no filter.'
+        'Filter by category type (food, pharmacy, etc.), `all`, or a category ObjectId. Alias: `type`.'
+      ),
+      query(
+        'type',
+        { type: 'string', enum: ['food', 'grocery', 'pharmacy', 'fashion', 'retail'], example: 'food' },
+        false,
+        'Same as category type filter (food, grocery, pharmacy, fashion, retail). Ignored when `category` is a valid ObjectId.'
       ),
       query('customerLat', { type: 'number', example: 30.6798 }, false, 'Optional customer latitude (WGS84)'),
       query('customerLng', { type: 'number', example: 76.7297 }, false, 'Optional customer longitude (WGS84)'),

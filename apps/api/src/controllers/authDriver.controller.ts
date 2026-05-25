@@ -18,7 +18,9 @@ import {
   verifyRefreshToken,
   type AccessPayload,
 } from '../services/auth.service';
+import { driverSessionMatches, startNewDriverSession } from '../services/driverSession.service';
 import { MESSAGES } from '../constants/messages';
+import type { Server as SocketIOServer } from 'socket.io';
 
 const SALT_ROUNDS = 12;
 const OTP_TTL_MINUTES = 10;
@@ -161,17 +163,20 @@ export const driverVerifyOtp = asyncHandler(async (req: Request, res: Response) 
   driver.phoneOtpExpiry = null;
   driver.phoneOtpAttempts = 0;
 
+  const io = (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+  const sessionVersion = await startNewDriverSession(driver._id, io);
+
   const payload: AccessPayload = {
     _id: driver._id.toString(),
     phone: driver.phone ?? undefined,
     role: 'driver',
     model: 'Driver',
+    sessionVersion,
   };
 
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
 
-  // Store refresh token hash in DB (canonical store)
   await storeRefreshToken(driver._id, 'Driver', refreshToken);
 
   // Also set hashed refresh token on driver document (per Phase 7.2 requirement)
@@ -238,11 +243,34 @@ export const driverRefresh = asyncHandler(async (req: Request, res: Response) =>
     throw new AppError({ en: 'Invalid token for driver', de: 'Ungültiger Token für Fahrer' }, 401, 'INVALID_REFRESH_TOKEN');
   }
 
+  const driver = await Driver.findById(payload._id).select('sessionVersion phone').lean();
+  if (!driver) {
+    throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
+  }
+  if (!driverSessionMatches(payload.sessionVersion, driver.sessionVersion)) {
+    throw new AppError(
+      {
+        en: 'Session ended. Please sign in again (logged in on another device).',
+        de: 'Sitzung beendet. Bitte erneut anmelden (Anmeldung auf anderem Gerät).',
+      },
+      401,
+      'SESSION_REVOKED'
+    );
+  }
+
+  const accessPayload: AccessPayload = {
+    _id: payload._id,
+    phone: driver.phone ?? payload.phone,
+    role: 'driver',
+    model: 'Driver',
+    sessionVersion: driver.sessionVersion ?? 0,
+  };
+
   const refreshed = await rotateRefreshToken(
     raw,
     new mongoose.Types.ObjectId(payload._id),
     'Driver',
-    payload
+    accessPayload
   );
 
   await Driver.findByIdAndUpdate(payload._id, { $set: { refreshToken: hashToken(refreshed.refreshToken) } }, { runValidators: false });

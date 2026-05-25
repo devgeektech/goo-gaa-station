@@ -12,6 +12,7 @@ export interface JwtPayload {
   role: string;
   model: UserModelType;
   type?: 'access' | 'refresh';
+  sessionVersion?: number;
 }
 
 declare global {

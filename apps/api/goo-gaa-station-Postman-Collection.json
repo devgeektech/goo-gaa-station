@@ -2425,6 +2425,7 @@
               "path": ["api", "v1", "app", "vendors", "recommended"],
               "query": [
                 { "key": "category", "value": "food", "disabled": true, "description": "all | food | grocery | pharmacy | fashion | retail OR category ObjectId" },
+                { "key": "type", "value": "food", "disabled": true, "description": "Alias for category type filter (food, grocery, pharmacy, fashion, retail)" },
                 { "key": "customerLat", "value": "30.6798", "disabled": true, "description": "Optional customer latitude (WGS84)" },
                 { "key": "customerLng", "value": "76.7297", "disabled": true, "description": "Optional customer longitude (WGS84)" }
               ]

@@ -11,6 +11,7 @@ import { Driver } from './models/Driver';
 import { startVendorResponseTimeoutWorker } from './workers/vendorResponseTimeout.worker';
 import { registerVendorSocket } from './sockets/vendorSocket';
 import { registerChatHandlers } from './sockets/chatHandler';
+import { driverSessionMatches } from './services/driverSession.service';
 
 const server = http.createServer(app);
 
@@ -44,18 +45,26 @@ io.on('connection', (socket) => {
   });
 
   /** Driver app: join `driver:<driverId>` for KYC events (`driver:kyc_approved`, `driver:kyc_rejected`). */
-  socket.on('driver:join', (payload: { driverId?: string; accessToken?: string; token?: string }) => {
+  socket.on('driver:join', async (payload: { driverId?: string; accessToken?: string; token?: string }) => {
     const token = payload?.accessToken ?? payload?.token ?? (socket.handshake.auth?.token as string | undefined);
     if (!token) return;
 
     try {
-      const decoded = jwt.verify(token, env.JWT_SECRET) as { _id?: string; model?: string; type?: 'access' | 'refresh' };
+      const decoded = jwt.verify(token, env.JWT_SECRET) as {
+        _id?: string;
+        model?: string;
+        type?: 'access' | 'refresh';
+        sessionVersion?: number;
+      };
       if (decoded.model !== 'Driver' || !decoded._id) return;
       if (decoded.type !== undefined && decoded.type !== 'access') return;
 
       const driverId = decoded._id;
       if (payload?.driverId && payload.driverId !== driverId) return;
       if (!mongoose.Types.ObjectId.isValid(driverId)) return;
+
+      const driver = await Driver.findById(driverId).select('sessionVersion').lean();
+      if (!driver || !driverSessionMatches(decoded.sessionVersion, driver.sessionVersion)) return;
 
       socket.data.driverId = driverId;
       socket.join(`driver:${driverId}`);

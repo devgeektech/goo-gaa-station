@@ -3,13 +3,13 @@ import mongoose from 'mongoose';
 import { Vendor } from '../../models/Vendor';
 import { Product } from '../../models/Product';
 import { User } from '../../models/User';
-import { Category } from '../../models/Category';
 import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { getDistanceMatrixEstimates } from '../../services/googleDistanceMatrix.service';
 import { haversineKm } from '../../utils/haversine';
+import { resolveVendorCategoryIdsFilter } from '../../utils/vendorCategoryFilter';
 
 function getFallbackEtaMinutes(vendor: any): number | null {
   const raw = Number(vendor?.deliveryTime);
@@ -119,28 +119,24 @@ function normalizeVendorRating(v: any): void {
 export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit } = parsePagination(req.query, 10);
   const search = String(req.query.search || '').trim();
-  const categoryId = req.query.category as string | undefined;
-  const typeQ = String(req.query.type || '').trim().toLowerCase();
+  const categoryQ = String(req.query.category || '').trim();
+  const typeQ = String(req.query.type || '').trim();
   const sortQ = String(req.query.sort || 'recommended').trim();
 
   const filter: Record<string, unknown> = { status: 'active', isOpen: true };
   const andClauses: Record<string, unknown>[] = [];
-  if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) andClauses.push({ categoryIds: new mongoose.Types.ObjectId(categoryId) });
-  if (typeQ) {
-    const supportedTypes = ['food', 'grocery', 'pharmacy', 'fashion', 'retail'];
-    if (!supportedTypes.includes(typeQ)) {
-      throw new AppError(
-        { en: 'Invalid type. Use food, grocery, pharmacy, fashion, or retail', de: 'Ungueltiger Typ' },
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
-    const matchedCategories = await (Category as any)
-      .find({ type: typeQ, isActive: true, isDeleted: false })
-      .select('_id')
-      .lean();
-    const categoryIds = (matchedCategories as Array<{ _id: mongoose.Types.ObjectId }>).map((c) => c._id);
-    andClauses.push({ categoryIds: { $in: categoryIds } });
+  const categoryById =
+    categoryQ && mongoose.Types.ObjectId.isValid(categoryQ) && String(new mongoose.Types.ObjectId(categoryQ)) === categoryQ
+      ? new mongoose.Types.ObjectId(categoryQ)
+      : null;
+  if (categoryById) {
+    andClauses.push({ categoryIds: categoryById });
+  } else {
+    const typeFilter = await resolveVendorCategoryIdsFilter(
+      categoryQ && categoryQ.toLowerCase() !== 'all' ? categoryQ : undefined,
+      typeQ || undefined
+    );
+    if (typeFilter) andClauses.push({ categoryIds: typeFilter });
   }
   if (andClauses.length > 0) (filter as Record<string, unknown>).$and = andClauses;
   if (search) {
@@ -285,32 +281,12 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 /** GET /api/v1/app/vendors/recommended — rating-first recommended list with non-empty fallback */
 export const getRecommendedVendors = asyncHandler(async (req: Request, res: Response) => {
   const fallbackLimit = 4;
-  const categoryQ = String(req.query.category || '').trim().toLowerCase();
+  const categoryQ = String(req.query.category || '').trim();
+  const typeQ = String(req.query.type || '').trim();
 
   const filter: Record<string, unknown> = { status: 'active', isOpen: true };
-  if (categoryQ && categoryQ !== 'all') {
-    // Support category type filter (food/grocery/pharmacy/fashion/retail)
-    // and category ObjectId filter for compatibility.
-    const isObjectIdCategory = mongoose.Types.ObjectId.isValid(categoryQ);
-    if (isObjectIdCategory) {
-      filter.categoryIds = new mongoose.Types.ObjectId(categoryQ);
-    } else {
-      const supportedTypes = ['food', 'grocery', 'pharmacy', 'fashion', 'retail'];
-      if (!supportedTypes.includes(categoryQ)) {
-        throw new AppError(
-          { en: 'Invalid category. Use all, food, grocery, pharmacy, fashion, retail, or category ObjectId', de: 'Ungültige Kategorie' },
-          400,
-          'VALIDATION_ERROR'
-        );
-      }
-      const matchedCategories = await (Category as any)
-        .find({ type: categoryQ, isActive: true, isDeleted: false })
-        .select('_id')
-        .lean();
-      const categoryIds = (matchedCategories as Array<{ _id: mongoose.Types.ObjectId }>).map((c) => c._id);
-      filter.categoryIds = { $in: categoryIds };
-    }
-  }
+  const categoryFilter = await resolveVendorCategoryIdsFilter(categoryQ, typeQ);
+  if (categoryFilter) filter.categoryIds = categoryFilter;
 
   const baseQuery = Vendor.find(filter)
     .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')

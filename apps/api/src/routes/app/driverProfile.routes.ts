@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateJWT, requireRole } from '../../middlewares/auth.middleware';
+import { enforceDriverSession } from '../../middlewares/authDriver.middleware';
 import {
   getProfile,
   updateProfile,
@@ -16,6 +17,7 @@ const router = Router();
 
 router.use(authenticateJWT);
 router.use(requireRole('driver'));
+router.use(enforceDriverSession);
 
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);

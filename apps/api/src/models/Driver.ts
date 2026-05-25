@@ -54,6 +54,8 @@ const DriverSchema = new mongoose.Schema(
     phoneOtpAttempts: { type: Number, default: 0, select: false },
     isPhoneVerified: { type: Boolean, default: false },
     refreshToken: { type: String, default: null, select: false },
+    /** Incremented on each OTP login; JWT must match to reject other devices */
+    sessionVersion: { type: Number, default: 0, min: 0 },
     password: { type: String, required: true, select: false },
     profileImage: { type: String, default: null },
     licenseImage: { type: String, default: null },
@@ -160,6 +162,7 @@ export type DriverDocument = mongoose.Document & {
   phoneOtpAttempts?: number;
   isPhoneVerified: boolean;
   refreshToken?: string | null;
+  sessionVersion?: number;
   password: string;
   approvalStatus: 'pending' | 'approved' | 'rejected';
   status: 'active' | 'blocked' | 'deleted';

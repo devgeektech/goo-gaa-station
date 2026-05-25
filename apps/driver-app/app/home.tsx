@@ -23,11 +23,16 @@ export default function DriverHomeScreen() {
       s.emit('driver:join', { driverId, accessToken });
     });
 
+    s.on('driver:session_revoked', async () => {
+      await signOut();
+      router.replace('/login');
+    });
+
     return () => {
       s.disconnect();
       socketRef.current = null;
     };
-  }, [accessToken, driverId]);
+  }, [accessToken, driverId, signOut, router]);
 
   useEffect(() => {
     if (!driverId) return;

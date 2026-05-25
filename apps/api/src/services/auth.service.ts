@@ -10,6 +10,8 @@ export interface AccessPayload {
   phone?: string;
   role: string;
   model: UserModelType;
+  /** Driver-only: incremented on each login to invalidate other devices */
+  sessionVersion?: number;
 }
 
 
