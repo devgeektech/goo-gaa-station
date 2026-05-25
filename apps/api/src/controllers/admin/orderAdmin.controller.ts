@@ -20,11 +20,14 @@ import {
   REVENUE_ELIGIBLE_MATCH,
   vendorRevenueMongoExpr,
 } from '../../services/orderRevenue.service';
+import { enrichOrderBroadcastDrivers } from '../../services/orderBroadcastDrivers.service';
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
   return { data, total, page, limit, totalPages, hasNext: page < totalPages, hasPrev: page > 1 };
 }
+
+const DRIVER_BROADCAST_SELECT = 'name phone vehicleType vehicleNumber vehiclePlate isOnline isAvailable';
 
 /** GET / */
 export const listOrders = asyncHandler(async (req: Request, res: Response) => {
@@ -69,11 +72,21 @@ export const getOrder = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
   }
   const [order, commissionPercent] = await Promise.all([
-    Order.findById(id).populate('customerId').populate('driverId').populate('vendorId', 'name slug logo').lean(),
+    Order.findById(id)
+      .populate('customerId')
+      .populate('driverId')
+      .populate('vendorId', 'name slug logo')
+      .populate('broadcastedToDrivers', DRIVER_BROADCAST_SELECT)
+      .populate('notifiedDriverIds', DRIVER_BROADCAST_SELECT)
+      .lean(),
     getCommissionPercent(),
   ]);
   if (!order) throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
-  return sendSuccess(res, enrichOrderWithRevenue(enrichOrderFinancials(order) as Record<string, unknown>, commissionPercent));
+  const withDrivers = await enrichOrderBroadcastDrivers(order as Record<string, unknown>);
+  return sendSuccess(
+    res,
+    enrichOrderWithRevenue(enrichOrderFinancials(withDrivers) as Record<string, unknown>, commissionPercent)
+  );
 });
 
 /** PATCH /:id/status — Manual status push; appends history, sends FCM to customer, emits socket */

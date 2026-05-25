@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { adminAssignDriver, adminCancelOrder, adminUpdateOrderStatus, fetchOrderById } from '@/store/slices/ordersSlice';
 import { searchDrivers, type DriverListItem } from '@/lib/api/drivers.api';
+import { OrderDriversNotified } from '@/components/orders/OrderDriversNotified';
 
 function asObj<T extends object>(v: unknown): T | null {
   if (!v || typeof v !== 'object') return null;
@@ -212,6 +213,18 @@ export function OrderDetailModal({
               </div>
             </div>
           </div>
+
+          <OrderDriversNotified
+            order={order}
+            assignedDriverId={getId(order.driverId)}
+            onCopy={(text, label) => {
+              toast.push({
+                title: label,
+                description: text,
+                variant: label.startsWith('Copied') ? 'success' : 'danger',
+              });
+            }}
+          />
 
           <div className="grid2">
             <div className="card" style={{ boxShadow: 'none' }}>

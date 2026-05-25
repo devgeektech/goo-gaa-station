@@ -11,6 +11,18 @@ export type OrderStatus =
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 
+/** Populated driver row on order detail (new-order broadcast / notification). */
+export type OrderBroadcastDriverRef = {
+  _id: string;
+  name?: string;
+  phone?: string;
+  vehicleType?: string;
+  vehicleNumber?: string;
+  vehiclePlate?: string;
+  isOnline?: boolean;
+  isAvailable?: boolean;
+};
+
 export type OrderListItem = {
   _id: string;
   orderNumber: string;
@@ -55,6 +67,10 @@ export type OrderListItem = {
   cancelledBy?: string | null;
   actualDeliveryAt?: string | null;
   notes?: string | null;
+  driver_assigned?: boolean;
+  driverAssignmentDeadline?: string | null;
+  broadcastedToDrivers?: Array<OrderBroadcastDriverRef | string>;
+  notifiedDriverIds?: Array<OrderBroadcastDriverRef | string>;
 };
 
 export type Paginated<T> = {

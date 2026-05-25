@@ -16,6 +16,7 @@ import {
 import { searchDrivers, type DriverListItem } from '@/lib/api/drivers.api';
 import { formatDateTime, formatMoney, copyToClipboard } from '@/lib/utils/format';
 import { paymentBadge, statusBadge } from '@/components/orders/orderBadges';
+import { OrderDriversNotified } from '@/components/orders/OrderDriversNotified';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 
@@ -293,6 +294,18 @@ export default function OrderDetailPage() {
               </div>
             </div>
           </div>
+
+          <OrderDriversNotified
+            order={order}
+            assignedDriverId={getId(order.driverId)}
+            onCopy={(text, label) => {
+              toast.push({
+                title: label,
+                description: text,
+                variant: label.startsWith('Copied') ? 'success' : 'danger',
+              });
+            }}
+          />
 
           {/* Finance & ledger */}
           <div className="card">
