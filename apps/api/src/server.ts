@@ -64,11 +64,15 @@ io.on('connection', (socket) => {
       if (payload?.driverId && payload.driverId !== driverId) return;
       if (!mongoose.Types.ObjectId.isValid(driverId)) return;
 
-      const driver = await Driver.findById(driverId).select('sessionVersion').lean();
+      const driver = await Driver.findById(driverId).select('sessionVersion isOnline').lean();
       if (!driver || !driverSessionMatches(decoded.sessionVersion, driver.sessionVersion)) return;
 
       socket.data.driverId = driverId;
       socket.join(`driver:${driverId}`);
+
+      if ((driver as { isOnline?: boolean }).isOnline === true) {
+        void tryRebroadcastOpenOrdersToDriver(driverId, io);
+      }
     } catch {
       // ignore invalid JWT
     }

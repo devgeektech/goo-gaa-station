@@ -308,11 +308,6 @@ export async function tryRebroadcastOpenOrdersToDriver(
 ): Promise<void> {
   if (!mongoose.Types.ObjectId.isValid(driverId)) return;
 
-  const now = Date.now();
-  const last = lastRebroadcastAt.get(driverId) ?? 0;
-  if (now - last < rebroadcastDebounceMs) return;
-  lastRebroadcastAt.set(driverId, now);
-
   const driverObjectId = new mongoose.Types.ObjectId(driverId);
   const driver = await Driver.findById(driverObjectId)
     .select('approvalStatus status isOnline isAvailable currentOrderId currentLocation liveLocation fcmTokens name')
@@ -326,6 +321,12 @@ export async function tryRebroadcastOpenOrdersToDriver(
     }
   );
   if (!driverPos) return;
+
+  // Debounce only after eligibility + GPS — failed early exits must not block a later online/location attempt.
+  const debounceNow = Date.now();
+  const last = lastRebroadcastAt.get(driverId) ?? 0;
+  if (debounceNow - last < rebroadcastDebounceMs) return;
+  lastRebroadcastAt.set(driverId, debounceNow);
 
   const openOrders = await Order.find({
     status: 'accepted',
