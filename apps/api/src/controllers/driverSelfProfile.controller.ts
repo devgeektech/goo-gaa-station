@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type { Server as SocketIOServer } from 'socket.io';
 
 import { Driver } from '../models/Driver';
+import { tryRebroadcastOpenOrdersToDriver } from '../services/driverOpenOrderBroadcast.service';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/response';
@@ -213,6 +214,10 @@ export const patchDriverStatus = asyncHandler(async (req: Request, res: Response
       status,
       updatedAt: new Date().toISOString(),
     });
+  }
+
+  if (nextIsOnline) {
+    void tryRebroadcastOpenOrdersToDriver(driver._id.toString(), io);
   }
 
   return sendSuccess(res, { status });

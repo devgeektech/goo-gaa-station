@@ -67,7 +67,7 @@ export const ROUTES = [
     path: '/api/v1/driver/location',
     auth: true,
     description:
-      'Driver live GPS update — body { lat, lng, heading? }; persists location and emits socket `driver:location` to customer & vendor rooms when the driver has an active order (preparing|ready|picked_up|on_the_way). Bearer required. Complements socket event `driver:location_update`.',
+      'Driver live GPS update — body { lat, lng, heading? }; persists location only (does not set isOnline). Emits socket `driver:location` to customer & vendor when the driver has an active order. Use PATCH /driver/profile/status for online/offline. Bearer required. Complements socket `driver:location_update`.',
   },
   {
     method: 'GET',

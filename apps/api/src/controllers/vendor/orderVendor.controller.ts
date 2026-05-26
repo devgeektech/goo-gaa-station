@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Order } from '../../models/Order';
-import { DriverNotification } from '../../models/DriverNotification';
 import { User } from '../../models/User';
 import { Vendor } from '../../models/Vendor';
 import { Driver } from '../../models/Driver';
@@ -13,6 +12,7 @@ import { initiateRefund } from '../../services/refundService';
 import { sendPushToCustomer, sendPushToDriver } from '../../services/fcm.service';
 import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../../constants/driverAssignment';
 import { findNearbyDrivers } from '../../services/driverAssignmentService';
+import { notifyNearbyDriversOnVendorAccept } from '../../services/driverOpenOrderBroadcast.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -297,150 +297,15 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
     return sendSuccess(res, updatedCancelled ?? cancelled ?? acceptedOrder.toObject?.() ?? acceptedOrder);
   }
 
-  const vendorAddress = (vendor as { address?: { lat?: number; lng?: number } } | null)?.address ?? null;
-  const deliveryAddress = acceptedOrder.deliveryAddress ?? null;
-  const vendorToCustomerKm =
-    Number.isFinite(Number(vendorAddress?.lat)) &&
-    Number.isFinite(Number(vendorAddress?.lng)) &&
-    Number.isFinite(Number((deliveryAddress as { lat?: number } | null)?.lat)) &&
-    Number.isFinite(Number((deliveryAddress as { lng?: number } | null)?.lng))
-      ? haversineKm(
-        Number(vendorAddress?.lat),
-        Number(vendorAddress?.lng),
-        Number((deliveryAddress as { lat?: number } | null)?.lat),
-        Number((deliveryAddress as { lng?: number } | null)?.lng)
-      )
-      : null;
-  const vendorToCustomerMiles = vendorToCustomerKm != null ? Math.round(kmToMiles(vendorToCustomerKm) * 100) / 100 : null;
-  const estimatedTimeMinutes = Number.isFinite(Number(acceptedOrder.estimatedDeliveryTime))
-    ? Number(acceptedOrder.estimatedDeliveryTime)
-    : null;
-  const itemCount = Array.isArray(acceptedOrder.items)
-    ? acceptedOrder.items.reduce((sum, item: { qty?: number }) => sum + (Number(item?.qty) || 0), 0)
-    : 0;
-
-  const baseNotifyPayload = {
-    orderId: acceptedOrder._id,
-    orderNumber: acceptedOrder.orderNumber,
-    vendorName: (vendor as { name?: string } | null)?.name ?? 'Vendor',
-    vendorAddress: (vendor as { address?: unknown } | null)?.address ?? null,
-    deliveryAddress: acceptedOrder.deliveryAddress ?? null,
-    totalAmount: acceptedOrder.total,
-    assignmentDeadline: assignmentDeadline.toISOString(),
-    pickup: {
-      name: (vendor as { name?: string } | null)?.name ?? 'Pickup',
-      address: vendorAddress,
-    },
-    dropoff: {
-      address: deliveryAddress,
-      distanceMilesFromPickup: vendorToCustomerMiles,
-    },
-    totalMiles: vendorToCustomerMiles,
-    timing: {
-      estimatedMinutes: estimatedTimeMinutes,
-    },
-    itemCount,
-  };
-  for (const driver of nearbyDrivers) {
-    const driverId = String((driver as { _id?: unknown })._id ?? '');
-    if (!driverId) continue;
-    const driverToPickupKm = Number((driver as { distanceKm?: number }).distanceKm);
-    const driverToPickupMiles = Number.isFinite(driverToPickupKm) ? Math.round(kmToMiles(driverToPickupKm) * 100) / 100 : null;
-    const notifyPayload = {
-      ...baseNotifyPayload,
-      pickup: {
-        ...baseNotifyPayload.pickup,
-        distanceMilesFromDriver: driverToPickupMiles,
-      },
-      totalMiles:
-        driverToPickupMiles != null && vendorToCustomerMiles != null
-          ? Math.round((driverToPickupMiles + vendorToCustomerMiles) * 100) / 100
-          : baseNotifyPayload.totalMiles,
-    };
-    const vendorAddressObj = (vendor as { address?: { street?: string; city?: string; country?: string; lat?: number; lng?: number } } | null)?.address ?? null;
-    const dropoffObj = acceptedOrder.deliveryAddress ?? null;
-    const vendorAddressText = vendorAddressObj?.street ?? ([vendorAddressObj?.city, vendorAddressObj?.country].filter(Boolean).join(', ') || null);
-    const dropoffAddressText = dropoffObj?.street ?? ([dropoffObj?.city, dropoffObj?.country].filter(Boolean).join(', ') || null);
-    const subtotalNum = Number(acceptedOrder.subtotal);
-    const itemPrice = Number.isFinite(subtotalNum) ? Math.round(subtotalNum * 100) / 100 : null;
-    const driverNewApiCard = {
-      orderId: String(acceptedOrder._id),
-      orderNumber: acceptedOrder.orderNumber,
-      status: String(acceptedOrder.status ?? 'accepted'),
-      isHighPriority: false,
-      estimatedPayout: typeof acceptedOrder.deliveryFee === 'number' ? acceptedOrder.deliveryFee : acceptedOrder.total,
-      itemPrice,
-      estTime: null,
-      distance: null,
-      vendor: {
-        name: (vendor as { name?: string } | null)?.name ?? null,
-        address: vendorAddressText,
-        lat: vendorAddressObj?.lat ?? null,
-        lng: vendorAddressObj?.lng ?? null,
-        phone: (vendor as { phone?: string } | null)?.phone ?? null,
-      },
-      customer: {
-        name: (customer as { name?: string } | null)?.name ?? null,
-        phone: (customer as { phone?: string } | null)?.phone ?? null,
-      },
-      dropoff: {
-        address: dropoffAddressText,
-        lat: dropoffObj?.lat ?? null,
-        lng: dropoffObj?.lng ?? null,
-      },
-      pickingUpEtaMinutes: null,
-      statusLabel: 'PICKING UP',
-      deliveredAt: null,
-      deliveryDurationMinutes: null,
-      statusBadge: null,
-    };
-
-    if (io) {
-      const room = `driver:${driverId}`;
-      io.to(room).emit('order:driver_request', notifyPayload);
-      // eslint-disable-next-line no-console -- debug: verify Socket.IO emit when testing driver Postman/client
-      console.log('[Socket.IO] order:driver_request →', {
-        room,
-        orderId: String(acceptedOrder._id),
-        orderNumber: acceptedOrder.orderNumber,
-      });
-    }
-    const driverDoc = driver as { _id?: unknown; fcmTokens?: Array<{ token: string }> };
-    if ((driverDoc.fcmTokens ?? []).length > 0) {
-      try {
-        await sendPushToDriver(driverDoc, {
-          title: '🚚 Delivery Request',
-          body: `New order from ${notifyPayload.vendorName}. Tap to accept!`,
-          data: {
-            screen: 'NewOrders',
-            orderId: String(acceptedOrder._id),
-            vendorId: String(vendorId),
-            orderPayload: JSON.stringify({ data: [driverNewApiCard] }),
-          },
-        });
-      } catch {
-        // Best effort only.
-      }
-    }
-  }
-
-  // ── Persist in-app new_order notifications for each nearby driver ──────
-  const notifDocs = nearbyDrivers.map((d) => ({
-    driver: (d as { _id: mongoose.Types.ObjectId })._id,
-    type: 'new_order' as const,
-    title: 'New Order Available',
-    body: 'A new delivery request is nearby. Tap to view details and accept it.',
-    orderId: acceptedOrder._id,
-    read: false,
-    data: {
-      estimatedPayout: acceptedOrder.deliveryFee ?? 0,
-      orderNumber: acceptedOrder.orderNumber,
-    },
-  }));
-  await DriverNotification.insertMany(notifDocs as Parameters<typeof DriverNotification.insertMany>[0], {
-    ordered: false,
+  await notifyNearbyDriversOnVendorAccept({
+    order: acceptedOrder as Parameters<typeof notifyNearbyDriversOnVendorAccept>[0]['order'],
+    vendor: vendor as Parameters<typeof notifyNearbyDriversOnVendorAccept>[0]['vendor'],
+    customer: customer as { name?: string; phone?: string } | null,
+    nearbyDrivers,
+    assignmentDeadline,
+    vendorId: String(vendorId),
+    io,
   });
-  // ── End notification persistence ────────────────────────────────────
 
   await Order.findByIdAndUpdate(acceptedOrder._id, {
     $set: {

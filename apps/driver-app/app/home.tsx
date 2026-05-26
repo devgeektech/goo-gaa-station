@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { io, type Socket } from 'socket.io-client';
 import { useEffect, useRef } from 'react';
 import { SOCKET_URL } from '@/lib/config';
+import { patchDriverPresenceStatus } from '@/lib/driverProfileApi';
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -12,6 +13,29 @@ export default function DriverHomeScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
+  const wentOnlineRef = useRef(false);
+
+  useEffect(() => {
+    if (!accessToken || !driverId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await patchDriverPresenceStatus(accessToken, 'online');
+        if (!cancelled) wentOnlineRef.current = true;
+      } catch {
+        // Approved drivers only; stay on home but skip dispatch until online succeeds.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (wentOnlineRef.current) {
+        wentOnlineRef.current = false;
+        void patchDriverPresenceStatus(accessToken, 'offline').catch(() => {});
+      }
+    };
+  }, [accessToken, driverId]);
 
   useEffect(() => {
     if (!accessToken || !driverId) return;
@@ -24,6 +48,14 @@ export default function DriverHomeScreen() {
     });
 
     s.on('driver:session_revoked', async () => {
+      if (accessToken && wentOnlineRef.current) {
+        wentOnlineRef.current = false;
+        try {
+          await patchDriverPresenceStatus(accessToken, 'offline');
+        } catch {
+          // best effort
+        }
+      }
       await signOut();
       router.replace('/login');
     });
@@ -50,7 +82,7 @@ export default function DriverHomeScreen() {
     };
 
     const tick = async () => {
-      if (inFlightRef.current) return;
+      if (inFlightRef.current || !wentOnlineRef.current) return;
       const s = socketRef.current;
       if (!s || !s.connected) return;
 
@@ -106,6 +138,14 @@ export default function DriverHomeScreen() {
       <Pressable
         style={styles.secondary}
         onPress={async () => {
+          if (accessToken && wentOnlineRef.current) {
+            wentOnlineRef.current = false;
+            try {
+              await patchDriverPresenceStatus(accessToken, 'offline');
+            } catch {
+              // best effort before sign-out
+            }
+          }
           await signOut();
           router.replace('/login');
         }}

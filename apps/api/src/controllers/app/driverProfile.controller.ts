@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { tryRebroadcastOpenOrdersToDriver } from '../../services/driverOpenOrderBroadcast.service';
 import { Driver } from '../../models/Driver';
 import { AppError } from '../../utils/AppError';
 import { MESSAGES } from '../../constants/messages';
@@ -101,6 +102,10 @@ export const updateOnlineStatus = asyncHandler(async (req: Request, res: Respons
   const io = getIo(req);
   if (io) {
     io.to('admin').emit('driver:online_status', { driverId: id, isOnline });
+  }
+
+  if (isOnline) {
+    void tryRebroadcastOpenOrdersToDriver(String(id), io);
   }
 
   return sendSuccess(res, { success: true, isOnline });

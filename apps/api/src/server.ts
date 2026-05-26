@@ -12,6 +12,7 @@ import { startVendorResponseTimeoutWorker } from './workers/vendorResponseTimeou
 import { registerVendorSocket } from './sockets/vendorSocket';
 import { registerChatHandlers } from './sockets/chatHandler';
 import { driverSessionMatches } from './services/driverSession.service';
+import { tryRebroadcastOpenOrdersToDriver } from './services/driverOpenOrderBroadcast.service';
 
 const server = http.createServer(app);
 
@@ -126,9 +127,9 @@ io.on('connection', (socket) => {
         currentLocation: { lat, lng, updatedAt: now },
         liveLocation: { type: 'Point', coordinates: [lng, lat] },
         lastLocationAt: now,
-        isOnline: true,
         lastActiveAt: now,
       });
+      void tryRebroadcastOpenOrdersToDriver(driverId, io);
       emitDriverLocationAck({
         success: true,
         driverId,

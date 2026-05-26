@@ -10,6 +10,7 @@ export type KycDocuments = {
 };
 
 export type KycStatusResponse = {
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
   kycStatus: KycStatusValue;
   kycRejectionReason: string | null;
   kycSubmittedAt: string | null;

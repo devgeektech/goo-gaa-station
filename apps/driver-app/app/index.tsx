@@ -27,7 +27,11 @@ export default function Index() {
       try {
         const [status, kycDone] = await Promise.all([fetchKycStatus(accessToken), getKycVerificationComplete()]);
         if (cancelled) return;
-        if (kycDone && status.kycStatus === 'approved') {
+        if (
+          kycDone &&
+          status.kycStatus === 'approved' &&
+          status.approvalStatus === 'approved'
+        ) {
           router.replace('/home');
           return;
         }
