@@ -19,6 +19,7 @@ import {
   type AccessPayload,
 } from '../services/auth.service';
 import { driverSessionMatches, startNewDriverSession } from '../services/driverSession.service';
+import { applyDeletedDriverReactivation } from '../services/driverReactivation.service';
 import { MESSAGES } from '../constants/messages';
 import type { Server as SocketIOServer } from 'socket.io';
 
@@ -71,7 +72,13 @@ function getClientIp(req: Request): string {
 
 async function findOrCreateDriverByPhone(phone: string): Promise<{ driver: DriverDocument; isNewDriver: boolean }> {
   const existing = await Driver.findOne({ phone });
-  if (existing) return { driver: existing, isNewDriver: false };
+  if (existing) {
+    const reactivated = applyDeletedDriverReactivation(existing);
+    if (reactivated) {
+      return { driver: existing, isNewDriver: isPlaceholderDriver(existing) };
+    }
+    return { driver: existing, isNewDriver: false };
+  }
 
   // Ensure required `password` exists: we generate a random placeholder password.
   // Driver OTP auth does not use this password, but schema requires it.
@@ -129,6 +136,8 @@ export const driverVerifyOtp = asyncHandler(async (req: Request, res: Response) 
   if (!driver) {
     throw new AppError({ en: 'Driver not found', de: 'Fahrer nicht gefunden' }, 404, 'NOT_FOUND');
   }
+
+  applyDeletedDriverReactivation(driver);
 
   const expiry = driver.phoneOtpExpiry;
   if (!expiry || expiry < new Date()) {
@@ -243,9 +252,19 @@ export const driverRefresh = asyncHandler(async (req: Request, res: Response) =>
     throw new AppError({ en: 'Invalid token for driver', de: 'Ungültiger Token für Fahrer' }, 401, 'INVALID_REFRESH_TOKEN');
   }
 
-  const driver = await Driver.findById(payload._id).select('sessionVersion phone').lean();
+  const driver = await Driver.findById(payload._id).select('sessionVersion phone status').lean();
   if (!driver) {
     throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
+  }
+  if (driver.status === 'deleted') {
+    throw new AppError(
+      {
+        en: 'Account has been removed. Please sign in again with your phone number.',
+        de: 'Konto wurde entfernt. Bitte melden Sie sich erneut mit Ihrer Telefonnummer an.',
+      },
+      403,
+      'ACCOUNT_DELETED'
+    );
   }
   if (!driverSessionMatches(payload.sessionVersion, driver.sessionVersion)) {
     throw new AppError(

@@ -72,6 +72,19 @@ export function authDriver(req: Request, _res: Response, next: NextFunction): vo
         next(new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND'));
         return;
       }
+      if ((driver as { status?: string }).status === 'deleted') {
+        next(
+          new AppError(
+            {
+              en: 'Account has been removed. Please sign in again with your phone number.',
+              de: 'Konto wurde entfernt. Bitte melden Sie sich erneut mit Ihrer Telefonnummer an.',
+            },
+            403,
+            'ACCOUNT_DELETED'
+          )
+        );
+        return;
+      }
       if ((driver as { status?: string }).status === 'blocked') {
         next(new AppError({ en: 'Driver account is blocked', de: 'Fahrer-Konto ist gesperrt' }, 403, 'FORBIDDEN'));
         return;
@@ -102,6 +115,19 @@ export function enforceDriverSession(req: Request, _res: Response, next: NextFun
     .then((driver) => {
       if (!driver) {
         next(new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND'));
+        return;
+      }
+      if (driver.status === 'deleted') {
+        next(
+          new AppError(
+            {
+              en: 'Account has been removed. Please sign in again with your phone number.',
+              de: 'Konto wurde entfernt. Bitte melden Sie sich erneut mit Ihrer Telefonnummer an.',
+            },
+            403,
+            'ACCOUNT_DELETED'
+          )
+        );
         return;
       }
       if (driver.status === 'blocked') {

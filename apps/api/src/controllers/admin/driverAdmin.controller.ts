@@ -12,6 +12,8 @@ import { parsePagination } from '../../utils/pagination';
 import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
 import { sendPushToDriver } from '../../services/fcm.service';
 import { attachDriverRatingStats, computeDriverRatingStats } from '../../services/driverRating.service';
+import { startNewDriverSession } from '../../services/driverSession.service';
+import { invalidateAllRefreshTokensForUser } from '../../services/auth.service';
 
 const uploadDriverImages = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).fields([
   { name: 'profileImage', maxCount: 1 },
@@ -191,7 +193,31 @@ export const deleteDriver = asyncHandler(async (req: Request, res: Response) => 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
   }
-  const driver = await Driver.findByIdAndUpdate(id, { status: 'deleted' }, { new: true }).select('-password').lean();
+
+  const driverObjectId = new mongoose.Types.ObjectId(id);
+  const existing = await Driver.findById(driverObjectId).select('status').lean();
+  if (!existing || existing.status === 'deleted') {
+    throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
+  }
+
+  const io = getIo(req);
+  await invalidateAllRefreshTokensForUser(driverObjectId, 'Driver');
+  await startNewDriverSession(driverObjectId, io);
+
+  const driver = await Driver.findByIdAndUpdate(
+    driverObjectId,
+    {
+      status: 'deleted',
+      isOnline: false,
+      isAvailable: false,
+      currentOrderId: null,
+      refreshToken: null,
+    },
+    { new: true }
+  )
+    .select('-password')
+    .lean();
+
   if (!driver) {
     throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
   }
