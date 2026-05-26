@@ -19,7 +19,7 @@ import {
   type AccessPayload,
 } from '../services/auth.service';
 import { driverSessionMatches, startNewDriverSession } from '../services/driverSession.service';
-import { applyDeletedDriverReactivation } from '../services/driverReactivation.service';
+import { permanentlyDeleteLegacySoftDeletedDriver } from '../services/driverHardDelete.service';
 import { MESSAGES } from '../constants/messages';
 import type { Server as SocketIOServer } from 'socket.io';
 
@@ -73,11 +73,11 @@ function getClientIp(req: Request): string {
 async function findOrCreateDriverByPhone(phone: string): Promise<{ driver: DriverDocument; isNewDriver: boolean }> {
   const existing = await Driver.findOne({ phone });
   if (existing) {
-    const reactivated = applyDeletedDriverReactivation(existing);
-    if (reactivated) {
-      return { driver: existing, isNewDriver: isPlaceholderDriver(existing) };
+    if (existing.status === 'deleted') {
+      await permanentlyDeleteLegacySoftDeletedDriver(existing._id);
+    } else {
+      return { driver: existing, isNewDriver: false };
     }
-    return { driver: existing, isNewDriver: false };
   }
 
   // Ensure required `password` exists: we generate a random placeholder password.
@@ -137,7 +137,17 @@ export const driverVerifyOtp = asyncHandler(async (req: Request, res: Response) 
     throw new AppError({ en: 'Driver not found', de: 'Fahrer nicht gefunden' }, 404, 'NOT_FOUND');
   }
 
-  applyDeletedDriverReactivation(driver);
+  if (driver.status === 'deleted') {
+    await permanentlyDeleteLegacySoftDeletedDriver(driver._id);
+    throw new AppError(
+      {
+        en: 'Please request a new OTP to sign up again.',
+        de: 'Bitte fordern Sie einen neuen OTP an, um sich erneut zu registrieren.',
+      },
+      404,
+      'NOT_FOUND'
+    );
+  }
 
   const expiry = driver.phoneOtpExpiry;
   if (!expiry || expiry < new Date()) {

@@ -12,8 +12,7 @@ import { parsePagination } from '../../utils/pagination';
 import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
 import { sendPushToDriver } from '../../services/fcm.service';
 import { attachDriverRatingStats, computeDriverRatingStats } from '../../services/driverRating.service';
-import { startNewDriverSession } from '../../services/driverSession.service';
-import { invalidateAllRefreshTokensForUser } from '../../services/auth.service';
+import { permanentlyDeleteDriver } from '../../services/driverHardDelete.service';
 
 const uploadDriverImages = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).fields([
   { name: 'profileImage', maxCount: 1 },
@@ -187,41 +186,16 @@ export const updateDriver = asyncHandler(async (req: Request, res: Response) => 
   return sendSuccess(res, doc);
 });
 
-/** DELETE /:id — Soft delete */
+/** DELETE /:id — Permanently delete driver (same phone can register as a new account). */
 export const deleteDriver = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
   }
 
-  const driverObjectId = new mongoose.Types.ObjectId(id);
-  const existing = await Driver.findById(driverObjectId).select('status').lean();
-  if (!existing || existing.status === 'deleted') {
-    throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
-  }
-
   const io = getIo(req);
-  await invalidateAllRefreshTokensForUser(driverObjectId, 'Driver');
-  await startNewDriverSession(driverObjectId, io);
-
-  const driver = await Driver.findByIdAndUpdate(
-    driverObjectId,
-    {
-      status: 'deleted',
-      isOnline: false,
-      isAvailable: false,
-      currentOrderId: null,
-      refreshToken: null,
-    },
-    { new: true }
-  )
-    .select('-password')
-    .lean();
-
-  if (!driver) {
-    throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
-  }
-  return sendSuccess(res, driver);
+  const deleted = await permanentlyDeleteDriver(new mongoose.Types.ObjectId(id), io);
+  return sendSuccess(res, { ...deleted, permanentlyDeleted: true });
 });
 
 /** PATCH /:id/approve */

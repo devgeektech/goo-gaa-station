@@ -127,7 +127,13 @@ export const ROUTES = [
   { method: 'GET', path: '/api/v1/admin/drivers', auth: true, description: 'List drivers (admin)' },
   { method: 'GET', path: '/api/v1/admin/drivers/:id', auth: true, description: 'Get driver (admin); includes kycStatus, kycRejectionReason, kycSubmittedAt, kycDocuments' },
   { method: 'PUT', path: '/api/v1/admin/drivers/:id', auth: true, description: 'Update driver (admin)' },
-  { method: 'DELETE', path: '/api/v1/admin/drivers/:id', auth: true, description: 'Delete driver (admin)' },
+  {
+    method: 'DELETE',
+    path: '/api/v1/admin/drivers/:id',
+    auth: true,
+    description:
+      'Permanently delete driver (admin). Revokes sessions, removes notifications; blocks if driver has active delivery. Same phone can register fresh via OTP.',
+  },
   { method: 'PATCH', path: '/api/v1/admin/drivers/:id/approve', auth: true, description: 'Approve driver (admin); if kycStatus was pending, sets KYC approved + socket driver:kyc_approved + FCM' },
   { method: 'PATCH', path: '/api/v1/admin/drivers/:id/reject', auth: true, description: 'Reject driver (admin); body reason (min 10 chars), optional kycRejectionReason; sets kyc rejected + socket driver:kyc_rejected + FCM' },
   { method: 'PATCH', path: '/api/v1/admin/drivers/:id/status', auth: true, description: 'Update driver status (admin)' },

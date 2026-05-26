@@ -19,7 +19,8 @@ export function DeleteDriverDialog({
     <Modal open={open} title="Delete Driver" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p className="muted">
-          Soft delete. The driver will be hidden from the default list. You can filter by status &quot;Deleted&quot; to see them.
+          Permanently delete this driver from the database. They can sign up again with the same phone as a new account.
+          Past orders may still reference the old driver id for history.
           {driverName ? ` Delete ${driverName}?` : ''}
         </p>
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
