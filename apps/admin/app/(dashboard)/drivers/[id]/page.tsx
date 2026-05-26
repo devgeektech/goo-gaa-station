@@ -181,7 +181,7 @@ export default function DriverDetailPage() {
               {location ? (
                 <>
                   <div className="muted" style={{ fontSize: 13 }}>Online: {isOnline ? 'Yes' : 'No'}</div>
-                  <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div>
+                  {/* <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div> */}
                   {location.lastLocationAt ? <div className="muted" style={{ fontSize: 12 }}>Updated {formatDateTime(location.lastLocationAt)}</div> : null}
                   <div style={{ marginTop: 12 }}>
                     <DriverMap coordinates={coordsTuple} driverName={driver.name} height={320} />

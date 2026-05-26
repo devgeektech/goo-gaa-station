@@ -174,7 +174,7 @@ export function DriverDetailDrawer({
                   <div className="muted">Current location</div>
                   <div style={{ marginTop: 8 }}>
                     <div className="muted" style={{ fontSize: 13 }}>Online: {isOnline ? 'Yes' : 'No'}</div>
-                    <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div>
+                    {/* <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div> */}
                     {!location ? <div style={{ marginTop: 8 }}><Skeleton height={24} /></div> : null}
                     {coords && coords.length >= 2 ? (
                       <a href={mapsUrl!} target="_blank" rel="noopener noreferrer" className="btn" style={{ marginTop: 8 }}>

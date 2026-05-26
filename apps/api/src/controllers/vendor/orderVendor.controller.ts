@@ -254,65 +254,33 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   const vendorLng = Number((vendor as { address?: { lng?: number } } | null)?.address?.lng);
   const nearbyDrivers = await findNearbyDrivers(vendorLat, vendorLng, 5);
 
-  if (nearbyDrivers.length === 0) {
-    const cancelled = await Order.findOneAndUpdate(
-      { _id: acceptedOrder._id, status: 'accepted', driver_assigned: false },
-      {
-        $set: {
-          status: 'cancelled',
-          cancelledBy: 'system',
-          cancellationReason: 'No drivers available near the restaurant',
-        },
-        $push: {
-          statusHistory: {
-            status: 'cancelled',
-            timestamp: new Date(),
-            note: 'No drivers available near the restaurant',
-            changedByModel: 'System',
-          },
-        },
+  // No drivers online at accept: keep order accepted until driverAssignmentDeadline.
+  // Late-join (go online + GPS) can add drivers; timeout worker cancels if none accepts.
+  if (nearbyDrivers.length > 0) {
+    await notifyNearbyDriversOnVendorAccept({
+      order: acceptedOrder as Parameters<typeof notifyNearbyDriversOnVendorAccept>[0]['order'],
+      vendor: vendor as Parameters<typeof notifyNearbyDriversOnVendorAccept>[0]['vendor'],
+      customer: customer as { name?: string; phone?: string } | null,
+      nearbyDrivers,
+      assignmentDeadline,
+      vendorId: String(vendorId),
+      io,
+    });
+
+    await Order.findByIdAndUpdate(acceptedOrder._id, {
+      $set: {
+        notifiedDriverIds: nearbyDrivers.map((d) => (d as { _id: unknown })._id),
+        broadcastedToDrivers: nearbyDrivers.map((d) => (d as { _id: unknown })._id),
       },
-      { new: true }
-    );
-    if (cancelled) {
-      try {
-        await initiateRefund(
-          {
-            _id: cancelled._id,
-            orderNumber: cancelled.orderNumber,
-            customerId: cancelled.customerId,
-            paymentMethod: cancelled.paymentMethod,
-            paymentStatus: cancelled.paymentStatus,
-            total: cancelled.total,
-            wifipayRef: cancelled.wifipayRef,
-          },
-          'No drivers available near the restaurant',
-          io
-        );
-      } catch {
-        // Do not fail the accept flow if cancellation side effects fail.
-      }
-    }
-    const updatedCancelled = await Order.findById(acceptedOrder._id).populate('customerId', 'name phone').lean();
-    return sendSuccess(res, updatedCancelled ?? cancelled ?? acceptedOrder.toObject?.() ?? acceptedOrder);
+    });
+  } else {
+    await Order.findByIdAndUpdate(acceptedOrder._id, {
+      $set: {
+        notifiedDriverIds: [],
+        broadcastedToDrivers: [],
+      },
+    });
   }
-
-  await notifyNearbyDriversOnVendorAccept({
-    order: acceptedOrder as Parameters<typeof notifyNearbyDriversOnVendorAccept>[0]['order'],
-    vendor: vendor as Parameters<typeof notifyNearbyDriversOnVendorAccept>[0]['vendor'],
-    customer: customer as { name?: string; phone?: string } | null,
-    nearbyDrivers,
-    assignmentDeadline,
-    vendorId: String(vendorId),
-    io,
-  });
-
-  await Order.findByIdAndUpdate(acceptedOrder._id, {
-    $set: {
-      notifiedDriverIds: nearbyDrivers.map((d) => (d as { _id: unknown })._id),
-      broadcastedToDrivers: nearbyDrivers.map((d) => (d as { _id: unknown })._id),
-    },
-  });
 
   const updated = await Order.findById(acceptedOrder._id).populate('customerId', 'name phone').lean();
   return sendSuccess(res, updated ?? (acceptedOrder.toObject?.() ?? acceptedOrder));
