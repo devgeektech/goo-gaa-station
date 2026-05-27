@@ -19,12 +19,25 @@ export type VendorListItem = {
   revenue?: number;
 };
 
+export type VendorAddress = {
+  street?: string | null;
+  city?: string | null;
+  country?: string | null;
+  landmark?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  addressLabel?: 'home' | 'work' | 'other' | string | null;
+};
+
+export type VendorCategoryRef = { _id: string; name?: string; slug?: string; type?: string };
+
 export type VendorDetail = VendorListItem & {
-  address?: { street?: string | null; city?: string | null; country?: string | null; lat?: number | null; lng?: number | null };
+  address?: VendorAddress | null;
   openingHours?: Array<{ day: number; open?: string | null; close?: string | null }>;
   menuItems?: MenuItem[];
   /** Phase 2 onboarding */
   onboardingStep?: number;
+  isPhoneVerified?: boolean;
   approvalStatus?: string | null;
   submittedAt?: string | null;
   kycDocuments?: {
@@ -42,6 +55,16 @@ export type VendorDetail = VendorListItem & {
   reviewedBy?: { _id: string; name?: string } | string | null;
   revenue?: number;
   deliveredOrderCount?: number;
+  timezone?: string | null;
+  deliveryTime?: number | null;
+  globalToggle?: boolean;
+  isOpen?: boolean;
+  averageRating?: number;
+  totalRatings?: number;
+  sortOrder?: number;
+  categoryIds?: Array<VendorCategoryRef | string>;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type MenuItem = {

@@ -99,7 +99,10 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   const commissionRate = commissionPercent / 100;
 
   const [vendor, menuItems, revenueRows, orderCount] = await Promise.all([
-    Vendor.findById(id).populate('reviewedBy', 'name').lean(),
+    Vendor.findById(id)
+      .populate('reviewedBy', 'name')
+      .populate('categoryIds', 'name slug type')
+      .lean(),
     MenuItem.find({ vendorId }).lean().sort({ sortOrder: 1, name: 1 }),
     Order.aggregate<{ revenue: number }>([
       { $match: { ...REVENUE_ELIGIBLE_MATCH, vendorId } },

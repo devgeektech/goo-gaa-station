@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Store, FileText, Image as ImageIcon, ExternalLink, Download, CheckCircle, Circle } from 'lucide-react';
+import { ArrowLeft, Store, FileText, Image as ImageIcon, ExternalLink, Download, CheckCircle, Circle, MapPin } from 'lucide-react';
 import { getVendor, listMenuItems, approveVendor, rejectVendor } from '@/lib/api/vendors.api';
-import type { VendorDetail, MenuItem } from '@/lib/api/vendors.api';
+import type { VendorDetail, MenuItem, VendorCategoryRef } from '@/lib/api/vendors.api';
+import { DriverMap } from '@/components/drivers/DriverMap';
 import { MenuItemsTable } from '@/components/vendors/MenuItemsTable';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
@@ -39,6 +40,37 @@ function getOnboardingBadge(vendor: VendorDetail): { label: string; style: React
 
 function isPdfUrl(url: string): boolean {
   return url.toLowerCase().endsWith('.pdf');
+}
+
+function formatValue(value: string | number | boolean | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
+function DetailField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontWeight: 500, wordBreak: 'break-word' }}>{value}</div>
+    </div>
+  );
+}
+
+function formatCategoryNames(categories: VendorDetail['categoryIds']): string {
+  if (!categories?.length) return '—';
+  const names = categories
+    .map((c) => (typeof c === 'object' && c && 'name' in c ? (c as VendorCategoryRef).name : null))
+    .filter(Boolean) as string[];
+  return names.length > 0 ? names.join(', ') : '—';
+}
+
+function formatFullAddress(address: VendorDetail['address']): string {
+  if (!address) return '—';
+  const parts = [address.street, address.landmark, address.city, address.country].filter(
+    (p) => p != null && String(p).trim() !== ''
+  );
+  return parts.length > 0 ? parts.join(', ') : '—';
 }
 
 type StockTab = 'all' | 'in' | 'out';
@@ -242,6 +274,12 @@ export default function VendorDetailPage() {
     ? (vendor.reviewedBy as { name?: string }).name
     : null;
 
+  const lat = vendor.address?.lat;
+  const lng = vendor.address?.lng;
+  const hasCoords = typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng);
+  const mapCoords: [number, number] | null = hasCoords ? [lng!, lat!] : null;
+  const mapsUrl = hasCoords ? `https://www.google.com/maps?q=${lat},${lng}` : null;
+
   const handleApprove = async () => {
     if (!id) return;
     setActionLoading(true);
@@ -308,6 +346,97 @@ export default function VendorDetailPage() {
               <span className="badge" style={{ marginTop: 8, background: vendor.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{vendor.status}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {vendor.blockReason && vendor.status === 'blocked' ? (
+        <div className="card" style={{ boxShadow: 'none', borderColor: 'var(--danger)' }}>
+          <div className="cardBody">
+            <div className="muted">Block reason</div>
+            <div style={{ marginTop: 6 }}>{vendor.blockReason}</div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="card">
+        <div className="cardBody">
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Business details</h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: 20,
+            }}
+          >
+            <DetailField label="Vendor ID" value={vendor._id} />
+            <DetailField label="Slug" value={vendor.slug} />
+            <DetailField label="Account status" value={vendor.status} />
+            <DetailField label="Approval status" value={formatValue(vendor.approvalStatus)} />
+            <DetailField label="Onboarding step" value={formatValue(vendor.onboardingStep)} />
+            <DetailField label="Phone verified" value={formatValue(vendor.isPhoneVerified)} />
+            <DetailField label="Categories" value={formatCategoryNames(vendor.categoryIds)} />
+            <DetailField label="Timezone" value={formatValue(vendor.timezone)} />
+            <DetailField label="Delivery time (min)" value={formatValue(vendor.deliveryTime)} />
+            <DetailField label="Open (manual)" value={formatValue(vendor.isOpen)} />
+            <DetailField label="Global toggle" value={formatValue(vendor.globalToggle)} />
+            <DetailField label="Sort order" value={formatValue(vendor.sortOrder)} />
+            <DetailField
+              label="Rating"
+              value={
+                vendor.averageRating != null && vendor.averageRating > 0
+                  ? `${Number(vendor.averageRating).toFixed(1)} (${vendor.totalRatings ?? 0} reviews)`
+                  : '—'
+              }
+            />
+            <DetailField label="Created" value={vendor.createdAt ? new Date(vendor.createdAt).toLocaleString() : '—'} />
+            <DetailField label="Updated" value={vendor.updatedAt ? new Date(vendor.updatedAt).toLocaleString() : '—'} />
+          </div>
+          {imgSrc(vendor.coverImage) ? (
+            <div style={{ marginTop: 20 }}>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Cover image</div>
+              <img
+                src={imgSrc(vendor.coverImage)!}
+                alt=""
+                style={{ maxWidth: 320, maxHeight: 160, borderRadius: 12, objectFit: 'cover' }}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="cardBody">
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Address & location</h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: 20,
+              marginBottom: 20,
+            }}
+          >
+            <DetailField label="Full address" value={formatFullAddress(vendor.address)} />
+            <DetailField label="Street" value={formatValue(vendor.address?.street)} />
+            <DetailField label="Landmark" value={formatValue(vendor.address?.landmark)} />
+            <DetailField label="City" value={formatValue(vendor.address?.city)} />
+            <DetailField label="Country" value={formatValue(vendor.address?.country)} />
+            <DetailField label="Address label" value={formatValue(vendor.address?.addressLabel)} />
+            <DetailField label="Latitude" value={hasCoords ? lat!.toFixed(6) : '—'} />
+            <DetailField label="Longitude" value={hasCoords ? lng!.toFixed(6) : '—'} />
+          </div>
+          {mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn"
+              style={{ marginBottom: 16, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <MapPin size={16} aria-hidden />
+              Open in Google Maps
+            </a>
+          ) : null}
+          <DriverMap coordinates={mapCoords} driverName={vendor.name} height={280} />
         </div>
       </div>
 
@@ -445,10 +574,11 @@ export default function VendorDetailPage() {
       <div className="card">
         <div className="cardBody">
           <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Contact Person</h2>
-          {vendor.contactPerson?.name || vendor.contactPerson?.email ? (
+          {vendor.contactPerson?.name || vendor.contactPerson?.email || vendor.contactPerson?.phone ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {vendor.contactPerson?.name && <div><span className="muted">Name: </span>{vendor.contactPerson.name}</div>}
               {vendor.contactPerson?.email && <div><span className="muted">Email: </span><a href={`mailto:${vendor.contactPerson.email}`}>{vendor.contactPerson.email}</a></div>}
+              {vendor.contactPerson?.phone && <div><span className="muted">Phone: </span>{vendor.contactPerson.phone}</div>}
             </div>
           ) : (
             <span className="muted">Not provided</span>
@@ -555,13 +685,20 @@ export default function VendorDetailPage() {
         <div className="card" style={{ boxShadow: 'none' }}>
           <div className="cardBody">
             <div className="muted">Rating</div>
-            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>—</div>
+            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>
+              {vendor.averageRating != null && vendor.averageRating > 0
+                ? Number(vendor.averageRating).toFixed(1)
+                : '—'}
+            </div>
+            {(vendor.totalRatings ?? 0) > 0 ? (
+              <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>{vendor.totalRatings} reviews</div>
+            ) : null}
           </div>
         </div>
         <div className="card" style={{ boxShadow: 'none' }}>
           <div className="cardBody">
-            <div className="muted">Orders</div>
-            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>—</div>
+            <div className="muted">Delivered orders</div>
+            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{vendor.deliveredOrderCount ?? 0}</div>
           </div>
         </div>
       </div>
