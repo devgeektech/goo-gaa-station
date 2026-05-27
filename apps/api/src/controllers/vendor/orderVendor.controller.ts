@@ -10,6 +10,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { initiateRefund } from '../../services/refundService';
 import { sendPushToCustomer, sendPushToDriver } from '../../services/fcm.service';
+import { saveCustomerInAppNotification } from '../../services/customerNotification.service';
 import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../../constants/driverAssignment';
 import { findNearbyDrivers } from '../../services/driverAssignmentService';
 import { notifyNearbyDriversOnVendorAccept } from '../../services/driverOpenOrderBroadcast.service';
@@ -219,10 +220,22 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   try {
     const customer = await User.findById(acceptedOrder.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
     if (customer) {
-      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
-        title: 'Order Accepted',
-        body: 'Your order has been accepted by the vendor.',
+      const pushTitle = 'Order Accepted';
+      const pushBody = 'Your order has been accepted by the vendor.';
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean; orderUpdates?: boolean } }, {
+        title: pushTitle,
+        body: pushBody,
         data: { orderId: String(acceptedOrder._id), screen: 'OrderDetail' },
+      });
+      await saveCustomerInAppNotification({
+        customerId: customer._id as mongoose.Types.ObjectId,
+        type: 'order_accepted',
+        title: pushTitle,
+        body: pushBody,
+        orderId: acceptedOrder._id,
+        orderNumber: acceptedOrder.orderNumber ?? null,
+        screen: 'OrderDetail',
+        notificationPrefs: (customer as { notificationPrefs?: { orderUpdates?: boolean } }).notificationPrefs,
       });
     }
   } catch {
@@ -471,10 +484,22 @@ export const markOrderReady = asyncHandler(async (req: Request, res: Response) =
   try {
     const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
     if (customer) {
-      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
-        title: 'Your food is ready and waiting for pickup! 🍽️',
-        body: 'Your food is ready and waiting for pickup! 🍽️',
+      const pushTitle = 'Your food is ready and waiting for pickup! 🍽️';
+      const pushBody = 'Your food is ready and waiting for pickup! 🍽️';
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean; orderUpdates?: boolean } }, {
+        title: pushTitle,
+        body: pushBody,
         data: { screen: 'OrderDetail', orderId: String(order._id) },
+      });
+      await saveCustomerInAppNotification({
+        customerId: customer._id as mongoose.Types.ObjectId,
+        type: 'order_ready',
+        title: pushTitle,
+        body: pushBody,
+        orderId: order._id,
+        orderNumber: (order as { orderNumber?: string }).orderNumber ?? null,
+        screen: 'OrderDetail',
+        notificationPrefs: (customer as { notificationPrefs?: { orderUpdates?: boolean } }).notificationPrefs,
       });
     }
   } catch {

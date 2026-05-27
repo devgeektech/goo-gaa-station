@@ -242,6 +242,31 @@ export const ROUTES = [
   { method: 'PUT', path: '/api/v1/app/customer/wishlist', auth: true, description: 'Update wishlist (like/dislike vendor); body: vendorId, action' },
   { method: 'GET', path: '/api/v1/app/customer/wishlist', auth: true, description: 'Get customer wishlist vendors with rating fields' },
   { method: 'DELETE', path: '/api/v1/app/customer/account', auth: true, description: 'Delete account (soft delete, invalidate tokens)' },
+  {
+    method: 'GET',
+    path: '/api/v1/app/customer/notifications',
+    auth: true,
+    description:
+      'Customer in-app notification feed (same copy as push). Query: page, limit, unreadOnly=true. Each item: type, iconKey (for mobile icons), title, body, read, orderId, orderNumber, screen, createdAt. data.unreadCount + pagination.',
+  },
+  {
+    method: 'PATCH',
+    path: '/api/v1/app/customer/notifications/:id/read',
+    auth: true,
+    description: 'Mark one customer notification as read (must belong to authenticated user).',
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/app/profile/notifications',
+    auth: true,
+    description: 'Customer notification preferences (push, email, orderUpdates, promotions) — not the inbox list.',
+  },
+  {
+    method: 'PATCH',
+    path: '/api/v1/app/profile/notifications',
+    auth: true,
+    description: 'Update customer notification preferences.',
+  },
   { method: 'POST', path: '/api/v1/app/orders', auth: true, description: 'Place order (customer); cart-based with deliveryAddressId preferred, returns items, totals, OTP, displayOrderId' },
   { method: 'GET', path: '/api/v1/app/orders', auth: true, description: 'List my orders (customer)' },
   { method: 'GET', path: '/api/v1/app/orders/:id', auth: true, description: 'Get order (customer)' },

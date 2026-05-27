@@ -11,6 +11,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { transitionOrderStatus } from '../../services/orderStatus.service';
 import { sendPushToCustomer, sendPushToVendor } from '../../services/fcm.service';
+import { saveCustomerInAppNotification } from '../../services/customerNotification.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const STATUS_FLOW = ['accepted', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered'] as const;
@@ -254,10 +255,22 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   try {
     const customer = await User.findById(updated.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
     if (customer) {
-      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
-        title: 'Driver assigned',
-        body: '🚗 A driver is on the way to pick up your order!',
+      const pushTitle = 'Driver assigned';
+      const pushBody = '🚗 A driver is on the way to pick up your order!';
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean; orderUpdates?: boolean } }, {
+        title: pushTitle,
+        body: pushBody,
         data: { screen: 'OrderDetail', orderId: String(updated._id) },
+      });
+      await saveCustomerInAppNotification({
+        customerId: customer._id as mongoose.Types.ObjectId,
+        type: 'driver_assigned',
+        title: pushTitle,
+        body: pushBody,
+        orderId: updated._id,
+        orderNumber: (updated as { orderNumber?: string }).orderNumber ?? null,
+        screen: 'OrderDetail',
+        notificationPrefs: (customer as { notificationPrefs?: { orderUpdates?: boolean } }).notificationPrefs,
       });
     }
   } catch {
@@ -640,10 +653,22 @@ export const pickupOrder = asyncHandler(async (req: Request, res: Response) => {
   try {
     const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
     if (customer) {
-      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
-        title: `🚚 ${driver.name} has picked up your order!`,
-        body: `🚚 ${driver.name} has picked up your order!`,
+      const pushTitle = `🚚 ${driver.name} has picked up your order!`;
+      const pushBody = pushTitle;
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean; orderUpdates?: boolean } }, {
+        title: pushTitle,
+        body: pushBody,
         data: { screen: 'OrderDetail', orderId: String(order._id) },
+      });
+      await saveCustomerInAppNotification({
+        customerId: customer._id as mongoose.Types.ObjectId,
+        type: 'order_picked_up',
+        title: pushTitle,
+        body: pushBody,
+        orderId: order._id,
+        orderNumber: (order as { orderNumber?: string }).orderNumber ?? null,
+        screen: 'OrderDetail',
+        notificationPrefs: (customer as { notificationPrefs?: { orderUpdates?: boolean } }).notificationPrefs,
       });
     }
   } catch {
@@ -689,10 +714,22 @@ export const enrouteOrder = asyncHandler(async (req: Request, res: Response) => 
   try {
     const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
     if (customer) {
-      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
-        title: `🏃 Your order is on the way! Your delivery code: ${order.deliveryOtp ?? ''}`,
-        body: `🏃 Your order is on the way! Your delivery code: ${order.deliveryOtp ?? ''}`,
+      const pushTitle = `🏃 Your order is on the way! Your delivery code: ${order.deliveryOtp ?? ''}`;
+      const pushBody = pushTitle;
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean; orderUpdates?: boolean } }, {
+        title: pushTitle,
+        body: pushBody,
         data: { screen: 'OrderDetail', orderId: String(order._id) },
+      });
+      await saveCustomerInAppNotification({
+        customerId: customer._id as mongoose.Types.ObjectId,
+        type: 'order_on_the_way',
+        title: pushTitle,
+        body: pushBody,
+        orderId: order._id,
+        orderNumber: (order as { orderNumber?: string }).orderNumber ?? null,
+        screen: 'OrderDetail',
+        notificationPrefs: (customer as { notificationPrefs?: { orderUpdates?: boolean } }).notificationPrefs,
       });
     }
   } catch {
@@ -758,10 +795,22 @@ export const deliverOrder = asyncHandler(async (req: Request, res: Response) => 
   try {
     const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
     if (customer) {
-      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean } }, {
-        title: '🎉 Order delivered! How was your food? Rate your experience.',
-        body: '🎉 Order delivered! How was your food? Rate your experience.',
+      const pushTitle = '🎉 Order delivered! How was your food? Rate your experience.';
+      const pushBody = pushTitle;
+      await sendPushToCustomer(customer as { _id?: unknown; fcmToken?: string | null; fcmTokens?: Array<{ token: string }>; notificationPrefs?: { push?: boolean; orderUpdates?: boolean } }, {
+        title: pushTitle,
+        body: pushBody,
         data: { screen: 'RateOrder', orderId: String(order._id) },
+      });
+      await saveCustomerInAppNotification({
+        customerId: customer._id as mongoose.Types.ObjectId,
+        type: 'order_delivered',
+        title: pushTitle,
+        body: pushBody,
+        orderId: order._id,
+        orderNumber: (order as { orderNumber?: string }).orderNumber ?? null,
+        screen: 'RateOrder',
+        notificationPrefs: (customer as { notificationPrefs?: { orderUpdates?: boolean } }).notificationPrefs,
       });
     }
   } catch {

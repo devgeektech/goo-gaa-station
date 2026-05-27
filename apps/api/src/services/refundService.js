@@ -2,6 +2,7 @@ const { Transaction } = require('../models/Transaction');
 const { Order } = require('../models/Order');
 const { User } = require('../models/User');
 const { sendPushToCustomer } = require('./fcm.service');
+const { saveCustomerInAppNotificationById } = require('./customerNotification.service');
 
 /**
  * Shared refund + customer-notification helper for vendor reject/timeout flows.
@@ -24,10 +25,22 @@ async function initiateRefund(order, reason, io) {
     }
     const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
     if (customer) {
+      const pushTitle = '❌ Order Cancelled';
+      const pushBody = `Your order ${order.orderNumber} was cancelled. ${reason}.`;
       await sendPushToCustomer(customer, {
-        title: '❌ Order Cancelled',
-        body: `Your order ${order.orderNumber} was cancelled. ${reason}.`,
+        title: pushTitle,
+        body: pushBody,
         data: { screen: 'OrderDetail', orderId: String(order._id) },
+      });
+      await saveCustomerInAppNotificationById({
+        customerId: order.customerId,
+        type: 'order_cancelled',
+        title: pushTitle,
+        body: pushBody,
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        screen: 'OrderDetail',
+        notificationPrefs: customer.notificationPrefs,
       });
     }
     return null;
@@ -70,10 +83,22 @@ async function initiateRefund(order, reason, io) {
   // FCM push to customer
   const customer = await User.findById(order.customerId).select('fcmToken fcmTokens notificationPrefs').lean();
   if (customer) {
+    const pushTitle = '❌ Order Cancelled';
+    const pushBody = `Your order ${order.orderNumber} was cancelled. ${reason}. Refund initiated.`;
     await sendPushToCustomer(customer, {
-      title: '❌ Order Cancelled',
-      body: `Your order ${order.orderNumber} was cancelled. ${reason}. Refund initiated.`,
+      title: pushTitle,
+      body: pushBody,
       data: { screen: 'OrderDetail', orderId: String(order._id) },
+    });
+    await saveCustomerInAppNotificationById({
+      customerId: order.customerId,
+      type: 'order_cancelled',
+      title: pushTitle,
+      body: pushBody,
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      screen: 'OrderDetail',
+      notificationPrefs: customer.notificationPrefs,
     });
   }
   return tx;
