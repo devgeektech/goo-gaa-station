@@ -95,6 +95,8 @@ function isVendorAvailableNow(vendor: any, now: Date): boolean {
 }
 
 /** Customer origin for Distance Matrix: optional query `customerLat`/`customerLng` (WGS84). */
+const VENDOR_LIST_MAX_RADIUS_KM = 30;
+
 function parseCustomerOriginFromQuery(req: Request): { lat: number; lng: number } | null {
   const q = req.query;
   const latRaw = q.customerLat;
@@ -105,6 +107,117 @@ function parseCustomerOriginFromQuery(req: Request): { lat: number; lng: number 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   return { lat, lng };
+}
+
+/** Query customerLat/customerLng, else logged-in user's preferred address. */
+async function resolveCustomerCoordsFromRequest(req: Request): Promise<{ lat: number; lng: number } | null> {
+  let customerCoords = parseCustomerOriginFromQuery(req);
+  if (!customerCoords && req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
+    const user = (await (User as any).findById(req.user._id).select('addresses').lean()) as
+      | { addresses?: Array<{ lat?: number | null; lng?: number | null; isDefault?: boolean; preferred?: boolean }> }
+      | null;
+    const addresses = user?.addresses ?? [];
+    const preferred = addresses.find((a) => a?.isDefault || a?.preferred) ?? addresses[0];
+    const lat = preferred?.lat;
+    const lng = preferred?.lng;
+    if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
+      customerCoords = { lat, lng };
+    }
+  }
+  return customerCoords;
+}
+
+function filterVendorsWithinRadiusKm(
+  vendors: any[],
+  customerCoords: { lat: number; lng: number },
+  maxRadiusKm: number
+): any[] {
+  return vendors
+    .map((v) => {
+      const lat = v?.address?.lat;
+      const lng = v?.address?.lng;
+      if (typeof lat !== 'number' || !Number.isFinite(lat) || typeof lng !== 'number' || !Number.isFinite(lng)) {
+        return null;
+      }
+      const km = haversineKm(customerCoords.lat, customerCoords.lng, lat, lng);
+      if (km > maxRadiusKm) return null;
+      return { v, km };
+    })
+    .filter((x): x is { v: any; km: number } => x != null)
+    .sort((a, b) => a.km - b.km)
+    .map((x) => x.v);
+}
+
+function pickRecommendedVendorsFromPool(pool: any[], fallbackLimit: number): any[] {
+  const useAverageRating = Boolean(Vendor.schema.paths.averageRating);
+  const rated = pool
+    .filter((v) => {
+      const score = useAverageRating ? Number(v?.averageRating) : Number(v?.rating);
+      return Number.isFinite(score) && score > 0;
+    })
+    .sort((a, b) => {
+      const scoreA = useAverageRating ? Number(a.averageRating) : Number(a.rating);
+      const scoreB = useAverageRating ? Number(b.averageRating) : Number(b.rating);
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      const createdB = new Date(b.createdAt ?? 0).getTime();
+      const createdA = new Date(a.createdAt ?? 0).getTime();
+      if (createdB !== createdA) return createdB - createdA;
+      const sortA = Number(a.sortOrder ?? 0);
+      const sortB = Number(b.sortOrder ?? 0);
+      if (sortA !== sortB) return sortA - sortB;
+      return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+    });
+
+  if (rated.length > 0) return rated.slice(0, fallbackLimit);
+
+  return [...pool]
+    .sort((a, b) => {
+      const createdB = new Date(b.createdAt ?? 0).getTime();
+      const createdA = new Date(a.createdAt ?? 0).getTime();
+      if (createdB !== createdA) return createdB - createdA;
+      const sortA = Number(a.sortOrder ?? 0);
+      const sortB = Number(b.sortOrder ?? 0);
+      if (sortA !== sortB) return sortA - sortB;
+      return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+    })
+    .slice(0, fallbackLimit);
+}
+
+async function applyDistanceAndEtaToVendors(
+  vendors: any[],
+  customerCoords: { lat: number; lng: number }
+): Promise<void> {
+  const destinations = vendors.map((v: any) => ({ lat: v?.address?.lat, lng: v?.address?.lng }));
+  const validDestinations = destinations.map((d) =>
+    typeof d.lat === 'number' && Number.isFinite(d.lat) && typeof d.lng === 'number' && Number.isFinite(d.lng)
+      ? { lat: d.lat, lng: d.lng }
+      : null
+  );
+
+  const mapIndexToDestIndex: number[] = [];
+  const compactDestinations: Array<{ lat: number; lng: number }> = [];
+  for (let i = 0; i < validDestinations.length; i++) {
+    const d = validDestinations[i];
+    if (!d) continue;
+    mapIndexToDestIndex[i] = compactDestinations.length;
+    compactDestinations.push(d);
+  }
+
+  try {
+    const compactResults = await getDistanceMatrixEstimates({ origin: customerCoords, destinations: compactDestinations });
+    for (let i = 0; i < vendors.length; i++) {
+      const destIdx = mapIndexToDestIndex[i];
+      const r = destIdx !== undefined ? compactResults[destIdx] : null;
+      const etaMinutes = r?.durationMinutes ?? getFallbackEtaMinutes(vendors[i]);
+      vendors[i].estimatedTime = toEtaRange(etaMinutes);
+      vendors[i].distance = r?.distanceText ?? null;
+    }
+  } catch {
+    for (let i = 0; i < vendors.length; i++) {
+      vendors[i].estimatedTime = toEtaRange(getFallbackEtaMinutes(vendors[i]));
+      vendors[i].distance = null;
+    }
+  }
 }
 
 function normalizeVendorRating(v: any): void {
@@ -173,20 +286,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   else if (sortQ === 'recommended') sort = { createdAt: -1, sortOrder: 1, name: 1 };
   else if (sortQ === 'rating' || sortQ === 'deliveryTime') sort = { sortOrder: 1, name: 1 };
 
-  // Distance Matrix origin: (1) query customerLat/customerLng, (2) else logged-in user's preferred address.
-  let customerCoords: { lat: number; lng: number } | null = parseCustomerOriginFromQuery(req);
-  if (!customerCoords && req.user?.model === 'User' && mongoose.Types.ObjectId.isValid(req.user._id)) {
-    const user = (await (User as any).findById(req.user._id).select('addresses').lean()) as
-      | { addresses?: Array<{ lat?: number | null; lng?: number | null; isDefault?: boolean; preferred?: boolean }> }
-      | null;
-    const addresses = user?.addresses ?? [];
-    const preferred = addresses.find((a) => a?.isDefault || a?.preferred) ?? addresses[0];
-    const lat = preferred?.lat;
-    const lng = preferred?.lng;
-    if (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)) {
-      customerCoords = { lat, lng };
-    }
-  }
+  const customerCoords = await resolveCustomerCoordsFromRequest(req);
 
   // We apply business-time availability filtering in-memory, so we must compute pagination
   // after filtering to keep page sizes and total/pages metadata consistent.
@@ -207,7 +307,6 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 
   // If customer coords are provided, restrict to 30km radius and sort by nearest first.
   // Uses straight-line (Haversine) distance for fast filtering/sorting.
-  const MAX_RADIUS_KM = 30;
   if (customerCoords) {
     const withKm = (vendors as any[])
       .map((v) => {
@@ -219,7 +318,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
       })
       .filter(Boolean) as Array<{ v: any; km: number }>;
 
-    const within = withKm.filter((x) => x.km <= MAX_RADIUS_KM).sort((a, b) => a.km - b.km);
+    const within = withKm.filter((x) => x.km <= VENDOR_LIST_MAX_RADIUS_KM).sort((a, b) => a.km - b.km);
     total = within.length;
     const start = Math.max(0, (page - 1) * limit);
     const end = start + limit;
@@ -231,37 +330,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   }
 
   if (customerCoords) {
-    const destinations = vendors.map((v: any) => ({ lat: v?.address?.lat, lng: v?.address?.lng }));
-    const validDestinations = destinations.map((d) =>
-      typeof d.lat === 'number' && Number.isFinite(d.lat) && typeof d.lng === 'number' && Number.isFinite(d.lng)
-        ? { lat: d.lat, lng: d.lng }
-        : null
-    );
-
-    const mapIndexToDestIndex: number[] = [];
-    const compactDestinations: Array<{ lat: number; lng: number }> = [];
-    for (let i = 0; i < validDestinations.length; i++) {
-      const d = validDestinations[i];
-      if (!d) continue;
-      mapIndexToDestIndex[i] = compactDestinations.length;
-      compactDestinations.push(d);
-    }
-
-    try {
-      const compactResults = await getDistanceMatrixEstimates({ origin: customerCoords, destinations: compactDestinations });
-      for (let i = 0; i < vendors.length; i++) {
-        const destIdx = mapIndexToDestIndex[i];
-        const r = destIdx !== undefined ? compactResults[destIdx] : null;
-        const etaMinutes = r?.durationMinutes ?? getFallbackEtaMinutes((vendors as any)[i]);
-        (vendors as any)[i].estimatedTime = toEtaRange(etaMinutes);
-        (vendors as any)[i].distance = r?.distanceText ?? null;
-      }
-    } catch {
-      for (let i = 0; i < vendors.length; i++) {
-        (vendors as any)[i].estimatedTime = toEtaRange(getFallbackEtaMinutes((vendors as any)[i]));
-        (vendors as any)[i].distance = null;
-      }
-    }
+    await applyDistanceAndEtaToVendors(vendors as any[], customerCoords);
   } else {
     for (let i = 0; i < vendors.length; i++) {
       (vendors as any)[i].estimatedTime = toEtaRange(getFallbackEtaMinutes((vendors as any)[i]));
@@ -283,36 +352,61 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
   const fallbackLimit = 4;
   const categoryQ = String(req.query.category || '').trim();
   const typeQ = String(req.query.type || '').trim();
+  const now = new Date();
 
   const filter: Record<string, unknown> = { status: 'active', isOpen: true };
   const categoryFilter = await resolveVendorCategoryIdsFilter(categoryQ, typeQ);
   if (categoryFilter) filter.categoryIds = categoryFilter;
 
-  const baseQuery = Vendor.find(filter)
-    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
-    .populate('categoryIds', '_id name slug icon type')
-    .lean();
+  const vendorSelect =
+    'name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings createdAt';
+  const customerCoords = await resolveCustomerCoordsFromRequest(req);
 
-  const ratedQuery = Vendor.schema.paths.averageRating
-    ? baseQuery.clone().where({ averageRating: { $gt: 0 } }).sort({ averageRating: -1, createdAt: -1, sortOrder: 1, name: 1 })
-    : baseQuery.clone().where({ rating: { $gt: 0 } }).sort({ rating: -1, createdAt: -1, sortOrder: 1, name: 1 });
+  let vendors: any[];
 
-  let vendors = (await ratedQuery.limit(fallbackLimit)) as any[];
-  const now = new Date();
-  vendors = vendors.filter((v) => isVendorAvailableNow(v, now));
+  if (customerCoords) {
+    // With location: filter to 30km (same as GET /vendors), then pick top-rated within range.
+    let pool = (await Vendor.find(filter)
+      .select(vendorSelect)
+      .populate('categoryIds', '_id name slug icon type')
+      .lean()
+      .sort({ createdAt: -1, sortOrder: 1, name: 1 })) as any[];
+    pool = pool.filter((v) => isVendorAvailableNow(v, now));
+    pool = filterVendorsWithinRadiusKm(pool, customerCoords, VENDOR_LIST_MAX_RADIUS_KM);
+    vendors = pickRecommendedVendorsFromPool(pool, fallbackLimit);
+    await applyDistanceAndEtaToVendors(vendors, customerCoords);
+  } else {
+    // No location: preserve previous DB-limited rating-first behaviour.
+    const baseQuery = Vendor.find(filter)
+      .select(vendorSelect)
+      .populate('categoryIds', '_id name slug icon type')
+      .lean();
 
-  if (vendors.length === 0) {
-    const unratedQuery = Vendor.schema.paths.averageRating
-      ? baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 })
-      : baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 });
-    vendors = ((await unratedQuery.limit(fallbackLimit)) as any[]).filter((v) => isVendorAvailableNow(v, now)).slice(0, fallbackLimit);
+    const ratedQuery = Vendor.schema.paths.averageRating
+      ? baseQuery.clone().where({ averageRating: { $gt: 0 } }).sort({ averageRating: -1, createdAt: -1, sortOrder: 1, name: 1 })
+      : baseQuery.clone().where({ rating: { $gt: 0 } }).sort({ rating: -1, createdAt: -1, sortOrder: 1, name: 1 });
+
+    vendors = (await ratedQuery.limit(fallbackLimit)) as any[];
+    vendors = vendors.filter((v) => isVendorAvailableNow(v, now));
+
+    if (vendors.length === 0) {
+      const unratedQuery = Vendor.schema.paths.averageRating
+        ? baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 })
+        : baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 });
+      vendors = ((await unratedQuery.limit(fallbackLimit)) as any[])
+        .filter((v) => isVendorAvailableNow(v, now))
+        .slice(0, fallbackLimit);
+    }
+
+    for (let i = 0; i < vendors.length; i++) {
+      const v = vendors[i];
+      v.estimatedTime = toEtaRange(getFallbackEtaMinutes(v));
+      v.distance = null;
+    }
   }
 
   for (let i = 0; i < vendors.length; i++) {
-    const v = vendors[i];
-    normalizeVendorRating(v);
-    v.estimatedTime = toEtaRange(getFallbackEtaMinutes(v));
-    v.distance = null;
+    normalizeVendorRating(vendors[i]);
   }
 
   return sendSuccess(res, { vendors, total: vendors.length, page: 1, pages: 1 });
