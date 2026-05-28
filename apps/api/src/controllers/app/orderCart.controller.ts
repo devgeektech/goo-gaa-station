@@ -169,7 +169,8 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   const body = req.body ?? {};
   const paymentMethod = body.paymentMethod != null ? String(body.paymentMethod).trim().toLowerCase() : 'cash';
   const paymentPhone = body.paymentPhone != null ? String(body.paymentPhone).trim() : '';
-  const vendorNote = body.Note != null ? String(body.Note).trim().slice(0, 500) : null;
+  const vendorNoteInput = body.Note ?? body.note;
+  const vendorNote = vendorNoteInput != null ? String(vendorNoteInput).trim().slice(0, 500) : null;
   if (paymentMethod === 'online') {
     throw new AppError(
       { en: 'Online payment (WifiPay) is not yet available. Please use cash or wallet.', de: 'Online-Zahlung noch nicht verfügbar. Bitte Barzahlung oder Wallet verwenden.' },

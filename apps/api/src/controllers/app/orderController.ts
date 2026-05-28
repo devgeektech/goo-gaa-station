@@ -63,7 +63,8 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   const deliveryAddress = body.deliveryAddress;
   const paymentMethod = body.paymentMethod ?? 'wifipay';
   const deliveryInstructions = body.deliveryInstructions ?? '';
-  const vendorNote = body.Note != null ? String(body.Note).trim().slice(0, 500) : null;
+  const vendorNoteInput = body.Note ?? body.note;
+  const vendorNote = vendorNoteInput != null ? String(vendorNoteInput).trim().slice(0, 500) : null;
 
   if (!vendorId || !mongoose.Types.ObjectId.isValid(vendorId)) {
     throw new AppError({ en: 'Valid vendorId is required', de: 'Vendor erforderlich' }, 400, 'VALIDATION_ERROR');
