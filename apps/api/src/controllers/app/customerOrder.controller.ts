@@ -32,7 +32,8 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user?._id;
   if (!customerId) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
 
-  const { vendorId, items, deliveryAddress, pickupAddress, deliveryFee, discount, notes, phone } = req.body ?? {};
+  const { vendorId, items, deliveryAddress, pickupAddress, deliveryFee, discount, notes, phone, Note } = req.body ?? {};
+  const vendorNote = Note != null ? String(Note).trim().slice(0, 500) : null;
   if (!items || !Array.isArray(items) || items.length === 0) {
     throw new AppError({ en: 'Items are required and must be non-empty', de: 'Artikel erforderlich' }, 400, 'VALIDATION_ERROR');
   }
@@ -150,6 +151,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
         }
       : null,
     notes: notes || null,
+    vendorNote,
     status: 'pending',
     statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
   });

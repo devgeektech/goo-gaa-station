@@ -94,6 +94,7 @@ const OrderSchema = new mongoose.Schema(
     cancellationReason: { type: String, default: null },
     cancelledBy: { type: String, enum: CANCELLED_BY, default: null },
     notes: { type: String, default: null },
+    vendorNote: { type: String, default: null },
     customerRating: { type: Number, default: null },
     customerRatingComment: { type: String, default: null },
     driverRating: { type: Number, default: null },
