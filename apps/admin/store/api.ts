@@ -51,6 +51,22 @@ export type VendorProductsResponse = {
   hasPrev?: boolean;
 };
 
+export type BannerItem = {
+  _id: string;
+  image: string;
+  heading: string;
+  text: string;
+  buttonText: string;
+  buttonUrl: string;
+  position: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type BannerListResponse = { success: true; data: BannerItem[] };
+export type BannerOneResponse = { success: true; data: BannerItem };
+
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
@@ -60,7 +76,7 @@ export const api = createApi({
       return headers;
     },
   }),
-  tagTypes: ['Category', 'VendorProducts'],
+  tagTypes: ['Category', 'VendorProducts', 'Banner'],
   endpoints: (builder) => ({
     getCategories: builder.query<CategoryItem[], { type?: string; isActive?: string } | void>({
       query: (params) => ({
@@ -127,6 +143,53 @@ export const api = createApi({
       }),
       providesTags: (_res, _err, { vendorId }) => [{ type: 'VendorProducts', id: vendorId }],
     }),
+
+    getBanners: builder.query<BannerItem[], void>({
+      query: () => ({
+        url: '/admin/banners',
+      }),
+      transformResponse: (res: BannerListResponse) => res.data ?? [],
+      providesTags: (result) =>
+        result ? [...result.map((b) => ({ type: 'Banner' as const, id: b._id })), { type: 'Banner', id: 'LIST' }] : [{ type: 'Banner', id: 'LIST' }],
+    }),
+
+    createBanner: builder.mutation<BannerItem, FormData>({
+      query: (body) => ({
+        url: '/admin/banners',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (res: BannerOneResponse) => res.data,
+      invalidatesTags: [{ type: 'Banner', id: 'LIST' }],
+    }),
+
+    updateBanner: builder.mutation<BannerItem, { id: string; body: FormData }>({
+      query: ({ id, body }) => ({
+        url: `/admin/banners/${id}`,
+        method: 'PATCH',
+        body,
+      }),
+      transformResponse: (res: BannerOneResponse) => res.data,
+      invalidatesTags: (_res, _err, { id }) => [{ type: 'Banner', id }, { type: 'Banner', id: 'LIST' }],
+    }),
+
+    toggleBannerActive: builder.mutation<BannerItem, string>({
+      query: (id) => ({
+        url: `/admin/banners/${id}/toggle`,
+        method: 'PATCH',
+      }),
+      transformResponse: (res: BannerOneResponse) => res.data,
+      invalidatesTags: (_res, _err, id) => [{ type: 'Banner', id }, { type: 'Banner', id: 'LIST' }],
+    }),
+
+    deleteBanner: builder.mutation<{ success: boolean }, string>({
+      query: (id) => ({
+        url: `/admin/banners/${id}`,
+        method: 'DELETE',
+      }),
+      transformResponse: () => ({ success: true }),
+      invalidatesTags: (_res, _err, id) => [{ type: 'Banner', id }, { type: 'Banner', id: 'LIST' }],
+    }),
   }),
 });
 
@@ -138,4 +201,9 @@ export const {
   useReorderCategoriesMutation,
   useDeleteCategoryMutation,
   useGetVendorProductsQuery,
+  useGetBannersQuery,
+  useCreateBannerMutation,
+  useUpdateBannerMutation,
+  useToggleBannerActiveMutation,
+  useDeleteBannerMutation,
 } = api;

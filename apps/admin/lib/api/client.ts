@@ -49,11 +49,41 @@ export type ApiFailure = {
 };
 
 export function getErrorMessage(err: unknown): string {
+  const extractApiMessage = (payload: unknown): string | null => {
+    if (!payload || typeof payload !== 'object') return null;
+    const body = payload as {
+      message?: { en?: string; de?: string } | string;
+      error?: string;
+      data?: { errors?: Record<string, string> };
+    };
+    const msg = body.message;
+    if (typeof msg === 'string' && msg.trim()) return msg;
+    if (msg && typeof msg === 'object') {
+      if (typeof msg.en === 'string' && msg.en.trim()) return msg.en;
+      if (typeof msg.de === 'string' && msg.de.trim()) return msg.de;
+    }
+    if (body.data?.errors && typeof body.data.errors === 'object') {
+      const firstFieldError = Object.values(body.data.errors).find((v) => typeof v === 'string' && v.trim());
+      if (typeof firstFieldError === 'string') return firstFieldError;
+    }
+    if (typeof body.error === 'string' && body.error.trim()) return body.error;
+    return null;
+  };
+
   if (axios.isAxiosError(err)) {
     const msg = (err.response?.data as ApiFailure | undefined)?.message;
     if (!msg) return err.message;
     if (typeof msg === 'string') return msg;
     return msg.en || msg.de || err.message;
+  }
+  // RTK Query / fetchBaseQuery errors are plain objects (non-axios).
+  if (err && typeof err === 'object') {
+    const e = err as { data?: unknown; error?: unknown };
+    const fromData = extractApiMessage(e.data);
+    if (fromData) return fromData;
+    const fromRoot = extractApiMessage(err);
+    if (fromRoot) return fromRoot;
+    if (typeof e.error === 'string' && e.error.trim()) return e.error;
   }
   if (err instanceof Error) return err.message;
   return 'Unknown error';
