@@ -222,7 +222,7 @@ export const ROUTES = [
   { method: 'GET', path: '/api/v1/app/categories/:slug/vendors', auth: false, description: 'List vendors in category by slug (app); query: sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit' },
   { method: 'GET', path: '/api/v1/app/vendors', auth: false, description: 'List vendors (app); query: search, category (ObjectId or type: food|grocery|pharmacy|fashion|retail), type (same as category type), sort, minRating, maxDeliveryTime, minPrice, maxPrice, page, limit; optional customerLat+customerLng for ETA/distance from Google Distance Matrix' },
   { method: 'GET', path: '/api/v1/app/vendors/recommended', auth: false, description: 'Recommended vendors (app): higher-rated first; query category or type = all|food|grocery|pharmacy|fashion|retail or category ObjectId; if no rated vendors, fallback to 3-4 active available vendors' },
-  { method: 'GET', path: '/api/v1/app/banners', auth: false, description: 'App banners for carousel: active only, sorted by position' },
+  { method: 'GET', path: '/api/v1/app/banners', auth: false, description: 'App banners sorted by position (includes active and inactive; app can filter by isActive)' },
   { method: 'GET', path: '/api/v1/app/vendors/:id', auth: false, description: 'Get vendor by id with products (app)' },
   { method: 'GET', path: '/api/v1/app/vendors/:id/ratings', auth: false, description: 'Get vendor ratings list with averageRating and totalRatings' },
   { method: 'POST', path: '/api/v1/app/vendors/:id/ratings', auth: true, description: 'Rate vendor from delivered order; body: orderId, rating (1-5), comment; one rating per order' },
