@@ -6,6 +6,8 @@ import { Vendor } from '../../models/Vendor';
 import { AppError } from '../../utils/AppError';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
+import { getCommissionPercent } from '../../services/appSettings.service';
+import { REVENUE_ELIGIBLE_MATCH, vendorRevenueMongoExpr } from '../../services/orderRevenue.service';
 
 type ReqVendor = { _id: mongoose.Types.ObjectId | string };
 
@@ -62,18 +64,19 @@ const ACTIVE_ORDER_STATUSES = ['accepted', 'preparing', 'ready', 'picked_up', 'o
 async function sumDeliveredVendorShareForDayYmd(
   vendorId: mongoose.Types.ObjectId,
   timeZone: string,
-  dayYmd: string
+  dayYmd: string,
+  commissionRate: number
 ): Promise<{ earnings: number; totalOrders: number }> {
   const rows = await Order.aggregate<{ earnings: number; totalOrders: number }>([
     {
       $match: {
         vendorId,
-        status: 'delivered',
-        paymentStatus: 'paid',
+        ...REVENUE_ELIGIBLE_MATCH,
       },
     },
     {
       $addFields: {
+        __vendorRev: vendorRevenueMongoExpr(commissionRate),
         deliveryDay: {
           $dateToString: {
             format: '%Y-%m-%d',
@@ -87,7 +90,7 @@ async function sumDeliveredVendorShareForDayYmd(
     {
       $group: {
         _id: null,
-        earnings: { $sum: { $ifNull: ['$vendorShare', 0] } },
+        earnings: { $sum: '$__vendorRev' },
         totalOrders: { $sum: 1 },
       },
     },
@@ -99,19 +102,23 @@ async function sumDeliveredVendorShareForDayYmd(
   };
 }
 
-async function sumWalletBalance(vendorId: mongoose.Types.ObjectId): Promise<number> {
+async function sumWalletBalance(vendorId: mongoose.Types.ObjectId, commissionRate: number): Promise<number> {
   const rows = await Order.aggregate<{ balance: number }>([
     {
       $match: {
         vendorId,
-        status: 'delivered',
-        paymentStatus: 'paid',
+        ...REVENUE_ELIGIBLE_MATCH,
+      },
+    },
+    {
+      $addFields: {
+        __vendorRev: vendorRevenueMongoExpr(commissionRate),
       },
     },
     {
       $group: {
         _id: null,
-        balance: { $sum: { $ifNull: ['$vendorShare', 0] } },
+        balance: { $sum: '$__vendorRev' },
       },
     },
   ]);
@@ -123,6 +130,8 @@ async function sumWalletBalance(vendorId: mongoose.Types.ObjectId): Promise<numb
 export const getVendorDashboard = asyncHandler(async (req: Request, res: Response) => {
   const vendorId = getVendorId(req);
   const now = new Date();
+  const commissionPercent = await getCommissionPercent();
+  const commissionRate = commissionPercent / 100;
 
   const vendor = await Vendor.findById(vendorId)
     .select('name slug logo averageRating totalRatings timezone')
@@ -153,10 +162,10 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
     activeOrdersLean,
     activeOrdersCount,
   ] = await Promise.all([
-    sumDeliveredVendorShareForDayYmd(oid, timeZone, todayYmd),
-    sumDeliveredVendorShareForDayYmd(oid, timeZone, yesterdayYmd),
+    sumDeliveredVendorShareForDayYmd(oid, timeZone, todayYmd, commissionRate),
+    sumDeliveredVendorShareForDayYmd(oid, timeZone, yesterdayYmd, commissionRate),
     Order.countDocuments(newFilter),
-    sumWalletBalance(oid),
+    sumWalletBalance(oid, commissionRate),
     Product.countDocuments({ vendor: oid, isDeleted: { $ne: true } }),
     Product.distinct('category', { vendor: oid, isDeleted: { $ne: true } }),
     Promise.resolve(Number((vendor as { averageRating?: unknown }).averageRating)),
@@ -176,19 +185,17 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
   const todayEarnings = Math.round(todayAgg.earnings * 100) / 100;
   const yesterdayEarnings = Math.round(yesterdayAgg.earnings * 100) / 100;
 
-  let earningsChangePercent: number | null = null;
-  let earningsChangeLabel: string | null = null;
+  let earningsChangePercent = 0;
+  let earningsChangeLabel = '0%';
   if (yesterdayEarnings > 0) {
     const rawPct = ((todayEarnings - yesterdayEarnings) / yesterdayEarnings) * 100;
     earningsChangePercent = Math.round(rawPct * 10) / 10;
     const sign = earningsChangePercent > 0 ? '+' : '';
     earningsChangeLabel = `${sign}${earningsChangePercent}%`;
   } else if (todayEarnings > 0) {
-    earningsChangePercent = null;
-    earningsChangeLabel = null;
-  } else {
-    earningsChangePercent = 0;
-    earningsChangeLabel = '0%';
+    // No yesterday baseline but we have earnings today: expose a deterministic growth indicator for app UI.
+    earningsChangePercent = 100;
+    earningsChangeLabel = '+100%';
   }
 
   const rating = Number.isFinite(ratingRaw) && ratingRaw >= 0 ? Math.round(ratingRaw * 10) / 10 : 0;

@@ -129,22 +129,9 @@ export const registerFcmToken = asyncHandler(async (req: Request, res: Response)
   }
 
   const now = new Date();
-  const fcmTokens = ((driver as any).fcmTokens ?? []) as Array<{ token: string; device?: string | null; updatedAt?: Date }>;
-  const existing = fcmTokens.find((t) => t.token === tokenStr);
-  if (existing) {
-    existing.updatedAt = now;
-    if (device !== undefined) existing.device = device != null ? String(device) : null;
-  } else {
-    fcmTokens.push({ token: tokenStr, device: device != null ? String(device) : null, updatedAt: now });
-  }
-
-  // Max 5 tokens: remove oldest by updatedAt
-  if (fcmTokens.length > 5) {
-    fcmTokens.sort((a, b) => (a.updatedAt?.getTime?.() ?? 0) - (b.updatedAt?.getTime?.() ?? 0));
-    while (fcmTokens.length > 5) fcmTokens.shift();
-  }
-
-  (driver as any).fcmTokens = fcmTokens;
+  const nextToken = { token: tokenStr, device: device != null ? String(device) : null, updatedAt: now };
+  (driver as any).fcmToken = tokenStr;
+  (driver as any).fcmTokens = [nextToken];
   await driver.save();
 
   return sendSuccess(res, { message: 'FCM token registered' });

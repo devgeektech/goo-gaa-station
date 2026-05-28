@@ -68,9 +68,12 @@ export const updateFcmToken = asyncHandler(async (req: Request, res: Response) =
   const id = req.user?._id;
   if (!id) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
   const { fcmToken } = req.body ?? {};
+  const now = new Date();
+  const tokenStr = fcmToken != null ? String(fcmToken).trim() : '';
   await Driver.findByIdAndUpdate(id, {
-    fcmToken: fcmToken != null ? String(fcmToken) : null,
-    lastActiveAt: new Date(),
+    fcmToken: tokenStr || null,
+    fcmTokens: tokenStr ? [{ token: tokenStr, updatedAt: now }] : [],
+    lastActiveAt: now,
   });
   return sendSuccess(res, { success: true });
 });

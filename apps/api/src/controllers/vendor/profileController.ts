@@ -253,22 +253,8 @@ export const registerVendorFcmToken = asyncHandler(async (req: Request, res: Res
   if (!vendor) throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
 
   const now = new Date();
-  const fcmTokens = ((vendor as any).fcmTokens ?? []) as Array<{ token: string; device?: string | null; updatedAt?: Date }>;
-  const existing = fcmTokens.find((t) => t.token === tokenStr);
-  if (existing) {
-    existing.updatedAt = now;
-    if (device !== undefined) existing.device = device != null ? String(device) : null;
-  } else {
-    fcmTokens.push({ token: tokenStr, device: device != null ? String(device) : null, updatedAt: now });
-  }
-
-  // Keep at most 5 tokens per vendor (most recently updated).
-  if (fcmTokens.length > 5) {
-    fcmTokens.sort((a, b) => (a.updatedAt?.getTime?.() ?? 0) - (b.updatedAt?.getTime?.() ?? 0));
-    while (fcmTokens.length > 5) fcmTokens.shift();
-  }
-
-  (vendor as any).fcmTokens = fcmTokens;
+  const nextToken = { token: tokenStr, device: device != null ? String(device) : null, updatedAt: now };
+  (vendor as any).fcmTokens = [nextToken];
   await vendor.save();
   return sendSuccess(res, { message: 'FCM token registered' });
 });

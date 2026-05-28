@@ -13,6 +13,9 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export const MAX_FILE_SIZE_2MB = 2 * 1024 * 1024; // 2MB for product/category images
 export const MAX_FILE_SIZE_5MB = 5 * 1024 * 1024; // 5MB for KYC documents
 export const MAX_FILE_SIZE_10MB = 10 * 1024 * 1024; // 10MB for profile and vendor logo/cover images
+const IMAGE_OPTIMIZED_MAX_WIDTH = 1280;
+const IMAGE_OPTIMIZED_QUALITY = 82;
+let sharpUnavailableLogged = false;
 
 function getExtension(mimetype: string): string {
   const map: Record<string, string> = {
@@ -82,23 +85,65 @@ function objectKeyForFolder(folder: string, mimetype: string): string {
   return `${folder}/${Date.now()}-${randomHex}${ext}`;
 }
 
-function createS3Storage(folder: string): StorageEngine {
+function shouldOptimizeImageMime(mimetype: string): boolean {
+  return mimetype === 'image/jpeg' || mimetype === 'image/png' || mimetype === 'image/webp';
+}
+
+async function maybeOptimizeImageBuffer(
+  body: Buffer,
+  mimetype: string,
+  optimizeImages: boolean
+): Promise<{ body: Buffer; mimetype: string }> {
+  if (!optimizeImages || !shouldOptimizeImageMime(mimetype)) {
+    return { body, mimetype };
+  }
+  try {
+    const sharpModule = require('sharp') as
+      | ((input?: Buffer, options?: { failOn?: string }) => {
+          rotate(): any;
+          resize(options: { width: number; fit: 'inside'; withoutEnlargement: boolean }): any;
+          webp(options: { quality: number; effort: number }): any;
+          toBuffer(): Promise<Buffer>;
+        })
+      | undefined;
+    if (!sharpModule) {
+      return { body, mimetype };
+    }
+    const optimized = await sharpModule(body, { failOn: 'none' })
+      .rotate()
+      .resize({ width: IMAGE_OPTIMIZED_MAX_WIDTH, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: IMAGE_OPTIMIZED_QUALITY, effort: 4 })
+      .toBuffer();
+    return { body: optimized, mimetype: 'image/webp' };
+  } catch {
+    if (!sharpUnavailableLogged) {
+      sharpUnavailableLogged = true;
+      // eslint-disable-next-line no-console -- one-time startup warning for optional optimization dependency
+      console.warn('[uploads] Image optimization skipped: sharp not available or processing failed');
+    }
+    // Keep the original image if optimization fails.
+    return { body, mimetype };
+  }
+}
+
+function createS3Storage(folder: string, optimizeImages: boolean): StorageEngine {
   return {
     _handleFile(_req, file, cb) {
-      const key = objectKeyForFolder(folder, file.mimetype);
       const chunks: Buffer[] = [];
       file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
       file.stream.on('error', (err) => cb(err));
       file.stream.on('end', () => {
         void (async () => {
           try {
-            const Body = Buffer.concat(chunks);
+            const originalBody = Buffer.concat(chunks);
+            const optimized = await maybeOptimizeImageBuffer(originalBody, file.mimetype, optimizeImages);
+            const key = objectKeyForFolder(folder, optimized.mimetype);
             await getS3().send(
               new PutObjectCommand({
                 Bucket: env.AWS_BUCKET,
                 Key: key,
-                Body,
-                ContentType: file.mimetype,
+                Body: optimized.body,
+                ContentType: optimized.mimetype,
                 CacheControl: 'public, max-age=31536000',
               })
             );
@@ -108,8 +153,8 @@ function createS3Storage(folder: string): StorageEngine {
               fieldname: file.fieldname,
               originalname: file.originalname,
               encoding: file.encoding,
-              mimetype: file.mimetype,
-              size: Body.length,
+              mimetype: optimized.mimetype,
+              size: optimized.body.length,
               destination: folder,
               filename: basename,
               path: location,
@@ -129,19 +174,54 @@ function createS3Storage(folder: string): StorageEngine {
   };
 }
 
-function createDiskStorage(folder: string): multer.StorageEngine {
+function createDiskStorage(folder: string, optimizeImages: boolean): multer.StorageEngine {
   const uploadPath = path.join(process.cwd(), env.UPLOAD_DIR, folder);
   if (!fs.existsSync(uploadPath)) {
     fs.mkdirSync(uploadPath, { recursive: true });
   }
-  return multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadPath),
-    filename: (_req, file, cb) => {
-      const ext = getExtension(file.mimetype);
-      const randomHex = crypto.randomBytes(8).toString('hex');
-      cb(null, `${Date.now()}-${randomHex}${ext}`);
+  return {
+    _handleFile(_req, file, cb) {
+      const chunks: Buffer[] = [];
+      file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      file.stream.on('error', (err) => cb(err));
+      file.stream.on('end', () => {
+        void (async () => {
+          try {
+            const originalBody = Buffer.concat(chunks);
+            const optimized = await maybeOptimizeImageBuffer(originalBody, file.mimetype, optimizeImages);
+            const ext = getExtension(optimized.mimetype);
+            const randomHex = crypto.randomBytes(8).toString('hex');
+            const filename = `${Date.now()}-${randomHex}${ext}`;
+            const fullPath = path.join(uploadPath, filename);
+            await fs.promises.writeFile(fullPath, optimized.body);
+            cb(null, {
+              fieldname: file.fieldname,
+              originalname: file.originalname,
+              encoding: file.encoding,
+              mimetype: optimized.mimetype,
+              size: optimized.body.length,
+              destination: uploadPath,
+              filename,
+              path: fullPath,
+            } as unknown as Express.Multer.File);
+          } catch (err) {
+            cb(err instanceof Error ? err : new Error(String(err)));
+          }
+        })();
+      });
     },
-  });
+    _removeFile(_req, file, cb) {
+      const fullPath = file.path;
+      if (!fullPath) {
+        cb(null);
+        return;
+      }
+      fs.promises
+        .unlink(fullPath)
+        .then(() => cb(null))
+        .catch(() => cb(null));
+    },
+  };
 }
 
 /**
@@ -153,7 +233,7 @@ export function getUploadMiddleware(folder: string, maxSize: number = MAX_FILE_S
   const useS3 = isS3Provider();
   if (useS3) assertS3Ready();
 
-  const storage = useS3 ? createS3Storage(folder) : createDiskStorage(folder);
+  const storage = useS3 ? createS3Storage(folder, true) : createDiskStorage(folder, true);
 
   const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
     if (ALLOWED_MIMES.includes(file.mimetype)) {
@@ -191,7 +271,8 @@ export function getUploadMiddlewareKyc(
   if (useS3) assertS3Ready();
 
   const allowed = options?.allowedMimes ?? ALLOWED_MIMES_KYC;
-  const storage = useS3 ? createS3Storage(folder) : createDiskStorage(folder);
+  // Keep KYC uploads as original files (especially PDFs and potentially high-detail scans).
+  const storage = useS3 ? createS3Storage(folder, false) : createDiskStorage(folder, false);
 
   const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
     if (allowed.includes(file.mimetype)) {

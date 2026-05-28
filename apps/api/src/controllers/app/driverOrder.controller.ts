@@ -594,12 +594,28 @@ export const getCompletedOrders = asyncHandler(async (req: Request, res: Respons
     const statusBadge = order.status === 'cancelled' ? 'CANCELLED' : 'COMPLETED';
     const statusLabelOverride = order.status === 'cancelled' ? 'CANCELLED' : 'DELIVERED';
 
-    return toDriverOrderCardActiveShape(order, null, {
+    const baseCard = toDriverOrderCardActiveShape(order, null, {
       deliveredAt,
       deliveryDurationMinutes,
       statusBadge,
       statusLabelOverride,
     });
+    const rawItems = Array.isArray(order.items) ? order.items : [];
+    const items = rawItems.map((item: any) => {
+      const qty = Number(item?.qty) || 0;
+      const unitPrice = Number(item?.unitPrice) || 0;
+      const lineSubtotalRaw =
+        typeof item?.subtotal === 'number' && Number.isFinite(item.subtotal)
+          ? item.subtotal
+          : qty * unitPrice;
+      return {
+        name: item?.name ?? '',
+        qty,
+        unitPrice: Math.round(unitPrice * 100) / 100,
+        subtotal: Math.round(lineSubtotalRaw * 100) / 100,
+      };
+    });
+    return { ...baseCard, items };
   });
   const pagination = toPaginated(cards, total, page, limit);
   const socketPayload = { data: cards, ...pagination };

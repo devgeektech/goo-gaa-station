@@ -92,14 +92,17 @@ export const updateFcmToken = asyncHandler(async (req: Request, res: Response) =
   const id = req.user?._id;
   if (!id) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
   const { fcmToken } = req.body ?? {};
+  const now = new Date();
+  const tokenStr = fcmToken != null ? String(fcmToken).trim() : '';
   await User.findByIdAndUpdate(id, {
-    fcmToken: fcmToken != null ? String(fcmToken) : null,
-    lastActiveAt: new Date(),
+    fcmToken: tokenStr || null,
+    fcmTokens: tokenStr ? [{ token: tokenStr, updatedAt: now }] : [],
+    lastActiveAt: now,
   });
   return sendSuccess(res, { success: true });
 });
 
-/** POST /fcm-token — Upsert token in fcmTokens array [{ token, device, updatedAt }] */
+/** POST /fcm-token — Store latest token only (single-device push) */
 export const addOrUpdateFcmToken = asyncHandler(async (req: Request, res: Response) => {
   const id = req.user?._id;
   if (!id) throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
@@ -114,20 +117,14 @@ export const addOrUpdateFcmToken = asyncHandler(async (req: Request, res: Respon
   }
   const user = await User.findById(id);
   if (!user) throw new AppError({ en: MESSAGES.USER.en.notFound, de: MESSAGES.USER.de.notFound }, 404);
-  const fcmTokens = (user as { fcmTokens?: Array<{ token: string; device?: string; updatedAt?: Date }> }).fcmTokens ?? [];
-  const existing = fcmTokens.find((t) => t.token === tokenStr);
   const now = new Date();
-  if (existing) {
-    existing.device = device != null ? String(device) : existing.device;
-    existing.updatedAt = now;
-  } else {
-    fcmTokens.push({
-      token: tokenStr,
-      device: device != null ? String(device) : undefined,
-      updatedAt: now,
-    });
-  }
-  (user as { fcmTokens: typeof fcmTokens }).fcmTokens = fcmTokens;
+  const nextToken = {
+    token: tokenStr,
+    device: device != null ? String(device) : undefined,
+    updatedAt: now,
+  };
+  (user as { fcmToken?: string | null }).fcmToken = tokenStr;
+  (user as { fcmTokens: Array<{ token: string; device?: string; updatedAt?: Date }> }).fcmTokens = [nextToken];
   (user as { lastActiveAt?: Date }).lastActiveAt = now;
   await user.save();
   return sendSuccess(res, { success: true });
