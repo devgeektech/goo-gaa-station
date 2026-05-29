@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Store, FileText, Image as ImageIcon, ExternalLink, Download, CheckCircle, Circle, MapPin } from 'lucide-react';
 import { getVendor, listMenuItems, approveVendor, rejectVendor } from '@/lib/api/vendors.api';
-import type { VendorDetail, MenuItem, VendorCategoryRef } from '@/lib/api/vendors.api';
+import type { VendorDetail, MenuItem } from '@/lib/api/vendors.api';
 import { DriverMap } from '@/components/drivers/DriverMap';
 import { MenuItemsTable } from '@/components/vendors/MenuItemsTable';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -55,14 +55,6 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
       <div style={{ fontWeight: 500, wordBreak: 'break-word' }}>{value}</div>
     </div>
   );
-}
-
-function formatCategoryNames(categories: VendorDetail['categoryIds']): string {
-  if (!categories?.length) return '—';
-  const names = categories
-    .map((c) => (typeof c === 'object' && c && 'name' in c ? (c as VendorCategoryRef).name : null))
-    .filter(Boolean) as string[];
-  return names.length > 0 ? names.join(', ') : '—';
 }
 
 function formatFullAddress(address: VendorDetail['address']): string {
@@ -374,9 +366,7 @@ export default function VendorDetailPage() {
             <DetailField label="Approval status" value={formatValue(vendor.approvalStatus)} />
             <DetailField label="Onboarding step" value={formatValue(vendor.onboardingStep)} />
             <DetailField label="Phone verified" value={formatValue(vendor.isPhoneVerified)} />
-            <DetailField label="Categories" value={formatCategoryNames(vendor.categoryIds)} />
             <DetailField label="Timezone" value={formatValue(vendor.timezone)} />
-            <DetailField label="Delivery time (min)" value={formatValue(vendor.deliveryTime)} />
             <DetailField label="Open (manual)" value={formatValue(vendor.isOpen)} />
             <DetailField label="Global toggle" value={formatValue(vendor.globalToggle)} />
             <DetailField label="Sort order" value={formatValue(vendor.sortOrder)} />
