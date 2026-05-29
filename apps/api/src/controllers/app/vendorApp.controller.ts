@@ -236,7 +236,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const typeQ = String(req.query.type || '').trim();
   const sortQ = String(req.query.sort || 'recommended').trim();
 
-  const filter: Record<string, unknown> = { status: 'active', isOpen: true };
+  const filter: Record<string, unknown> = { status: 'active', isOpen: true, approvalStatus: 'approved' };
   const andClauses: Record<string, unknown>[] = [];
   const categoryById =
     categoryQ && mongoose.Types.ObjectId.isValid(categoryQ) && String(new mongoose.Types.ObjectId(categoryQ)) === categoryQ
@@ -354,7 +354,7 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
   const typeQ = String(req.query.type || '').trim();
   const now = new Date();
 
-  const filter: Record<string, unknown> = { status: 'active', isOpen: true };
+  const filter: Record<string, unknown> = { status: 'active', isOpen: true, approvalStatus: 'approved' };
   const categoryFilter = await resolveVendorCategoryIdsFilter(categoryQ, typeQ);
   if (categoryFilter) filter.categoryIds = categoryFilter;
 
@@ -415,7 +415,7 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
 /** GET /api/v1/app/vendors/:id — Vendor detail with products (active only) */
 export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id;
-  const vendor = await Vendor.findOne({ _id: id, status: 'active' })
+  const vendor = await Vendor.findOne({ _id: id, status: 'active', approvalStatus: 'approved' })
     .populate('categoryIds', '_id name slug icon')
     .lean();
   if (!vendor) {
