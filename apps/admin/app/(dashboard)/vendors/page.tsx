@@ -183,9 +183,9 @@ export default function VendorsPage() {
           <button className="btn" onClick={() => load(pagination.page)} disabled={loading} aria-label="Refresh">
             <RefreshCcw size={18} aria-hidden /> Refresh
           </button>
-          <button className="btn btnPrimary" onClick={() => setAddOpen(true)} aria-label="Add vendor">
+          {/* <button className="btn btnPrimary" onClick={() => setAddOpen(true)} aria-label="Add vendor">
             <Plus size={18} aria-hidden /> Add Vendor
-          </button>
+          </button> */}
         </div>
       </div>
 

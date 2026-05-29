@@ -374,12 +374,12 @@ export default function VendorDetailPage() {
             <DetailField label="Approval status" value={formatValue(vendor.approvalStatus)} />
             <DetailField label="Onboarding step" value={formatValue(vendor.onboardingStep)} />
             <DetailField label="Phone verified" value={formatValue(vendor.isPhoneVerified)} />
-            <DetailField label="Categories" value={formatCategoryNames(vendor.categoryIds)} />
+            {/* <DetailField label="Categories" value={formatCategoryNames(vendor.categoryIds)} /> */}
             <DetailField label="Timezone" value={formatValue(vendor.timezone)} />
-            <DetailField label="Delivery time (min)" value={formatValue(vendor.deliveryTime)} />
+            {/* <DetailField label="Delivery time (min)" value={formatValue(vendor.deliveryTime)} /> */}
             <DetailField label="Open (manual)" value={formatValue(vendor.isOpen)} />
             <DetailField label="Global toggle" value={formatValue(vendor.globalToggle)} />
-            <DetailField label="Sort order" value={formatValue(vendor.sortOrder)} />
+            {/* <DetailField label="Sort order" value={formatValue(vendor.sortOrder)} /> */}
             <DetailField
               label="Rating"
               value={
