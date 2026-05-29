@@ -19,6 +19,7 @@ import {
 } from '../../utils/storageProvider';
 import type { Server as SocketIOServer } from 'socket.io';
 import { sendPushToVendor } from '../../services/fcm.service';
+import { permanentlyDeleteVendor } from '../../services/vendorHardDelete.service';
 
 const VENDOR_IMAGE_MAX = MAX_FILE_SIZE_10MB;
 
@@ -40,6 +41,10 @@ function slugify(s: string): string {
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function getIo(req: Request): SocketIOServer | undefined {
+  return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
 }
 
 /** GET /api/v1/admin/vendors — List with filters (status, search, approvalStatus); meta.pendingCount */
@@ -332,12 +337,16 @@ export const blockVendor = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, vendor.toObject());
 });
 
-/** DELETE /api/v1/admin/vendors/:id — Soft delete */
+/** DELETE /api/v1/admin/vendors/:id — Permanently delete vendor (same phone can register again). */
 export const deleteVendor = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id;
-  const vendor = await Vendor.findByIdAndUpdate(id, { status: 'deleted' }, { new: true }).lean();
-  if (!vendor) throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
-  return sendSuccess(res, vendor);
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+  }
+
+  const io = getIo(req);
+  const deleted = await permanentlyDeleteVendor(new mongoose.Types.ObjectId(id), io);
+  return sendSuccess(res, { ...deleted, permanentlyDeleted: true });
 });
 
 // ---------- Menu items ----------

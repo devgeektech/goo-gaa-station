@@ -16,6 +16,7 @@ import {
   verifyRefreshToken,
   type AccessPayload,
 } from '../services/auth.service';
+import { permanentlyDeleteLegacySoftDeletedVendor } from '../services/vendorHardDelete.service';
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const MAX_OTP_ATTEMPTS = 5;
@@ -55,6 +56,37 @@ function getOnboardingStep(vendor: { name?: string; description?: string; catego
   return 1;
 }
 
+async function findOrCreateVendorByPhone(normalizedPhone: string) {
+  const existing = await Vendor.findOne({ phone: normalizedPhone });
+  if (existing) {
+    if (existing.status === 'deleted') {
+      await permanentlyDeleteLegacySoftDeletedVendor(existing._id as mongoose.Types.ObjectId);
+    } else {
+      return existing;
+    }
+  }
+
+  const existingUser = await User.findOne({ phone: normalizedPhone }).select('_id').lean();
+  if (existingUser) {
+    throw new AppError(
+      {
+        en: 'This phone number is registered as a customer. Please use the customer app to log in.',
+        de: 'Diese Nummer ist als Kunde registriert. Bitte die Kunden-App verwenden.',
+      },
+      409,
+      'PHONE_REGISTERED_AS_CUSTOMER'
+    );
+  }
+
+  const slugBase = 'v-' + normalizedPhone.replace(/\D/g, '') + '-' + Math.random().toString(36).slice(2, 10);
+  return Vendor.create({
+    name: PLACEHOLDER_NAME_PREFIX + normalizedPhone.slice(-6),
+    slug: slugBase.toLowerCase(),
+    phone: normalizedPhone,
+    isPhoneVerified: false,
+  });
+}
+
 /** POST /api/v1/auth/vendor/send-otp */
 export const vendorSendOtp = asyncHandler(async (req: Request, res: Response) => {
   const { phone } = req.body ?? {};
@@ -63,26 +95,7 @@ export const vendorSendOtp = asyncHandler(async (req: Request, res: Response) =>
   }
   const normalizedPhone = normalizePhone(String(phone).trim());
 
-  let vendor = await Vendor.findOne({ phone: normalizedPhone });
-  if (!vendor) {
-    // Cross-role: phone already registered as customer only → must use customer app (driver: apply same check when driver API is added)
-    const existingUser = await User.findOne({ phone: normalizedPhone }).select('_id').lean();
-    if (existingUser) {
-      throw new AppError(
-        { en: 'This phone number is registered as a customer. Please use the customer app to log in.', de: 'Diese Nummer ist als Kunde registriert. Bitte die Kunden-App verwenden.' },
-        409,
-        'PHONE_REGISTERED_AS_CUSTOMER'
-      );
-    }
-    const slugBase = 'v-' + normalizedPhone.replace(/\D/g, '') + '-' + Math.random().toString(36).slice(2, 10);
-    const slug = slugBase.toLowerCase();
-    vendor = await Vendor.create({
-      name: PLACEHOLDER_NAME_PREFIX + normalizedPhone.slice(-6),
-      slug,
-      phone: normalizedPhone,
-      isPhoneVerified: false,
-    });
-  }
+  await findOrCreateVendorByPhone(normalizedPhone);
 
   const otp = generateOtp();
   console.log('otp', otp);
@@ -111,7 +124,7 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
   }
   const normalizedPhone = normalizePhone(String(phone).trim());
 
-  const vendor = await Vendor.findOne({ phone: normalizedPhone }).select('+phoneOtp +phoneOtpExpiry');
+  const vendor = await Vendor.findOne({ phone: normalizedPhone }).select('+phoneOtp +phoneOtpExpiry +phoneOtpAttempts status');
   if (!vendor) {
     // Cross-role: phone registered as customer only → clear error (driver: apply same when driver API is added)
     const existingUser = await User.findOne({ phone: normalizedPhone }).select('_id').lean();
@@ -127,6 +140,18 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
 
   if (vendor.status === 'blocked') {
     throw new AppError({ en: 'Vendor account is blocked', de: 'Anbieter-Konto ist gesperrt' }, 403, 'FORBIDDEN');
+  }
+
+  if (vendor.status === 'deleted') {
+    await permanentlyDeleteLegacySoftDeletedVendor(vendor._id as mongoose.Types.ObjectId);
+    throw new AppError(
+      {
+        en: 'Please request a new OTP to sign up again.',
+        de: 'Bitte fordern Sie einen neuen OTP an, um sich erneut zu registrieren.',
+      },
+      404,
+      'NOT_FOUND'
+    );
   }
 
   const now = new Date();
@@ -186,9 +211,20 @@ export const vendorResendOtp = asyncHandler(async (req: Request, res: Response) 
   }
   const normalizedPhone = normalizePhone(String(phone).trim());
 
-  const vendor = await Vendor.findOne({ phone: normalizedPhone });
+  const vendor = await Vendor.findOne({ phone: normalizedPhone }).select('status').lean();
   if (!vendor) {
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+  }
+  if ((vendor as { status?: string }).status === 'deleted') {
+    await permanentlyDeleteLegacySoftDeletedVendor(vendor._id as mongoose.Types.ObjectId);
+    throw new AppError(
+      {
+        en: 'Please request a new OTP to sign up again.',
+        de: 'Bitte fordern Sie einen neuen OTP an, um sich erneut zu registrieren.',
+      },
+      404,
+      'NOT_FOUND'
+    );
   }
 
   const otp = generateOtp();

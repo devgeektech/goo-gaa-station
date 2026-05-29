@@ -19,7 +19,7 @@ export function DeleteVendorDialog({
     <Modal open={open} title="Delete vendor" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p className="muted" style={{ margin: 0 }}>
-          Are you sure you want to delete {vendorName ? <strong>{vendorName}</strong> : 'this vendor'}? This will soft-delete the vendor.
+          Are you sure you want to delete {vendorName ? <strong>{vendorName}</strong> : 'this vendor'}? This permanently removes the vendor from the database. The same phone number can register again as a new store. Open orders must be completed or cancelled first.
         </p>
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="btn" onClick={onClose}>Cancel</button>

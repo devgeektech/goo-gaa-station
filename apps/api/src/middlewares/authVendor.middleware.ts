@@ -63,6 +63,19 @@ export function authVendor(req: Request, res: Response, next: NextFunction): voi
         next(new AppError({ en: 'Vendor account is blocked', de: 'Anbieter-Konto ist gesperrt' }, 403, 'FORBIDDEN'));
         return;
       }
+      if ((v as { status?: string }).status === 'deleted') {
+        next(
+          new AppError(
+            {
+              en: 'Vendor account has been removed. Please sign in again with your phone number.',
+              de: 'Anbieter-Konto wurde entfernt. Bitte melden Sie sich erneut mit Ihrer Telefonnummer an.',
+            },
+            403,
+            'ACCOUNT_DELETED'
+          )
+        );
+        return;
+      }
       (req as Request).vendor = v as Request['vendor'];
       next();
     })
