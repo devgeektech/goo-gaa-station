@@ -369,7 +369,6 @@ export default function VendorDetailPage() {
             <DetailField label="Timezone" value={formatValue(vendor.timezone)} />
             <DetailField label="Open (manual)" value={formatValue(vendor.isOpen)} />
             <DetailField label="Global toggle" value={formatValue(vendor.globalToggle)} />
-            <DetailField label="Sort order" value={formatValue(vendor.sortOrder)} />
             <DetailField
               label="Rating"
               value={
