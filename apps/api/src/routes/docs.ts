@@ -202,7 +202,7 @@ export const ROUTES = [
     description:
       'TEMPORARY (remove later): same nearby-driver list as order accept — query radiusKm (1–50, default 5); requires vendor address lat/lng.',
   },
-  { method: 'GET', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor self profile (authVendor + requireApproved)' },
+  { method: 'GET', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor self profile (authVendor; allowed during onboarding, blocked when pending admin approval)' },
   { method: 'PATCH', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor update profile (multipart, all optional): name, phone (unique), logo (10MB), coverImage (10MB), deliveryTime, minimumOrder, address JSON' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/toggle', auth: true, description: 'Vendor: toggle isOpen (manual override); emits vendor:availability_changed to admin' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/operating-hours', auth: true, description: 'Vendor: replace operatingHours (JSON body); requires all 7 days; 422 on validation errors' },

@@ -11,7 +11,7 @@ import driverSetupRoutes from './driver/driverSetup.routes';
 import driverProfileSelfRoutes from './driver/driverProfile.routes';
 import driverKycRoutes from './driver/driverKyc.routes';
 import { authVendor } from '../middlewares/authVendor.middleware';
-import { requireApproved } from '../middlewares/requireApproved.middleware';
+import { requireApproved, blockIfAwaitingApproval } from '../middlewares/requireApproved.middleware';
 import { authDriver } from '../middlewares/authDriver.middleware';
 import vendorCategoriesRoutes from './vendor/categories.routes';
 import vendorProductsRoutes from './vendor/products.routes';
@@ -94,7 +94,7 @@ v1Router.use('/vendor/categories', authVendor, requireApproved, vendorCategories
 v1Router.use('/vendor/products', authVendor, requireApproved, vendorProductsRoutes);
 v1Router.use('/vendor/orders', authVendor, requireApproved, vendorOrdersRoutes);
 v1Router.use('/vendor/test', authVendor, requireApproved, vendorTestRoutes);
-v1Router.use('/vendor/profile', authVendor, requireApproved, vendorProfileRoutes);
+v1Router.use('/vendor/profile', authVendor, blockIfAwaitingApproval, vendorProfileRoutes);
 v1Router.use('/vendor/dashboard', authVendor, requireApproved, vendorDashboardRoutes);
 v1Router.use('/vendor/wallet', authVendor, requireApproved, vendorWalletRoutes);
 v1Router.use('/payment', paymentRoutes);

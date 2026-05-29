@@ -51,7 +51,7 @@ const uploadVendorProfile = getUploadMiddleware('vendors', MAX_FILE_SIZE_10MB).f
   { name: 'coverImage', maxCount: 1 },
 ]);
 
-/** GET /api/v1/vendor/profile — self profile (approved vendors only via route guards) */
+/** GET /api/v1/vendor/profile — self profile (onboarding + approved; blocked when pending/rejected) */
 export const getVendorProfile = asyncHandler(async (req: Request, res: Response) => {
   const vendorId = getVendorId(req);
 
@@ -66,7 +66,7 @@ export const getVendorProfile = asyncHandler(async (req: Request, res: Response)
   return sendSuccess(res, { data: toProfileShape(out) }, 200);
 });
 
-/** PATCH /api/v1/vendor/profile — multipart update (approved vendors only via route guards) */
+/** PATCH /api/v1/vendor/profile — multipart update (onboarding + approved; blocked when pending/rejected) */
 export const patchVendorProfile = asyncHandler(async (req: Request, res: Response) => {
   await new Promise<void>((resolve, reject) => {
     uploadVendorProfile(req as any, res as any, (err: unknown) => (err ? reject(err) : resolve()));
