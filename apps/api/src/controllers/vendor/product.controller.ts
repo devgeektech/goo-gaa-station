@@ -7,6 +7,7 @@ import { AppError } from '../../utils/AppError';
 import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
+import { resolveVendorCategoryIdsFilter } from '../../utils/vendorCategoryFilter';
 import {
   getUploadMiddleware,
   deleteLocalFile,
@@ -58,22 +59,37 @@ async function syncVendorCategoryIds(vendorId: mongoose.Types.ObjectId): Promise
   }
 }
 
-/** GET /api/v1/vendor/products — list with ?category, ?isAvailable, pagination */
+function isCategoryObjectId(value: string): boolean {
+  return mongoose.Types.ObjectId.isValid(value) && String(new mongoose.Types.ObjectId(value)) === value;
+}
+
+/** GET /api/v1/vendor/products — list with ?category, ?type, ?isAvailable, pagination */
 export const listProducts = asyncHandler(async (req: Request, res: Response) => {
   const vendor = getVendor(req);
   const { page, limit } = parsePagination(req.query);
-  const categoryId = req.query.category as string | undefined;
+  const categoryRaw = req.query.category as string | undefined;
+  const typeRaw = req.query.type as string | undefined;
   const isAvailable = req.query.isAvailable as string | undefined;
 
   const filter: Record<string, unknown> = { vendor: vendor._id, isDeleted: false };
-  if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) filter.category = new mongoose.Types.ObjectId(categoryId);
+  if (categoryRaw && isCategoryObjectId(categoryRaw)) {
+    filter.category = new mongoose.Types.ObjectId(categoryRaw);
+  } else {
+    const categoryFilter = await resolveVendorCategoryIdsFilter(categoryRaw, typeRaw);
+    if (categoryFilter) filter.category = categoryFilter;
+  }
   if (isAvailable !== undefined) {
     if (isAvailable === 'true') filter.isAvailable = true;
     else if (isAvailable === 'false') filter.isAvailable = false;
   }
 
   const [products, total] = await Promise.all([
-    ProductModel.find(filter).populate('category', 'name slug').sort({ sortOrder: 1, name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
+    ProductModel.find(filter)
+      .populate('category', 'name slug type')
+      .sort({ sortOrder: 1, name: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
     ProductModel.countDocuments(filter),
   ]);
   const totalPages = Math.ceil(total / limit) || 1;
@@ -92,14 +108,14 @@ export const getProduct = asyncHandler(async (req: Request, res: Response) => {
   const vendor = getVendor(req);
   const id = req.params.id;
   const product = await ProductModel.findOne({ _id: id, vendor: vendor._id, isDeleted: false })
-    .populate('category', 'name slug icon')
+    .populate('category', 'name slug type icon')
     .lean();
   if (!product) {
     throw new AppError({ en: 'Product not found', de: 'Produkt nicht gefunden' }, 404, 'NOT_FOUND');
   }
   if (product.category && typeof product.category === 'string') {
     const category = await CategoryModel.findById(product.category)
-      .select('name slug')
+      .select('name slug type icon')
       .lean();
 
     product.category = category || null;
