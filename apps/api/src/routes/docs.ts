@@ -170,7 +170,7 @@ export const ROUTES = [
   { method: 'DELETE', path: '/api/v1/admin/vendors/:id/menu-items/:itemId', auth: true, description: 'Delete menu item (admin)' },
   { method: 'GET', path: '/api/v1/admin/vendors/:id/products', auth: true, description: 'List vendor products (admin, Phase 4); query: page, limit, category, isAvailable' },
   { method: 'GET', path: '/api/v1/vendor/categories', auth: true, description: 'Vendor: list categories for store type (authVendor + requireApproved)' },
-  { method: 'GET', path: '/api/v1/vendor/products', auth: true, description: 'Vendor: list products (authVendor + requireApproved); query: category (ObjectId or type: food|grocery|pharmacy|fashion|retail), type (same as category type), isAvailable, page, limit; category includes type in response' },
+  { method: 'GET', path: '/api/v1/vendor/products', auth: true, description: 'Vendor: list products (authVendor + requireApproved); query: search (name/description), category (ObjectId or type), type, isAvailable, page, limit; category includes type in response' },
   { method: 'GET', path: '/api/v1/vendor/products/:id', auth: true, description: 'Vendor: get product by id (403 if wrong vendor)' },
   {
     method: 'GET',

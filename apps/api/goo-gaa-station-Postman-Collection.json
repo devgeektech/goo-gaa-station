@@ -986,6 +986,7 @@
               "query": [
                 { "key": "page", "value": "1" },
                 { "key": "limit", "value": "20" },
+                { "key": "search", "value": "", "disabled": true, "description": "Search product name or description (case-insensitive)" },
                 { "key": "category", "value": "{{categoryId}}", "disabled": true, "description": "Category ObjectId, or type: food|grocery|pharmacy|fashion|retail" },
                 { "key": "type", "value": "food", "disabled": true, "description": "Filter by category type: food | grocery | pharmacy | fashion | retail" },
                 { "key": "isAvailable", "value": "", "disabled": true, "description": "true | false" }

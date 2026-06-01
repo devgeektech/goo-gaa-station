@@ -63,10 +63,15 @@ function isCategoryObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value) && String(new mongoose.Types.ObjectId(value)) === value;
 }
 
-/** GET /api/v1/vendor/products — list with ?category, ?type, ?isAvailable, pagination */
+function escapeRegexLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** GET /api/v1/vendor/products — list with ?search, ?category, ?type, ?isAvailable, pagination */
 export const listProducts = asyncHandler(async (req: Request, res: Response) => {
   const vendor = getVendor(req);
   const { page, limit } = parsePagination(req.query);
+  const search = String(req.query.search || '').trim().slice(0, 100);
   const categoryRaw = req.query.category as string | undefined;
   const typeRaw = req.query.type as string | undefined;
   const isAvailable = req.query.isAvailable as string | undefined;
@@ -77,6 +82,10 @@ export const listProducts = asyncHandler(async (req: Request, res: Response) => 
   } else {
     const categoryFilter = await resolveVendorCategoryIdsFilter(categoryRaw, typeRaw);
     if (categoryFilter) filter.category = categoryFilter;
+  }
+  if (search) {
+    const re = new RegExp(escapeRegexLiteral(search), 'i');
+    filter.$or = [{ name: re }, { description: re }];
   }
   if (isAvailable !== undefined) {
     if (isAvailable === 'true') filter.isAvailable = true;

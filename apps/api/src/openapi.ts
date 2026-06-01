@@ -152,6 +152,7 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...paginationParams,
     ],
     'GET /api/v1/vendor/products': [
+      query('search', { type: 'string', example: 'burger' }, false, 'Case-insensitive search in product name and description'),
       query('category', { type: 'string' }, false, 'Category ObjectId, or type: food|grocery|pharmacy|fashion|retail'),
       query('type', { type: 'string', enum: ['food', 'grocery', 'pharmacy', 'fashion', 'retail'] }, false, 'Filter by category type (alias for category type string)'),
       query('isAvailable', { type: 'string', enum: ['true', 'false'] }, false, 'Filter by stock'),
