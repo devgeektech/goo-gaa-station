@@ -30,6 +30,7 @@ export type DriverKycDocuments = {
   driversLicense?: string | null;
   nationalId?: string[];
   vehiclePhotos?: string[];
+  selfieImage?: string | null;
 };
 
 export type DriverDetail = DriverListItem & {

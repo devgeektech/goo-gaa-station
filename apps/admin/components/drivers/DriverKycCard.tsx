@@ -19,17 +19,19 @@ function isPdfUrl(url: string): boolean {
   return url.toLowerCase().endsWith('.pdf');
 }
 
-type KycField = 'driversLicense' | 'nationalId' | 'vehiclePhotos';
+type KycField = 'driversLicense' | 'nationalId' | 'vehiclePhotos' | 'selfieImage';
 
 function kycRows(driver: DriverDetail): { key: KycField; label: string; urls: string[] }[] {
   const docs = driver.kycDocuments ?? {};
   const dl = docs.driversLicense ? [docs.driversLicense] : [];
   const nid = Array.isArray(docs.nationalId) ? docs.nationalId.filter(Boolean) as string[] : [];
   const veh = Array.isArray(docs.vehiclePhotos) ? docs.vehiclePhotos.filter(Boolean) as string[] : [];
+  const selfie = docs.selfieImage ? [docs.selfieImage] : [];
   return [
     { key: 'driversLicense', label: "Driver's license", urls: dl },
     { key: 'nationalId', label: 'National ID', urls: nid },
     { key: 'vehiclePhotos', label: 'Vehicle photos', urls: veh },
+    { key: 'selfieImage', label: 'Selfie image', urls: selfie },
   ];
 }
 

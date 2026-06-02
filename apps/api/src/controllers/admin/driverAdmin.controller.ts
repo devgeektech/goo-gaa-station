@@ -34,6 +34,7 @@ type AdminKycDocumentsShape = {
   driversLicense: string | null;
   nationalId: string[];
   vehiclePhotos: string[];
+  selfieImage: string | null;
 };
 
 function attachNormalizedKyc(leanDriver: Record<string, unknown>): void {
@@ -42,6 +43,7 @@ function attachNormalizedKyc(leanDriver: Record<string, unknown>): void {
     driversLicense: raw?.driversLicense ?? null,
     nationalId: Array.isArray(raw?.nationalId) ? raw.nationalId : [],
     vehiclePhotos: Array.isArray(raw?.vehiclePhotos) ? raw.vehiclePhotos : [],
+    selfieImage: typeof raw?.selfieImage === 'string' ? raw.selfieImage : null,
   };
   if (leanDriver.kycStatus == null) leanDriver.kycStatus = 'not_submitted';
   if (leanDriver.kycRejectionReason === undefined) leanDriver.kycRejectionReason = null;
