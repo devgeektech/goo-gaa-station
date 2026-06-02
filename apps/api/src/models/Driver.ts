@@ -37,6 +37,7 @@ const KycDocumentsSchema = new mongoose.Schema(
     driversLicense: { type: String, default: null },
     nationalId: { type: [String], default: [] },
     vehiclePhotos: { type: [String], default: [] },
+    selfieImage: { type: String, default: null },
   },
   { _id: false }
 );
@@ -174,6 +175,7 @@ export type DriverDocument = mongoose.Document & {
     driversLicense?: string | null;
     nationalId?: string[];
     vehiclePhotos?: string[];
+    selfieImage?: string | null;
   };
   kycStatus?: 'not_submitted' | 'pending' | 'approved' | 'rejected';
   kycRejectionReason?: string | null;

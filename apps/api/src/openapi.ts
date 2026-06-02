@@ -1735,6 +1735,7 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
                       driversLicense: { type: 'string', nullable: true },
                       nationalId: { type: 'array', items: { type: 'string' } },
                       vehiclePhotos: { type: 'array', items: { type: 'string' } },
+                      selfieImage: { type: 'string', nullable: true },
                     },
                   },
                 },
@@ -1757,6 +1758,7 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
                 driversLicense: '/uploads/driver-kyc/sample-license.pdf',
                 nationalId: ['/uploads/driver-kyc/id-front.jpg'],
                 vehiclePhotos: ['/uploads/driver-kyc/vehicle-1.jpg', '/uploads/driver-kyc/vehicle-2.jpg'],
+                selfieImage: '/uploads/driver-kyc/selfie.jpg',
               },
             },
           },
@@ -2078,7 +2080,7 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
 
   const driverKycUploadBody = {
     description:
-      'Driver KYC upload. Required fields: vehicleType, vehicleNumber and file groups driversLicense (1 file), nationalId (1–10 files), vehiclePhotos (1–10 files). Allowed: image/jpeg, image/png, application/pdf. Max size: 5MB per file.',
+      'Driver KYC upload. Required fields: vehicleType, vehicleNumber and file groups driversLicense (1 file), nationalId (1–10 files), vehiclePhotos (1–10 files). Optional: selfieImage (1 file, image only). Allowed docs: image/jpeg, image/png, application/pdf. Max size: 5MB per file.',
     content: {
       'multipart/form-data': {
         schema: {
@@ -2097,6 +2099,11 @@ function getRequestBodyForRoute(opKey: string): Record<string, unknown> | undefi
               type: 'array',
               items: { type: 'string', format: 'binary' },
               description: 'One or more images/PDFs; use the same field name `vehiclePhotos` for each file',
+            },
+            selfieImage: {
+              type: 'string',
+              format: 'binary',
+              description: 'Optional selfie image used for verification (image/jpeg or image/png)',
             },
           },
         },

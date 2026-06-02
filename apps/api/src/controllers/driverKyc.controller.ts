@@ -32,6 +32,7 @@ const driverKycUpload = getUploadMiddlewareKyc(DRIVER_KYC_FOLDER, DRIVER_KYC_MAX
   { name: 'driversLicense', maxCount: 1 },
   { name: 'nationalId', maxCount: 10 },
   { name: 'vehiclePhotos', maxCount: 10 },
+  { name: 'selfieImage', maxCount: 1 },
 ]);
 
 function runDriverKycUpload(req: Request, res: Response): Promise<void> {
@@ -60,6 +61,7 @@ type KycDocumentsShape = {
   driversLicense: string | null;
   nationalId: string[];
   vehiclePhotos: string[];
+  selfieImage: string | null;
 };
 
 function defaultKycDocuments(): KycDocumentsShape {
@@ -67,6 +69,7 @@ function defaultKycDocuments(): KycDocumentsShape {
     driversLicense: null,
     nationalId: [],
     vehiclePhotos: [],
+    selfieImage: null,
   };
 }
 
@@ -85,6 +88,7 @@ export const getKycStatus = asyncHandler(async (req: Request, res: Response) => 
     driversLicense: raw?.driversLicense ?? null,
     nationalId: Array.isArray(raw?.nationalId) ? raw.nationalId : [],
     vehiclePhotos: Array.isArray(raw?.vehiclePhotos) ? raw.vehiclePhotos : [],
+    selfieImage: typeof raw?.selfieImage === 'string' ? raw.selfieImage : null,
   };
 
   return sendSuccess(res, {
@@ -116,6 +120,7 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
   const driversLicenseFiles = files?.driversLicense ?? [];
   const nationalIdFiles = files?.nationalId ?? [];
   const vehiclePhotosFiles = files?.vehiclePhotos ?? [];
+  const selfieImageFiles = files?.selfieImage ?? [];
 
   const missing: string[] = [];
   if (!vehicleType) missing.push('vehicleType');
@@ -125,7 +130,7 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
   if (vehiclePhotosFiles.length < 1) missing.push('vehiclePhotos');
 
   if (missing.length > 0) {
-    for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles]) {
+    for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles, ...selfieImageFiles]) {
       deleteLocalFile(getFileUrl(f, DRIVER_KYC_FOLDER));
     }
     throw new AppError(
@@ -139,7 +144,7 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
     );
   }
   if (!allowedVehicleTypes.includes(vehicleType)) {
-    for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles]) {
+    for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles, ...selfieImageFiles]) {
       deleteLocalFile(getFileUrl(f, DRIVER_KYC_FOLDER));
     }
     throw new AppError(
@@ -148,6 +153,19 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
         de: 'vehicleType muss einer von: bike, car, scooter, van sein',
       },
       400,
+      'VALIDATION_ERROR'
+    );
+  }
+  if (selfieImageFiles.length > 0 && !selfieImageFiles[0]!.mimetype.startsWith('image/')) {
+    for (const f of [...driversLicenseFiles, ...nationalIdFiles, ...vehiclePhotosFiles, ...selfieImageFiles]) {
+      deleteLocalFile(getFileUrl(f, DRIVER_KYC_FOLDER));
+    }
+    throw new AppError(
+      {
+        en: 'selfieImage must be an image file (jpeg/png)',
+        de: 'selfieImage muss eine Bilddatei sein (jpeg/png)',
+      },
+      422,
       'VALIDATION_ERROR'
     );
   }
@@ -162,21 +180,25 @@ export const postKycUpload = asyncHandler(async (req: Request, res: Response) =>
         driversLicense?: string | null;
         nationalId?: string[];
         vehiclePhotos?: string[];
+        selfieImage?: string | null;
       }
     | undefined;
   if (prev?.driversLicense) deleteLocalFile(prev.driversLicense);
   if (prev?.nationalId?.length) deleteKycFilesUrls(prev.nationalId);
   if (prev?.vehiclePhotos?.length) deleteKycFilesUrls(prev.vehiclePhotos);
+  if (prev?.selfieImage) deleteLocalFile(prev.selfieImage);
 
   const driversLicenseUrl = getFileUrl(driversLicenseFiles[0]!, DRIVER_KYC_FOLDER);
   const nationalIdUrls = nationalIdFiles.map((f) => getFileUrl(f, DRIVER_KYC_FOLDER));
   const vehiclePhotoUrls = vehiclePhotosFiles.map((f) => getFileUrl(f, DRIVER_KYC_FOLDER));
+  const selfieImageUrl = selfieImageFiles.length > 0 ? getFileUrl(selfieImageFiles[0]!, DRIVER_KYC_FOLDER) : null;
 
   const submittedAt = new Date();
   (driver as any).kycDocuments = {
     driversLicense: driversLicenseUrl,
     nationalId: nationalIdUrls,
     vehiclePhotos: vehiclePhotoUrls,
+    selfieImage: selfieImageUrl,
   };
   (driver as any).kycStatus = 'pending';
   (driver as any).kycSubmittedAt = submittedAt;

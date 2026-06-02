@@ -43,7 +43,7 @@ export const ROUTES = [
     path: '/api/v1/driver/kyc/upload',
     auth: true,
     description:
-      'Driver KYC: upload documents + vehicle details (multipart: vehicleType, vehicleNumber, driversLicense 1 file, nationalId ≤10, vehiclePhotos ≤10; jpg/png/pdf, 5MB each); sets pending; Socket.IO driver:kyc_submitted → admin room { driverId, name, phone, submittedAt }',
+      'Driver KYC: upload documents + vehicle details (multipart: vehicleType, vehicleNumber, driversLicense 1 file, nationalId ≤10, vehiclePhotos ≤10, optional selfieImage 1 image file; docs jpg/png/pdf, 5MB each); sets pending; Socket.IO driver:kyc_submitted → admin room { driverId, name, phone, submittedAt }',
   },
   {
     method: 'PATCH',
