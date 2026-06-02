@@ -377,7 +377,11 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
     ? (parsePhoneNumber(phoneStr, 'DE')?.format('E.164') ?? phoneStr)
     : phoneStr;
 
-  const doc = await OTP.findOne({ phone: normalizedPhone, role, isUsed: false });
+  const doc = await OTP.findOne({ phone: normalizedPhone, role, isUsed: false }).lean<{
+    _id: mongoose.Types.ObjectId;
+    expiresAt: Date;
+    otpHash: string;
+  }>();
   if (!doc || doc.expiresAt < new Date()) {
     throw new AppError(
       { en: 'Invalid or expired OTP', de: 'Ungültiger oder abgelaufener OTP' },
@@ -399,17 +403,43 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
 
   if (roleStr === 'vendor') {
     let vendor = await Vendor.findOne({ phone: normalizedPhone }).lean();
-    if (!vendor || (vendor as { status?: string }).status === 'deleted') {
+    if (!vendor) {
       const slugBase = 'v-' + normalizedPhone.replace(/\D/g, '') + '-' + Math.random().toString(36).slice(2, 10);
       const slug = slugBase.toLowerCase();
-      const created = await Vendor.create({
-        name: 'Vendor ' + normalizedPhone.slice(-6),
-        slug,
-        phone: normalizedPhone,
-        status: 'active',
-      });
-      vendor = created.toObject();
-    } else if ((vendor as { status?: string }).status === 'blocked') {
+      try {
+        const created = await Vendor.create({
+          name: 'Vendor ' + normalizedPhone.slice(-6),
+          slug,
+          phone: normalizedPhone,
+          status: 'active',
+        });
+        vendor = created.toObject();
+      } catch (err) {
+        // Handle concurrent verify calls that race on unique phone index.
+        if (err instanceof mongoose.mongo.MongoServerError && err.code === 11000) {
+          vendor = await Vendor.findOne({ phone: normalizedPhone }).lean();
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!vendor) {
+      throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+    }
+
+    const vendorStatus = (vendor as { status?: string }).status ?? '';
+    if (vendorStatus === 'deleted') {
+      const reactivatedVendor = await Vendor.findByIdAndUpdate(
+        (vendor as { _id: unknown })._id,
+        { $set: { status: 'active', blockReason: null } },
+        { new: true, runValidators: false }
+      ).lean();
+      if (!reactivatedVendor) {
+        throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+      }
+      vendor = reactivatedVendor;
+    } else if (vendorStatus === 'blocked') {
       throw new AppError(
         { en: 'Vendor account is blocked', de: 'Anbieter-Konto ist gesperrt' },
         403,
@@ -436,7 +466,7 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
 
   if (roleStr === 'customer') {
     let user = await User.findOne({ phone: normalizedPhone }).lean();
-    if (!user || (user as { status?: string }).status === 'deleted') {
+    if (!user) {
       // Cross-role: do not create customer if phone is already registered as vendor only
       const existingVendor = await Vendor.findOne({ phone: normalizedPhone }).select('_id').lean();
       if (existingVendor) {
@@ -446,15 +476,42 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
           'PHONE_REGISTERED_AS_VENDOR'
         );
       }
-      const created = await User.create({
-        name: 'Customer ' + normalizedPhone.slice(-6),
-        phone: normalizedPhone,
-        preferredLang: 'en',
-      });
-      user = created.toObject();
-    } else if (['blocked', 'deleted'].includes((user as { status?: string }).status ?? '')) {
+
+      try {
+        const created = await User.create({
+          name: 'Customer ' + normalizedPhone.slice(-6),
+          phone: normalizedPhone,
+          preferredLang: 'en',
+        });
+        user = created.toObject();
+      } catch (err) {
+        // Handle concurrent verify calls that race on unique phone index.
+        if (err instanceof mongoose.mongo.MongoServerError && err.code === 11000) {
+          user = await User.findOne({ phone: normalizedPhone }).lean();
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!user) {
+      throw new AppError({ en: 'Customer not found', de: 'Kunde nicht gefunden' }, 404, 'NOT_FOUND');
+    }
+
+    const userStatus = (user as { status?: string }).status ?? '';
+    if (userStatus === 'deleted') {
+      const reactivatedUser = await User.findByIdAndUpdate(
+        (user as { _id: unknown })._id,
+        { $set: { status: 'active', blockReason: null } },
+        { new: true, runValidators: false }
+      ).lean();
+      if (!reactivatedUser) {
+        throw new AppError({ en: 'Customer not found', de: 'Kunde nicht gefunden' }, 404, 'NOT_FOUND');
+      }
+      user = reactivatedUser;
+    } else if (userStatus === 'blocked') {
       throw new AppError(
-        { en: 'Account is blocked or deleted', de: 'Konto ist gesperrt oder gelöscht' },
+        { en: 'Account is blocked', de: 'Konto ist gesperrt' },
         403,
         'FORBIDDEN'
       );
