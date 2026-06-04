@@ -225,7 +225,7 @@ export default function VendorsPage() {
               />
             </div>
             <div className="field">
-              <div className="label">Status</div>
+              <div className="label">Account Status</div>
               <select
                 className="select"
                 value={filters.status}

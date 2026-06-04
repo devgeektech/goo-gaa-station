@@ -385,7 +385,7 @@ export default function DriversPage() {
                   <input className="input" value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} placeholder="Name, phone, email" />
                 </div>
                 <div className="field">
-                  <div className="label">Status</div>
+                  <div className="label">Account Status</div>
                   <select className="select" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
                     {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -447,7 +447,7 @@ export default function DriversPage() {
                       <th>Phone</th>
                       <th>License</th>
                       <th>Approval</th>
-                      <th>Status</th>
+                      <th>Account Status</th>
                       <th>Vehicle</th>
                       <th>Rating</th>
                       <th></th>
