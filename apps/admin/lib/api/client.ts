@@ -70,6 +70,12 @@ function extractApiMessage(payload: unknown): string | null {
   return null;
 }
 
+function extractApiCode(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const code = (payload as { code?: string }).code;
+  return typeof code === 'string' && code.trim() ? code.trim() : null;
+}
+
 function isGenericClientMessage(message: string): boolean {
   const m = message.trim();
   if (!m) return true;
@@ -77,15 +83,25 @@ function isGenericClientMessage(message: string): boolean {
     /^unknown error$/i.test(m) ||
     /^rejected$/i.test(m) ||
     /^request failed with status code \d+$/i.test(m) ||
-    /^network error$/i.test(m)
+    /^network error$/i.test(m) ||
+    /^typeerror:\s*failed to fetch$/i.test(m) ||
+    /^failed to fetch$/i.test(m)
   );
 }
+
+export type ApiErrorToastOptions = {
+  /** Maps 413 / Failed to fetch to file-size guidance (e.g. banner image upload). */
+  uploadMaxMb?: number;
+};
 
 /** Human-readable message from API/axios/RTK Query errors. */
 export function getErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const fromBody = extractApiMessage(err.response?.data);
     if (fromBody) return fromBody;
+    if (err.response?.status === 413) {
+      return 'Upload is too large. Please use a smaller file (max 10 MB for banner images).';
+    }
     if (err.response?.status) return `Request failed (${err.response.status})`;
     return err.message || 'Request failed';
   }
@@ -101,8 +117,16 @@ export function getErrorMessage(err: unknown): string {
       const nested = getErrorMessage(e.error);
       if (!isGenericClientMessage(nested)) return nested;
     }
-    if (typeof e.error === 'string' && e.error.trim()) return e.error.trim();
-    if (typeof e.status === 'number') return `Request failed (${e.status})`;
+    if (typeof e.status === 'number') {
+      if (e.status === 413) {
+        return 'Upload is too large. Please use a smaller file (max 10 MB for banner images).';
+      }
+      return `Request failed (${e.status})`;
+    }
+    if (typeof e.error === 'string' && e.error.trim()) {
+      const errStr = e.error.trim();
+      if (!isGenericClientMessage(errStr)) return errStr;
+    }
     if (e.status === 'FETCH_ERROR') return 'Network error — check API URL and connection';
     if (e.status === 'PARSING_ERROR') return 'Invalid response from server';
   }
@@ -112,7 +136,43 @@ export function getErrorMessage(err: unknown): string {
 }
 
 /** Toast copy: prefer API message as title; fallback label only when needed. */
-export function apiErrorToast(err: unknown, fallbackTitle: string): { title: string; description?: string } {
+export function apiErrorToast(
+  err: unknown,
+  fallbackTitle: string,
+  options?: ApiErrorToastOptions
+): { title: string; description?: string } {
+  const maxMb = options?.uploadMaxMb;
+
+  if (maxMb && err && typeof err === 'object') {
+    const e = err as { data?: unknown; error?: unknown; status?: number | string };
+    const code = extractApiCode(e.data);
+    const apiMsg = extractApiMessage(e.data);
+
+    if (e.status === 413 || code === 'FILE_TOO_LARGE') {
+      return {
+        title: `Banner image is too large. Maximum allowed size is ${maxMb} MB.`,
+        description: apiMsg && !isGenericClientMessage(apiMsg) ? apiMsg : 'Use a smaller JPG, PNG, or WebP file and try again.',
+      };
+    }
+
+    if (code === 'POSITION_CONFLICT') {
+      return {
+        title: apiMsg ?? 'This banner position is already in use.',
+        description: 'Change the Position field to a number not used by another banner.',
+      };
+    }
+
+    const transportFailed =
+      e.status === 'FETCH_ERROR' ||
+      (typeof e.error === 'string' && /failed to fetch|typeerror/i.test(e.error));
+    if (transportFailed) {
+      return {
+        title: `Upload failed. The image may be over ${maxMb} MB or was blocked by the server.`,
+        description: 'Compress the image or choose a smaller file, then try again.',
+      };
+    }
+  }
+
   const apiMessage = getErrorMessage(err);
   if (apiMessage && !isGenericClientMessage(apiMessage)) {
     return { title: apiMessage };

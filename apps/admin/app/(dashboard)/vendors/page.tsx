@@ -253,7 +253,7 @@ export default function VendorsPage() {
                     <th>Logo</th>
                     <th>Name</th>
                     <th>Approval</th>
-                    <th>Status</th>
+                    <th>Account status</th>
                     <th>Rating</th>
                     <th>Revenue</th>
                     <th>Orders</th>
@@ -277,7 +277,7 @@ export default function VendorsPage() {
                   <th>Logo</th>
                   <th>Name</th>
                   <th>Approval</th>
-                  <th>Status</th>
+                  <th>Account status</th>
                   <th>Rating</th>
                   <th>Orders</th>
                   <th></th>

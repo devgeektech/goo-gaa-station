@@ -35,6 +35,23 @@ const EMPTY_FORM: BannerFormState = {
   imageFile: null,
 };
 
+/** Matches API banner upload limit (MAX_FILE_SIZE_10MB). */
+const BANNER_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const BANNER_IMAGE_MAX_MB = 10;
+const BANNER_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
+
+function validateBannerImageFile(file: File | null): string | null {
+  if (!file) return null;
+  if (file.size > BANNER_IMAGE_MAX_BYTES) {
+    return `Image is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is ${BANNER_IMAGE_MAX_MB} MB.`;
+  }
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  if (file.type && !allowed.includes(file.type)) {
+    return 'Image must be JPG, PNG, or WebP.';
+  }
+  return null;
+}
+
 function publicFileBase(): string {
   const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
   return base.replace(/\/api\/v1\/?$/, '');
@@ -62,7 +79,7 @@ function validateForm(form: BannerFormState, occupiedPositions: Set<number>, edi
 export default function BannersPage() {
   const toast = useToast();
   const pushApiError = (err: unknown, fallback: string) => {
-    const { title, description } = apiErrorToast(err, fallback);
+    const { title, description } = apiErrorToast(err, fallback, { uploadMaxMb: BANNER_IMAGE_MAX_MB });
     toast.push({ title, description, variant: 'danger' });
   };
 
@@ -117,7 +134,12 @@ export default function BannersPage() {
       return;
     }
     if (!form.imageFile) {
-      toast.push({ title: 'Image is required for new banner.', variant: 'warning' });
+      toast.push({ title: 'Please add a banner image.', variant: 'warning' });
+      return;
+    }
+    const imageErr = validateBannerImageFile(form.imageFile);
+    if (imageErr) {
+      toast.push({ title: imageErr, variant: 'warning' });
       return;
     }
     try {
@@ -137,6 +159,13 @@ export default function BannersPage() {
     if (err) {
       toast.push({ title: err, variant: 'warning' });
       return;
+    }
+    if (form.imageFile) {
+      const imageErr = validateBannerImageFile(form.imageFile);
+      if (imageErr) {
+        toast.push({ title: imageErr, variant: 'warning' });
+        return;
+      }
     }
     try {
       await updateBanner({ id: editing._id, body: makeFormData(form) }).unwrap();
@@ -283,17 +312,26 @@ function BannerForm({
   setForm: React.Dispatch<React.SetStateAction<BannerFormState>>;
   existingImage?: string | null;
 }) {
+  const [imageError, setImageError] = useState<string | null>(null);
   const preview = form.imageFile ? URL.createObjectURL(form.imageFile) : imageSrc(existingImage ?? null);
+
+  const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setForm((f) => ({ ...f, imageFile: file }));
+    setImageError(file ? validateBannerImageFile(file) : null);
+  };
+
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div className="field">
         <div className="label">Image</div>
-        <input
-          className="input"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={(e) => setForm((f) => ({ ...f, imageFile: e.target.files?.[0] ?? null }))}
-        />
+        <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+          JPG, PNG, or WebP. Maximum size: {BANNER_IMAGE_MAX_MB} MB.
+        </div>
+        <input className="input" type="file" accept={BANNER_IMAGE_ACCEPT} onChange={onImageChange} />
+        {imageError ? (
+          <div style={{ marginTop: 6, fontSize: 13, color: 'var(--danger)' }}>{imageError}</div>
+        ) : null}
         {preview ? (
           <img src={preview} alt="Banner preview" style={{ marginTop: 8, width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
         ) : null}
@@ -317,11 +355,13 @@ function BannerForm({
       <div className="field">
         <div className="label">Button URL</div>
         <input className="input" value={form.buttonUrl} onChange={(e) => setForm((f) => ({ ...f, buttonUrl: e.target.value }))} placeholder="https://example.com/promo" />
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Must start with https:// or http://</div>
       </div>
 
       <div className="field">
         <div className="label">Position</div>
         <input className="input" value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} inputMode="numeric" />
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Must be unique (e.g. 1, 2, 3). Each banner needs its own position.</div>
       </div>
 
       <Switch
