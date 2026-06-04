@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { formatDriverRating } from '@/lib/utils/driverRating';
+import { onlineStatusBadge } from '@/lib/utils/driverStatus';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -421,7 +422,8 @@ export default function DriversPage() {
                         <th>Phone</th>
                         <th>License</th>
                         <th>Approval</th>
-                        <th>Status</th>
+                        <th>Account Status</th>
+                        <th>Online status</th>
                         <th>Vehicle</th>
                         <th>Rating</th>
                         <th></th>
@@ -429,7 +431,7 @@ export default function DriversPage() {
                     </thead>
                     <tbody>
                       {Array.from({ length: 6 }).map((_, i) => (
-                        <tr key={i}><td colSpan={9}><Skeleton height={18} /></td></tr>
+                        <tr key={i}><td colSpan={10}><Skeleton height={18} /></td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -448,6 +450,7 @@ export default function DriversPage() {
                       <th>License</th>
                       <th>Approval</th>
                       <th>Account Status</th>
+                      <th>Online status</th>
                       <th>Vehicle</th>
                       <th>Rating</th>
                       <th></th>
@@ -485,6 +488,11 @@ export default function DriversPage() {
                           </td>
                           <td>
                             <span className="badge" style={{ background: d.status === 'blocked' ? 'var(--danger-light)' : d.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>{d.status}</span>
+                          </td>
+                          <td>
+                            <span className="badge" style={{ background: onlineStatusBadge(d.isOnline).background }}>
+                              {onlineStatusBadge(d.isOnline).label}
+                            </span>
                           </td>
                           <td className="muted">{d.vehicleType ?? '—'}</td>
                           <td>{formatDriverRating(d.rating, d.ratingCount).value}</td>

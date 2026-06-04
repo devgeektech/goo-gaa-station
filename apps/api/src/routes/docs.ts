@@ -61,7 +61,7 @@ export const ROUTES = [
   { method: 'PATCH', path: '/api/v1/driver/profile', auth: true, description: 'Driver self profile: update profile (multipart optional: name, phone, profileImage max 10MB, vehicleType, vehicleNumber)' },
   { method: 'POST', path: '/api/v1/driver/profile/fcm-token', auth: true, description: 'Driver self profile: register FCM token (body: token required, device optional; max 5)' },
   { method: 'DELETE', path: '/api/v1/driver/profile/fcm-token', auth: true, description: 'Driver self profile: remove FCM token (body: token required)' },
-  { method: 'PATCH', path: '/api/v1/driver/profile/status', auth: true, description: "Driver self profile: set status online/offline (body: { status: 'online'|'offline' }); approved only; emits driver:status_changed to admin room" },
+  { method: 'PATCH', path: '/api/v1/driver/profile/status', auth: true, description: "Driver self profile: set status online/offline (body: { status: 'online'|'offline' }); approved only; cannot go offline while currentOrderId is set (DELIVERY_ACTIVE); emits driver:status_changed to admin room" },
   {
     method: 'PATCH',
     path: '/api/v1/driver/location',

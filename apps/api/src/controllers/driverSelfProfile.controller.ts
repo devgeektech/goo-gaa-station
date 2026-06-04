@@ -7,6 +7,7 @@ import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/response';
 import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../utils/storageProvider';
+import { driverHasActiveDelivery } from '../utils/driverActiveDelivery';
 
 const uploadDriverImage = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).single('profileImage');
 
@@ -189,6 +190,13 @@ export const patchDriverStatus = asyncHandler(async (req: Request, res: Response
 
   // NOTE: Driver schema `status` is account status (active/blocked/deleted). Online/offline is stored in `isOnline`.
   const nextIsOnline = status === 'online';
+  if (!nextIsOnline && driverHasActiveDelivery(driver)) {
+    throw new AppError(
+      { en: 'Cannot go offline during delivery', de: 'Während der Lieferung nicht offline gehen' },
+      400,
+      'DELIVERY_ACTIVE'
+    );
+  }
   (driver as any).isOnline = nextIsOnline;
   (driver as any).lastActiveAt = new Date();
   await driver.save();

@@ -5,10 +5,15 @@ import { io, type Socket } from 'socket.io-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SOCKET_URL } from '@/lib/config';
 import { patchDriverPresenceStatus } from '@/lib/driverProfileApi';
-import { fetchDriverNewOrders, type DriverNewOrderCard } from '@/lib/driverOrdersApi';
+import { fetchDriverActiveOrders, fetchDriverNewOrders, type DriverNewOrderCard } from '@/lib/driverOrdersApi';
 
 function orderKey(o: DriverNewOrderCard): string {
   return String(o.orderId ?? o.orderNumber ?? '');
+}
+
+function isDeliveryActiveError(e: unknown): boolean {
+  const code = (e as { response?: { data?: { code?: string } } })?.response?.data?.code;
+  return code === 'DELIVERY_ACTIVE';
 }
 
 export default function DriverHomeScreen() {
@@ -19,13 +24,27 @@ export default function DriverHomeScreen() {
   const inFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const wentOnlineRef = useRef(false);
+  const hasActiveDeliveryRef = useRef(false);
   const accessTokenRef = useRef(accessToken);
   accessTokenRef.current = accessToken;
 
   const [isOnline, setIsOnline] = useState(false);
+  const [hasActiveDelivery, setHasActiveDelivery] = useState(false);
   const [newOrders, setNewOrders] = useState<DriverNewOrderCard[]>([]);
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const refreshActiveDeliveryFlag = useCallback(async (token: string): Promise<boolean> => {
+    try {
+      const active = await fetchDriverActiveOrders(token, { limit: 1 });
+      const hasActive = active.length > 0;
+      hasActiveDeliveryRef.current = hasActive;
+      setHasActiveDelivery(hasActive);
+      return hasActive;
+    } catch {
+      return hasActiveDeliveryRef.current;
+    }
+  }, []);
 
   const refreshNewOrders = useCallback(async () => {
     const token = accessTokenRef.current;
@@ -34,29 +53,50 @@ export default function DriverHomeScreen() {
     try {
       const cards = await fetchDriverNewOrders(token);
       setNewOrders(cards);
+      await refreshActiveDeliveryFlag(token);
     } catch {
       // Keep last snapshot on transient errors.
     } finally {
       setOrdersLoading(false);
     }
+  }, [refreshActiveDeliveryFlag]);
+
+  const goOnline = useCallback(async (token: string) => {
+    await patchDriverPresenceStatus(token, 'online');
+    wentOnlineRef.current = true;
+    setIsOnline(true);
   }, []);
 
-  useEffect(() => {
-    if (!accessToken || !driverId) return;
+  const goOfflineBestEffort = useCallback(async (token: string) => {
+    if (hasActiveDeliveryRef.current) return;
+    try {
+      await patchDriverPresenceStatus(token, 'offline');
+    } catch (e: unknown) {
+      if (isDeliveryActiveError(e)) return;
+      // ignore other errors on teardown
+    }
+  }, []);
 
-    let cancelled = false;
-    setOnlineError(null);
-    setIsOnline(false);
+  const bootstrapPresence = useCallback(
+    async (token: string, cancelled: () => boolean) => {
+      setOnlineError(null);
+      setIsOnline(false);
 
-    (async () => {
+      const hasActive = await refreshActiveDeliveryFlag(token);
+      if (cancelled()) return;
+
       try {
-        await patchDriverPresenceStatus(accessToken, 'online');
-        if (cancelled) return;
-        wentOnlineRef.current = true;
-        setIsOnline(true);
+        if (hasActive) {
+          await goOnline(token);
+          if (cancelled()) return;
+          return;
+        }
+
+        await goOnline(token);
+        if (cancelled()) return;
         await refreshNewOrders();
       } catch (e: unknown) {
-        if (cancelled) return;
+        if (cancelled()) return;
         wentOnlineRef.current = false;
         setIsOnline(false);
         const msg =
@@ -64,17 +104,49 @@ export default function DriverHomeScreen() {
           (e instanceof Error ? e.message : 'Could not go online');
         setOnlineError(msg);
       }
-    })();
+    },
+    [goOnline, refreshActiveDeliveryFlag, refreshNewOrders]
+  );
+
+  useEffect(() => {
+    if (!accessToken || !driverId) return;
+
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+
+    void bootstrapPresence(accessToken, isCancelled);
+
+    const appSub = AppState.addEventListener('change', (next) => {
+      appStateRef.current = next;
+      if (next !== 'active') return;
+      const token = accessTokenRef.current;
+      if (!token) return;
+      void (async () => {
+        const hasActive = await refreshActiveDeliveryFlag(token);
+        if (!hasActive) return;
+        try {
+          if (!wentOnlineRef.current) {
+            await goOnline(token);
+          } else {
+            await patchDriverPresenceStatus(token, 'online');
+            setIsOnline(true);
+          }
+        } catch {
+          // Presence restore is best-effort on resume.
+        }
+      })();
+    });
 
     return () => {
       cancelled = true;
+      appSub.remove();
       if (wentOnlineRef.current) {
         wentOnlineRef.current = false;
         setIsOnline(false);
-        void patchDriverPresenceStatus(accessToken, 'offline').catch(() => {});
+        void goOfflineBestEffort(accessToken);
       }
     };
-  }, [accessToken, driverId, refreshNewOrders]);
+  }, [accessToken, driverId, bootstrapPresence, goOfflineBestEffort, goOnline, refreshActiveDeliveryFlag]);
 
   useEffect(() => {
     if (!accessToken || !driverId) return;
@@ -90,11 +162,7 @@ export default function DriverHomeScreen() {
       if (accessToken && wentOnlineRef.current) {
         wentOnlineRef.current = false;
         setIsOnline(false);
-        try {
-          await patchDriverPresenceStatus(accessToken, 'offline');
-        } catch {
-          // best effort
-        }
+        await goOfflineBestEffort(accessToken);
       }
       await signOut();
       router.replace('/login');
@@ -115,11 +183,33 @@ export default function DriverHomeScreen() {
       }
     });
 
+    s.on('driver:orders:active_snapshot', (payload: { data?: DriverNewOrderCard[] }) => {
+      if (Array.isArray(payload?.data)) {
+        const hasActive = payload.data.length > 0;
+        hasActiveDeliveryRef.current = hasActive;
+        setHasActiveDelivery(hasActive);
+        if (payload.data.length > 0 && accessTokenRef.current) {
+          void (async () => {
+            try {
+              if (!wentOnlineRef.current) {
+                await goOnline(accessTokenRef.current!);
+              } else {
+                await patchDriverPresenceStatus(accessTokenRef.current!, 'online');
+                setIsOnline(true);
+              }
+            } catch {
+              // best effort
+            }
+          })();
+        }
+      }
+    });
+
     return () => {
       s.disconnect();
       socketRef.current = null;
     };
-  }, [accessToken, driverId, signOut, router, refreshNewOrders]);
+  }, [accessToken, driverId, signOut, router, refreshNewOrders, goOfflineBestEffort, goOnline]);
 
   useEffect(() => {
     if (!driverId) return;
@@ -187,7 +277,11 @@ export default function DriverHomeScreen() {
         <Text style={styles.error}>Online failed: {onlineError}</Text>
       ) : (
         <Text style={styles.muted}>
-          {isOnline ? 'You are online — new delivery requests appear below.' : 'Going online…'}
+          {isOnline
+            ? hasActiveDelivery
+              ? 'You are online — active delivery in progress.'
+              : 'You are online — new delivery requests appear below.'
+            : 'Going online…'}
         </Text>
       )}
 
@@ -220,11 +314,7 @@ export default function DriverHomeScreen() {
           if (accessToken && wentOnlineRef.current) {
             wentOnlineRef.current = false;
             setIsOnline(false);
-            try {
-              await patchDriverPresenceStatus(accessToken, 'offline');
-            } catch {
-              // best effort before sign-out
-            }
+            await goOfflineBestEffort(accessToken);
           }
           await signOut();
           router.replace('/login');

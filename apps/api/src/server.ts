@@ -12,6 +12,7 @@ import { startVendorResponseTimeoutWorker } from './workers/vendorResponseTimeou
 import { registerVendorSocket } from './sockets/vendorSocket';
 import { registerChatHandlers } from './sockets/chatHandler';
 import { driverSessionMatches } from './services/driverSession.service';
+import { driverHasActiveDelivery } from './utils/driverActiveDelivery';
 import { tryRebroadcastOpenOrdersToDriver } from './services/driverOpenOrderBroadcast.service';
 
 const server = http.createServer(app);
@@ -164,8 +165,11 @@ io.on('connection', (socket) => {
     if (!driverId) return;
 
     try {
-      const driver = await Driver.findById(driverId).select('isOnline').lean();
+      const driver = await Driver.findById(driverId).select('isOnline currentOrderId').lean();
       if (!driver?.isOnline) return; // only mark offline when we were online
+      if (driverHasActiveDelivery(driver as { currentOrderId?: unknown })) {
+        return; // keep online while an active delivery is in progress
+      }
 
       await Driver.findByIdAndUpdate(driverId, {
         isOnline: false,

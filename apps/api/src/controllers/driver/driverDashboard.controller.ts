@@ -13,6 +13,7 @@ import {
   ymdInTimeZone,
 } from './driverEarnings.controller';
 import { resolveDriverLatLng, toDriverOrderCardActiveShape } from '../app/driverOrder.controller';
+import { driverHasActiveDelivery } from '../../utils/driverActiveDelivery';
 
 const KM_TO_MI = 0.621371;
 
@@ -83,7 +84,7 @@ export const getDriverDashboard = asyncHandler(async (req: Request, res: Respons
 
   const [driverLean, lifetime, todayRevenue, hoursToday, newOrdersCount, activeOrdersRaw] = await Promise.all([
     Driver.findById(driverId)
-      .select('name profileImage isOnline rating totalDeliveries currentLocation liveLocation')
+      .select('name profileImage isOnline rating totalDeliveries currentLocation liveLocation currentOrderId')
       .lean(),
     totalLifetimeDriverEarnings(driverId),
     sumDriverEffectiveRevenueForDays(driverId, timeZone, [todayYmd]),
@@ -172,12 +173,15 @@ export const getDriverDashboard = asyncHandler(async (req: Request, res: Respons
 
   const mapCenter = driverPos;
 
+  const hasActiveDelivery =
+    activeOrdersRaw.length > 0 || driverHasActiveDelivery(driver as { currentOrderId?: unknown });
+
   const data = {
     driverProfile: {
       name: driver?.name ?? '',
       tierLabel: tierLabelFromStats(Number(driver?.totalDeliveries) || 0, Number(driver?.rating) || 0),
       profileImageUrl: driver?.profileImage ?? null,
-      isOnline: Boolean(driver?.isOnline),
+      isOnline: Boolean(driver?.isOnline) || hasActiveDelivery,
     },
     todaysEarningsCard: {
       periodLabel: "Today's Earnings",

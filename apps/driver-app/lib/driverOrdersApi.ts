@@ -31,3 +31,17 @@ export async function fetchDriverNewOrders(accessToken: string): Promise<DriverN
   const rows = res.data?.data;
   return Array.isArray(rows) ? rows : [];
 }
+
+/** GET /driver/orders/active — in-progress deliveries assigned to this driver. */
+export async function fetchDriverActiveOrders(
+  accessToken: string,
+  opts?: { limit?: number }
+): Promise<DriverNewOrderCard[]> {
+  const limit = opts?.limit ?? 5;
+  const res = await client(accessToken).get<{
+    success: boolean;
+    data: DriverNewOrderCard[];
+  }>('/driver/orders/active', { params: { page: 1, limit } });
+  const rows = res.data?.data;
+  return Array.isArray(rows) ? rows : [];
+}
