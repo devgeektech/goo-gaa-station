@@ -7,7 +7,7 @@ import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/response';
 import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../utils/storageProvider';
-import { driverHasActiveDelivery } from '../utils/driverActiveDelivery';
+import { driverHasActiveDelivery, driverHasActiveOrder } from '../utils/driverActiveDelivery';
 
 const uploadDriverImage = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).single('profileImage');
 
@@ -22,7 +22,7 @@ function normalizePhone(phone: string): string {
   return `+${cleaned}`;
 }
 
-function toProfileShape(driver: any) {
+function toProfileShape(driver: any, orderAvailable: boolean) {
   return {
     name: driver?.name ?? '',
     phone: driver?.phone ?? '',
@@ -35,6 +35,7 @@ function toProfileShape(driver: any) {
     isOnline: Boolean(driver?.isOnline),
     rating: driver?.rating ?? 0,
     fcmTokens: Array.isArray(driver?.fcmTokens) ? driver.fcmTokens : [],
+    orderAvailable,
   };
 }
 
@@ -53,12 +54,16 @@ export const getSelfProfile = asyncHandler(async (req: Request, res: Response) =
   const id = req.driver?._id;
   if (!id) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
 
-  const driver = await Driver.findById(id).lean();
+  const [driver, orderAvailable] = await Promise.all([
+    Driver.findById(id).lean(),
+    driverHasActiveOrder(id),
+  ]);
   if (!driver || (driver as { status?: string }).status === 'deleted') {
     throw new AppError({ en: 'Driver not found', de: 'Fahrer nicht gefunden' }, 404, 'NOT_FOUND');
   }
 
   const full = sanitizeDriverForSelfResponse(driver as Record<string, unknown>);
+  full.orderAvailable = orderAvailable;
   return sendSuccess(res, full);
 });
 
@@ -109,8 +114,9 @@ export const patchSelfProfile = asyncHandler(async (req: Request, res: Response)
   }
 
   await driver.save();
+  const orderAvailable = await driverHasActiveOrder(id);
   const out = driver.toObject();
-  return sendSuccess(res, toProfileShape(out));
+  return sendSuccess(res, toProfileShape(out, orderAvailable));
 });
 
 /** POST /api/v1/driver/profile/fcm-token */

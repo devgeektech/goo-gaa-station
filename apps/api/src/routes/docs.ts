@@ -56,7 +56,7 @@ export const ROUTES = [
     path: '/api/v1/driver/profile',
     auth: true,
     description:
-      'Driver self profile: full logged-in driver document (KYC, location, wallet, bankAccount, etc.); secrets omitted (password, OTP, refresh token).',
+      'Driver self profile: full logged-in driver document (KYC, location, wallet, bankAccount, etc.); secrets omitted (password, OTP, refresh token). Includes orderAvailable (boolean): true when the driver has any active order (preparing/ready/picked_up/on_the_way), else false.',
   },
   { method: 'PATCH', path: '/api/v1/driver/profile', auth: true, description: 'Driver self profile: update profile (multipart optional: name, phone, profileImage max 10MB, vehicleType, vehicleNumber)' },
   { method: 'POST', path: '/api/v1/driver/profile/fcm-token', auth: true, description: 'Driver self profile: register FCM token (body: token required, device optional; max 5)' },
