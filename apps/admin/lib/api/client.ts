@@ -48,44 +48,75 @@ export type ApiFailure = {
   message?: { en?: string; de?: string } | string;
 };
 
-export function getErrorMessage(err: unknown): string {
-  const extractApiMessage = (payload: unknown): string | null => {
-    if (!payload || typeof payload !== 'object') return null;
-    const body = payload as {
-      message?: { en?: string; de?: string } | string;
-      error?: string;
-      data?: { errors?: Record<string, string> };
-    };
-    const msg = body.message;
-    if (typeof msg === 'string' && msg.trim()) return msg;
-    if (msg && typeof msg === 'object') {
-      if (typeof msg.en === 'string' && msg.en.trim()) return msg.en;
-      if (typeof msg.de === 'string' && msg.de.trim()) return msg.de;
-    }
-    if (body.data?.errors && typeof body.data.errors === 'object') {
-      const firstFieldError = Object.values(body.data.errors).find((v) => typeof v === 'string' && v.trim());
-      if (typeof firstFieldError === 'string') return firstFieldError;
-    }
-    if (typeof body.error === 'string' && body.error.trim()) return body.error;
-    return null;
+function extractApiMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const body = payload as {
+    code?: string;
+    message?: { en?: string; de?: string } | string;
+    error?: string;
+    data?: { errors?: Record<string, string> } | null;
   };
-
-  if (axios.isAxiosError(err)) {
-    const msg = (err.response?.data as ApiFailure | undefined)?.message;
-    if (!msg) return err.message;
-    if (typeof msg === 'string') return msg;
-    return msg.en || msg.de || err.message;
+  const msg = body.message;
+  if (typeof msg === 'string' && msg.trim()) return msg.trim();
+  if (msg && typeof msg === 'object') {
+    if (typeof msg.en === 'string' && msg.en.trim()) return msg.en.trim();
+    if (typeof msg.de === 'string' && msg.de.trim()) return msg.de.trim();
   }
-  // RTK Query / fetchBaseQuery errors are plain objects (non-axios).
+  if (body.data?.errors && typeof body.data.errors === 'object') {
+    const firstFieldError = Object.values(body.data.errors).find((v) => typeof v === 'string' && v.trim());
+    if (typeof firstFieldError === 'string') return firstFieldError.trim();
+  }
+  if (typeof body.error === 'string' && body.error.trim()) return body.error.trim();
+  return null;
+}
+
+function isGenericClientMessage(message: string): boolean {
+  const m = message.trim();
+  if (!m) return true;
+  return (
+    /^unknown error$/i.test(m) ||
+    /^rejected$/i.test(m) ||
+    /^request failed with status code \d+$/i.test(m) ||
+    /^network error$/i.test(m)
+  );
+}
+
+/** Human-readable message from API/axios/RTK Query errors. */
+export function getErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const fromBody = extractApiMessage(err.response?.data);
+    if (fromBody) return fromBody;
+    if (err.response?.status) return `Request failed (${err.response.status})`;
+    return err.message || 'Request failed';
+  }
+
+  // RTK Query / fetchBaseQuery (unwrap, useQuery error, etc.)
   if (err && typeof err === 'object') {
-    const e = err as { data?: unknown; error?: unknown };
+    const e = err as { data?: unknown; error?: unknown; status?: number | string };
     const fromData = extractApiMessage(e.data);
     if (fromData) return fromData;
     const fromRoot = extractApiMessage(err);
     if (fromRoot) return fromRoot;
-    if (typeof e.error === 'string' && e.error.trim()) return e.error;
+    if (e.error && typeof e.error === 'object') {
+      const nested = getErrorMessage(e.error);
+      if (!isGenericClientMessage(nested)) return nested;
+    }
+    if (typeof e.error === 'string' && e.error.trim()) return e.error.trim();
+    if (typeof e.status === 'number') return `Request failed (${e.status})`;
+    if (e.status === 'FETCH_ERROR') return 'Network error — check API URL and connection';
+    if (e.status === 'PARSING_ERROR') return 'Invalid response from server';
   }
+
   if (err instanceof Error) return err.message;
   return 'Unknown error';
+}
+
+/** Toast copy: prefer API message as title; fallback label only when needed. */
+export function apiErrorToast(err: unknown, fallbackTitle: string): { title: string; description?: string } {
+  const apiMessage = getErrorMessage(err);
+  if (apiMessage && !isGenericClientMessage(apiMessage)) {
+    return { title: apiMessage };
+  }
+  return { title: fallbackTitle, description: apiMessage || undefined };
 }
 

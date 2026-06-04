@@ -13,7 +13,7 @@ import {
   useUpdateBannerMutation,
   type BannerItem,
 } from '@/store/api';
-import { getErrorMessage } from '@/lib/api/client';
+import { apiErrorToast, getErrorMessage } from '@/lib/api/client';
 
 type BannerFormState = {
   heading: string;
@@ -61,7 +61,12 @@ function validateForm(form: BannerFormState, occupiedPositions: Set<number>, edi
 
 export default function BannersPage() {
   const toast = useToast();
-  const { data: banners = [], isLoading } = useGetBannersQuery();
+  const pushApiError = (err: unknown, fallback: string) => {
+    const { title, description } = apiErrorToast(err, fallback);
+    toast.push({ title, description, variant: 'danger' });
+  };
+
+  const { data: banners = [], isLoading, isError, error: loadError } = useGetBannersQuery();
   const [createBanner, { isLoading: creating }] = useCreateBannerMutation();
   const [updateBanner, { isLoading: updating }] = useUpdateBannerMutation();
   const [toggleActive, { isLoading: toggling }] = useToggleBannerActiveMutation();
@@ -121,7 +126,7 @@ export default function BannersPage() {
       setCreateOpen(false);
       setForm(EMPTY_FORM);
     } catch (e) {
-      toast.push({ title: 'Create failed', description: getErrorMessage(e), variant: 'danger' });
+      pushApiError(e, 'Create failed');
     }
   };
 
@@ -140,7 +145,7 @@ export default function BannersPage() {
       setEditing(null);
       setForm(EMPTY_FORM);
     } catch (e) {
-      toast.push({ title: 'Update failed', description: getErrorMessage(e), variant: 'danger' });
+      pushApiError(e, 'Update failed');
     }
   };
 
@@ -149,7 +154,7 @@ export default function BannersPage() {
       await toggleActive(banner._id).unwrap();
       toast.push({ title: `Banner ${banner.isActive ? 'disabled' : 'enabled'}`, variant: 'success' });
     } catch (e) {
-      toast.push({ title: 'Toggle failed', description: getErrorMessage(e), variant: 'danger' });
+      pushApiError(e, 'Toggle failed');
     }
   };
 
@@ -160,7 +165,7 @@ export default function BannersPage() {
       await deleteBanner(banner._id).unwrap();
       toast.push({ title: 'Banner deleted', variant: 'success' });
     } catch (e) {
-      toast.push({ title: 'Delete failed', description: getErrorMessage(e), variant: 'danger' });
+      pushApiError(e, 'Delete failed');
     }
   };
 
@@ -182,6 +187,8 @@ export default function BannersPage() {
         <div className="cardBody">
           {isLoading ? (
             <div className="muted">Loading banners…</div>
+          ) : isError ? (
+            <div style={{ color: 'var(--danger)' }}>{getErrorMessage(loadError)}</div>
           ) : banners.length === 0 ? (
             <div className="muted">No banners yet.</div>
           ) : (
