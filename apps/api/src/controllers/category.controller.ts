@@ -12,8 +12,7 @@ import {
   getFileUrl,
   MAX_FILE_SIZE_2MB,
 } from '../utils/storageProvider';
-
-const CATEGORY_TYPES = ['food', 'grocery', 'pharmacy', 'fashion', 'retail'] as const;
+import { CATEGORY_TYPES, isCategoryType } from '../utils/categoryTypes';
 const uploadCategoryIcon = getUploadMiddleware('categories', MAX_FILE_SIZE_2MB);
 
 /** GET /api/v1/admin/categories — List (isDeleted: false), filter by type & isActive, sort by sortOrder */
@@ -161,15 +160,23 @@ export const appListCategories = asyncHandler(async (req: Request, res: Response
     groupsByType.get(key)!.push(item);
   }
 
-  const data = Array.from(groupsByType.entries())
-    .sort(([a], [b]) => a.localeCompare(b)) // stable alphabetical order by type
-    .map(([type, items]) => ({
-      type,
-      categories: items.map((c) => {
-        const { type: _ignored, ...rest } = c as unknown as { type?: unknown };
-        return rest;
-      }),
-    }));
+  const toTypeGroup = (type: string, items: typeof list) => ({
+    type,
+    categories: items.map((c) => {
+      const { type: _ignored, ...rest } = c as unknown as { type?: unknown };
+      return rest;
+    }),
+  });
+
+  const data = CATEGORY_TYPES.filter((type) => groupsByType.has(type)).map((type) =>
+    toTypeGroup(type, groupsByType.get(type)!)
+  );
+
+  for (const [type, items] of groupsByType.entries()) {
+    if (!isCategoryType(type)) {
+      data.push(toTypeGroup(type, items));
+    }
+  }
 
   return sendSuccess(res, data);
 });
