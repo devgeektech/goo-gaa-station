@@ -289,7 +289,7 @@ export default function FinancePage() {
                         <td>{formatMoney(r.orderAmount)}</td>
                         <td>{formatMoney(r.driverFee)}</td>
                         <td>{formatMoney(r.commission)}</td>
-                        <td style={{ fontWeight: 700 }}>{formatMoney(r.vendorRevenue)}</td>
+                        <td>{formatMoney(r.vendorRevenue)}</td>
                         {/* <td>{formatMoney(r.driverRevenue)}</td> */}
                         <td className="muted">{formatDateTime(order.createdAt)}</td>
                       </tr>
