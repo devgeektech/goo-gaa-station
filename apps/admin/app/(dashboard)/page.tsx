@@ -142,7 +142,7 @@ export default function DashboardHome() {
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="dateLabel" stroke="var(--text-secondary)" style={{ fontSize: 12 }} />
-                  <YAxis stroke="var(--text-secondary)" style={{ fontSize: 12 }} tickFormatter={(v) => `${v}€`} />
+                  <YAxis stroke="var(--text-secondary)" style={{ fontSize: 12 }} tickFormatter={(v) => `${v}$`} />
                   <Tooltip
                     contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}
                     formatter={(v: unknown) => (typeof v === 'number' ? formatMoney(v) : String(v))}

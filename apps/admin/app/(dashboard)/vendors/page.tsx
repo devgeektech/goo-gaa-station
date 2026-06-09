@@ -247,7 +247,7 @@ export default function VendorsPage() {
         <div className="cardBody">
           {loading && items.length === 0 ? (
             <div className="tableWrap">
-              <table>
+              <table className="adminListTable">
                 <thead>
                   <tr>
                     <th>Logo</th>
@@ -257,7 +257,7 @@ export default function VendorsPage() {
                     <th>Rating</th>
                     <th>Revenue</th>
                     <th>Orders</th>
-                    <th></th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -271,7 +271,7 @@ export default function VendorsPage() {
             <EmptyState icon={<Store size={48} />} heading="No vendors found" subtext="Try adjusting search or status filter." />
           ) : (
             <div className="tableWrap">
-            <table>
+            <table className="adminListTable">
               <thead>
                 <tr>
                   <th>Logo</th>
@@ -279,8 +279,9 @@ export default function VendorsPage() {
                   <th>Approval</th>
                   <th>Account status</th>
                   <th>Rating</th>
+                  <th>Revenue</th>
                   <th>Orders</th>
-                  <th></th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -289,11 +290,13 @@ export default function VendorsPage() {
                     return (
                     <tr key={v._id} className="clickableRow" onClick={() => router.push(`/vendors/${v._id}`)}>
                       <td>
-                        {imgSrc(v.logo) ? (
-                          <img src={imgSrc(v.logo)!} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}><Store size={20} /></div>
-                        )}
+                        <div className="adminTableCellCenter">
+                          {imgSrc(v.logo) ? (
+                            <img src={imgSrc(v.logo)!} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}><Store size={20} /></div>
+                          )}
+                        </div>
                       </td>
                       <td style={{ fontWeight: 700 }}>{v.name}</td>
                       <td>
@@ -306,7 +309,7 @@ export default function VendorsPage() {
                       <td style={{ fontWeight: 700 }}>{formatMoney(v.revenue ?? 0)}</td>
                       <td className="muted">—</td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <div className="row" style={{ gap: 6 }}>
+                        <div className="row adminTableActions" style={{ gap: 6 }}>
                           <Link href={`/vendors/${v._id}`} className="btn" aria-label="View"><Eye size={16} /></Link>
                           <button className="btn" onClick={() => openEdit(v)} aria-label="Edit"><Pencil size={16} /></button>
                           {v.status !== 'deleted' && (

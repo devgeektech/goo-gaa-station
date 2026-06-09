@@ -9,9 +9,10 @@ import type { DriverDetail, DriverOrderItem, DriverLocationResponse } from '@/li
 import { DriverMap } from '@/components/drivers/DriverMap';
 import { DriverKycCard } from '@/components/drivers/DriverKycCard';
 import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
-import { formatDateTime, formatMoney } from '@/lib/utils/format';
+import { formatDateTime, formatMoney, formatVehicleType } from '@/lib/utils/format';
 import { accountStatusBadge, approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
 import { formatDriverRating } from '@/lib/utils/driverRating';
+import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 
@@ -121,11 +122,7 @@ export default function DriverDetailPage() {
           <div className="card">
             <div className="cardBody">
               <div className="row" style={{ alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                {imgSrc(driver.profileImage) ? (
-                  <img src={imgSrc(driver.profileImage)!} alt="" style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: 72, height: 72, borderRadius: 12, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No photo</div>
-                )}
+                <Avatar src={imgSrc(driver.profileImage)} name={driver.name} size={72} radius={12} />
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 20 }}>{driver.name}</div>
                   <div className="muted">{driver.phone}</div>
@@ -170,7 +167,7 @@ export default function DriverDetailPage() {
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
                 <div className="muted">Vehicle</div>
-                <div style={{ marginTop: 8 }}>{driver.vehicleType ?? '—'} {driver.vehiclePlate ? `(${driver.vehiclePlate})` : ''}</div>
+                <div style={{ marginTop: 8 }}>{formatVehicleType(driver.vehicleType)} {driver.vehiclePlate ? `(${driver.vehiclePlate})` : ''}</div>
               </div>
             </div>
           </div>

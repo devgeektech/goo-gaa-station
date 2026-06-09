@@ -13,7 +13,8 @@ export function onlineStatusBadge(isOnline?: boolean): { label: string; backgrou
 }
 
 export function approvalStatusBadge(approvalStatus?: string): { label: string; background: string } {
-  if (approvalStatus === 'approved') return { label: 'approved', background: 'var(--success-light)' };
-  if (approvalStatus === 'rejected') return { label: 'rejected', background: 'var(--danger-light)' };
-  return { label: approvalStatus ?? 'pending', background: 'var(--warning-light)' };
+  if (approvalStatus === 'approved') return { label: 'Approved', background: 'var(--success-light)' };
+  if (approvalStatus === 'rejected') return { label: 'Rejected', background: 'var(--danger-light)' };
+  if (approvalStatus === 'pending') return { label: 'Pending', background: 'var(--warning-light)' };
+  return { label: 'Pending', background: 'var(--warning-light)' };
 }

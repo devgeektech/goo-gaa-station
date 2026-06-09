@@ -247,6 +247,12 @@ export default function TransactionsPage(): JSX.Element {
         </div>
       </div>
 
+      <div className="card">
+        <div className="cardBody" style={{ textAlign: 'center', padding: '28px 24px' }}>
+          <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>Coming soon</div>
+        </div>
+      </div>
+
     </div>
     </>
   );

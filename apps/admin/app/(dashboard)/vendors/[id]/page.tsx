@@ -10,7 +10,7 @@ import { DriverMap } from '@/components/drivers/DriverMap';
 import { MenuItemsTable } from '@/components/vendors/MenuItemsTable';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
-import { formatMoney } from '@/lib/utils/format';
+import { formatDateTime, formatMoney } from '@/lib/utils/format';
 import { useGetVendorProductsQuery } from '@/store/api';
 import type { VendorProductItem } from '@/store/api';
 
@@ -27,6 +27,20 @@ const DAY_LABELS: Record<string, string> = { mon: 'Monday', tue: 'Tuesday', wed:
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 const ONBOARDING_STEP_LABELS = ['Phone Verified', 'Business Info', 'Address', 'KYC Documents', 'Submitted'] as const;
+
+function approvalStatusBadge(status: string | null | undefined): { label: string; style: React.CSSProperties } {
+  switch (status) {
+    case 'pending':
+      return { label: 'Pending Review', style: { background: 'rgba(249, 115, 22, 0.2)', color: '#ea580c' } };
+    case 'approved':
+      return { label: 'Approved', style: { background: 'var(--success-light)', color: 'var(--success)' } };
+    case 'rejected':
+      return { label: 'Rejected', style: { background: 'var(--danger-light)', color: 'var(--danger)' } };
+    case 'none':
+    default:
+      return { label: 'Incomplete', style: { background: 'var(--border-light)', color: 'var(--text-secondary)' } };
+  }
+}
 
 function getOnboardingBadge(vendor: VendorDetail): { label: string; style: React.CSSProperties } {
   const step = vendor.onboardingStep ?? 0;
@@ -269,6 +283,7 @@ export default function VendorDetailPage() {
   const onboardingBadge = getOnboardingBadge(vendor);
   const step = vendor.onboardingStep ?? 0;
   const approvalStatus = vendor.approvalStatus ?? null;
+  const vendorApprovalBadge = approvalStatusBadge(approvalStatus);
   const canApproveReject = approvalStatus === 'pending' && step === 6;
   const reviewerName = vendor.reviewedBy && typeof vendor.reviewedBy === 'object' && 'name' in vendor.reviewedBy
     ? (vendor.reviewedBy as { name?: string }).name
@@ -337,13 +352,13 @@ export default function VendorDetailPage() {
             <div>
               <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 800, fontSize: 20 }}>{vendor.name}</span>
-                <span className="badge" style={onboardingBadge.style}>{onboardingBadge.label}</span>
+                {/* <span className="badge" style={onboardingBadge.style}>{onboardingBadge.label}</span> */}
               </div>
-              <div className="muted">{vendor.slug}</div>
+              {/* <div className="muted">{vendor.slug}</div>
               {vendor.description ? <div className="muted" style={{ marginTop: 4 }}>{vendor.description}</div> : null}
               {vendor.email ? <div className="muted">{vendor.email}</div> : null}
               {vendor.phone ? <div className="muted">{vendor.phone}</div> : null}
-              <span className="badge" style={{ marginTop: 8, background: vendor.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{vendor.status}</span>
+              <span className="badge" style={{ marginTop: 8, background: vendor.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{vendor.status}</span> */}
             </div>
           </div>
         </div>
@@ -358,106 +373,8 @@ export default function VendorDetailPage() {
         </div>
       ) : null}
 
-      <div className="card">
-        <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Business details</h2>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-              gap: 20,
-            }}
-          >
-            <DetailField label="Vendor ID" value={vendor._id} />
-            <DetailField label="Slug" value={vendor.slug} />
-            <DetailField label="Account status" value={vendor.status} />
-            <DetailField label="Approval status" value={formatValue(vendor.approvalStatus)} />
-            <DetailField label="Onboarding step" value={formatValue(vendor.onboardingStep)} />
-            <DetailField label="Phone verified" value={formatValue(vendor.isPhoneVerified)} />
-            {/* <DetailField label="Categories" value={formatCategoryNames(vendor.categoryIds)} /> */}
-            <DetailField label="Timezone" value={formatValue(vendor.timezone)} />
-            {/* <DetailField label="Delivery time (min)" value={formatValue(vendor.deliveryTime)} /> */}
-            <DetailField label="Open (manual)" value={formatValue(vendor.isOpen)} />
-            <DetailField label="Global toggle" value={formatValue(vendor.globalToggle)} />
-            {/* <DetailField label="Sort order" value={formatValue(vendor.sortOrder)} /> */}
-            <DetailField
-              label="Rating"
-              value={
-                vendor.averageRating != null && vendor.averageRating > 0
-                  ? `${Number(vendor.averageRating).toFixed(1)} (${vendor.totalRatings ?? 0} reviews)`
-                  : '—'
-              }
-            />
-            <DetailField label="Created" value={vendor.createdAt ? new Date(vendor.createdAt).toLocaleString() : '—'} />
-            <DetailField label="Updated" value={vendor.updatedAt ? new Date(vendor.updatedAt).toLocaleString() : '—'} />
-          </div>
-          {imgSrc(vendor.coverImage) ? (
-            <div style={{ marginTop: 20 }}>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Cover image</div>
-              <img
-                src={imgSrc(vendor.coverImage)!}
-                alt=""
-                style={{ maxWidth: 320, maxHeight: 160, borderRadius: 12, objectFit: 'cover' }}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Address & location</h2>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-              gap: 20,
-              marginBottom: 20,
-            }}
-          >
-            <DetailField label="Full address" value={formatFullAddress(vendor.address)} />
-            <DetailField label="Street" value={formatValue(vendor.address?.street)} />
-            <DetailField label="Landmark" value={formatValue(vendor.address?.landmark)} />
-            <DetailField label="City" value={formatValue(vendor.address?.city)} />
-            <DetailField label="Country" value={formatValue(vendor.address?.country)} />
-            <DetailField label="Address label" value={formatValue(vendor.address?.addressLabel)} />
-            <DetailField label="Latitude" value={hasCoords ? lat!.toFixed(6) : '—'} />
-            <DetailField label="Longitude" value={hasCoords ? lng!.toFixed(6) : '—'} />
-          </div>
-          {mapsUrl ? (
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn"
-              style={{ marginBottom: 16, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <MapPin size={16} aria-hidden />
-              Open in Google Maps
-            </a>
-          ) : null}
-          <DriverMap coordinates={mapCoords} driverName={vendor.name} height={280} />
-        </div>
-      </div>
-
-      <div className="grid2">
-        <div className="card" style={{ boxShadow: 'none' }}>
-          <div className="cardBody">
-            <div className="muted">Total earnings</div>
-            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{formatMoney(vendor.revenue ?? 0)}</div>
-            <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>Delivered orders · order − driver fee − commission</div>
-          </div>
-        </div>
-        <div className="card" style={{ boxShadow: 'none' }}>
-          <div className="cardBody">
-            <div className="muted">Total delivered orders</div>
-            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{vendor.deliveredOrderCount ?? 0}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* CARD 1 — Onboarding Progress */}
-      <div className="card">
+ {/* CARD 1 — Onboarding Progress */}
+ <div className="card">
         <div className="cardBody">
           <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Onboarding Progress</h2>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -479,15 +396,185 @@ export default function VendorDetailPage() {
               );
             })}
           </div>
-          {vendor.submittedAt && (
+          {/* {vendor.submittedAt && (
             <div className="muted" style={{ marginTop: 12, fontSize: 13 }}>
               Submitted: {new Date(vendor.submittedAt).toLocaleString()}
             </div>
-          )}
+          )} */}
         </div>
       </div>
 
-      {/* CARD 2 — KYC Documents */}
+      <div className="card">
+        <div className="cardBody">
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Business details</h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: 20,
+            }}
+          >
+            <DetailField label="Phone Number" value={vendor.phone} />
+            <DetailField label="Created at" value={formatDateTime(vendor.createdAt)} />
+            <DetailField
+              label="Approval status"
+              value={
+                <span className="badge" style={vendorApprovalBadge.style}>
+                  {vendorApprovalBadge.label}
+                </span>
+              }
+            />
+            <DetailField label="Address" value={formatFullAddress(vendor.address)} />
+            <DetailField label="Timezone" value={formatValue(vendor.timezone)} />
+            <DetailField label="Latitude" value={hasCoords ? lat!.toFixed(6) : '—'} />
+            <DetailField label="Longitude" value={hasCoords ? lng!.toFixed(6) : '—'} />
+
+
+
+          </div>
+
+          {mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn"
+              style={{ marginBottom: 16, marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <MapPin size={16} aria-hidden />
+              Open in Google Maps
+            </a>
+          ) : null}
+          <DriverMap coordinates={mapCoords} driverName={vendor.name} height={280} />
+          
+
+          <h2 style={{ margin: '16px 0 16px 0', fontSize: 18, fontWeight: 700 }}>Operating Hours</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Day</th>
+                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Status</th>
+                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DAY_ORDER.map((day) => {
+                const entry = vendor.operatingHours?.find((h) => h.day === day);
+                const isOpen = entry?.isOpen ?? false;
+                const range = isOpen && entry?.from && entry?.to ? `${entry.from} - ${entry.to}` : '—';
+                return (
+                  <tr key={day} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 0' }}>{DAY_LABELS[day] ?? day}</td>
+                    <td style={{ padding: '10px 0' }}>
+                      <span className="badge" style={{ background: isOpen ? 'var(--success-light)' : 'var(--border-light)', color: isOpen ? 'var(--success)' : 'var(--text-secondary)' }}>
+                        {isOpen ? 'Open' : 'Closed'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 0', color: 'var(--text-secondary)' }}>{range}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="cardBody">
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Wallet</h2>
+          <div className="grid3">
+            <div className="card" style={{ boxShadow: 'none', margin: 0, minWidth: 0 }}>
+              <div className="cardBody">
+                <div className="muted" style={{ fontSize: 13 }}>Delivered orders</div>
+                <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{vendor.deliveredOrderCount ?? 0}</div>
+              </div>
+            </div>
+            <div className="card" style={{ boxShadow: 'none', margin: 0, minWidth: 0 }}>
+              <div className="cardBody">
+                <div className="muted" style={{ fontSize: 13 }}>Rating</div>
+                <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>
+                  {vendor.averageRating != null && vendor.averageRating > 0
+                    ? Number(vendor.averageRating).toFixed(1)
+                    : '—'}
+                </div>
+                {(vendor.totalRatings ?? 0) > 0 ? (
+                  <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+                    {vendor.totalRatings} {vendor.totalRatings === 1 ? 'review' : 'reviews'}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="card" style={{ boxShadow: 'none', margin: 0, minWidth: 0 }}>
+              <div className="cardBody">
+                <div className="muted" style={{ fontSize: 13 }}>Total earnings</div>
+                <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{formatMoney(vendor.revenue ?? 0)}</div>
+                <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+                  Order total − driver fee − commission
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ProductsCard vendorId={id} imgBase={publicFileBase()} />
+
+      {/* Approval Action Panel / read-only status */}
+      {canApproveReject && (
+        <div className="card">
+          <div className="cardBody">
+            <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Approval Action</h2>
+            <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btnPrimary"
+                onClick={handleApprove}
+                disabled={actionLoading}
+                style={{ background: 'var(--success)' }}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setRejectModalOpen(true)}
+                disabled={actionLoading}
+                style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* {(approvalStatus === 'approved' || approvalStatus === 'rejected') && (
+        <div
+          className="card"
+          style={{
+            borderLeft: `4px solid ${approvalStatus === 'approved' ? 'var(--success)' : 'var(--danger)'}`,
+          }}
+        >
+          <div className="cardBody">
+            <h2 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 700 }}>
+              {approvalStatus === 'approved' ? 'Approved' : 'Rejected'}
+            </h2>
+            {approvalStatus === 'approved' && vendor.approvedAt && (
+              <div className="muted" style={{ fontSize: 14 }}>Approved at {new Date(vendor.approvedAt).toLocaleString()}</div>
+            )}
+            {approvalStatus === 'rejected' && vendor.rejectedAt && (
+              <div className="muted" style={{ fontSize: 14 }}>Rejected at {new Date(vendor.rejectedAt).toLocaleString()}</div>
+            )}
+            {approvalStatus === 'rejected' && vendor.rejectionReason && (
+              <div style={{ marginTop: 8, padding: 12, background: 'var(--panel)', borderRadius: 8 }}>{vendor.rejectionReason}</div>
+            )}
+            {reviewerName && (
+              <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>Reviewed by {reviewerName}</div>
+            )}
+          </div>
+        </div>
+      )} */}
+
       <div className="card">
         <div className="cardBody">
           <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>KYC Documents</h2>
@@ -536,114 +623,6 @@ export default function VendorDetailPage() {
         </div>
       </div>
 
-      {/* Operating Hours */}
-      <div className="card">
-        <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Operating Hours</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Day</th>
-                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Status</th>
-                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Hours</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DAY_ORDER.map((day) => {
-                const entry = vendor.operatingHours?.find((h) => h.day === day);
-                const isOpen = entry?.isOpen ?? false;
-                const range = isOpen && entry?.from && entry?.to ? `${entry.from} - ${entry.to}` : '—';
-                return (
-                  <tr key={day} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 0' }}>{DAY_LABELS[day] ?? day}</td>
-                    <td style={{ padding: '10px 0' }}>
-                      <span className="badge" style={{ background: isOpen ? 'var(--success-light)' : 'var(--border-light)', color: isOpen ? 'var(--success)' : 'var(--text-secondary)' }}>
-                        {isOpen ? 'Open' : 'Closed'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 0', color: 'var(--text-secondary)' }}>{range}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* CARD 4 — Contact Person */}
-      <div className="card">
-        <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Contact Person</h2>
-          {vendor.contactPerson?.name || vendor.contactPerson?.email || vendor.contactPerson?.phone ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {vendor.contactPerson?.name && <div><span className="muted">Name: </span>{vendor.contactPerson.name}</div>}
-              {vendor.contactPerson?.email && <div><span className="muted">Email: </span><a href={`mailto:${vendor.contactPerson.email}`}>{vendor.contactPerson.email}</a></div>}
-              {vendor.contactPerson?.phone && <div><span className="muted">Phone: </span>{vendor.contactPerson.phone}</div>}
-            </div>
-          ) : (
-            <span className="muted">Not provided</span>
-          )}
-        </div>
-      </div>
-
-      {/* CARD 5 — Approval Action Panel / read-only status */}
-      {canApproveReject && (
-        <div className="card">
-          <div className="cardBody">
-            <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Approval Action</h2>
-            <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btnPrimary"
-                onClick={handleApprove}
-                disabled={actionLoading}
-                style={{ background: 'var(--success)' }}
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setRejectModalOpen(true)}
-                disabled={actionLoading}
-                style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}
-              >
-                Reject
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {(approvalStatus === 'approved' || approvalStatus === 'rejected') && (
-        <div
-          className="card"
-          style={{
-            borderLeft: `4px solid ${approvalStatus === 'approved' ? 'var(--success)' : 'var(--danger)'}`,
-          }}
-        >
-          <div className="cardBody">
-            <h2 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 700 }}>
-              {approvalStatus === 'approved' ? 'Approved' : 'Rejected'}
-            </h2>
-            {approvalStatus === 'approved' && vendor.approvedAt && (
-              <div className="muted" style={{ fontSize: 14 }}>Approved at {new Date(vendor.approvedAt).toLocaleString()}</div>
-            )}
-            {approvalStatus === 'rejected' && vendor.rejectedAt && (
-              <div className="muted" style={{ fontSize: 14 }}>Rejected at {new Date(vendor.rejectedAt).toLocaleString()}</div>
-            )}
-            {approvalStatus === 'rejected' && vendor.rejectionReason && (
-              <div style={{ marginTop: 8, padding: 12, background: 'var(--panel)', borderRadius: 8 }}>{vendor.rejectionReason}</div>
-            )}
-            {reviewerName && (
-              <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>Reviewed by {reviewerName}</div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <ProductsCard vendorId={id} imgBase={publicFileBase()} />
-
       {/* Reject modal */}
       {rejectModalOpen && (
         <div
@@ -681,35 +660,7 @@ export default function VendorDetailPage() {
         </div>
       )}
 
-      <div className="grid2">
-        <div className="card" style={{ boxShadow: 'none' }}>
-          <div className="cardBody">
-            <div className="muted">Rating</div>
-            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>
-              {vendor.averageRating != null && vendor.averageRating > 0
-                ? Number(vendor.averageRating).toFixed(1)
-                : '—'}
-            </div>
-            {(vendor.totalRatings ?? 0) > 0 ? (
-              <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>{vendor.totalRatings} reviews</div>
-            ) : null}
-          </div>
-        </div>
-        <div className="card" style={{ boxShadow: 'none' }}>
-          <div className="cardBody">
-            <div className="muted">Delivered orders</div>
-            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{vendor.deliveredOrderCount ?? 0}</div>
-          </div>
-        </div>
-      </div>
-
-      <MenuItemsTable
-        vendorId={id}
-        items={items}
-        loading={menuLoading && items.length === 0}
-        onRefresh={() => { loadMenuItems(); }}
-        onEdit={(item) => { /* optional: open edit modal */ }}
-      />
+      
     </div>
   );
 }

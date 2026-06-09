@@ -881,6 +881,42 @@ tbody tr:hover td {
   }
 }
 
+.adminCustomersTable th,
+.adminCustomersTable td,
+.adminListTable th,
+.adminListTable td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.adminCustomersTable .adminTableCellCenter,
+.adminListTable .adminTableCellCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adminCustomersTable .adminTableActions,
+.adminListTable .adminTableActions {
+  justify-content: center;
+}
+
+.adminListTable th:last-child,
+.adminListTable td:last-child {
+  min-width: 170px;
+  white-space: nowrap;
+}
+
+.adminFilterSwitchControl {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
 /* Toolbars: add class adminToolbarResponsive alongside .toolbar */
 @media (max-width: 640px) {
   .adminToolbarResponsive {

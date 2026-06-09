@@ -6,7 +6,8 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchCustomerById, fetchCustomerOrders } from '@/store/slices/customersSlice';
-import { formatDateTime, formatMoney } from '@/lib/utils/format';
+import { capitalizeFirst, formatDateTime, formatMoney } from '@/lib/utils/format';
+import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 function publicFileBase(): string {
@@ -66,17 +67,13 @@ export default function CustomerDetailPage() {
           <div className="card">
             <div className="cardBody">
               <div className="row" style={{ alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                {imgSrc(customer.profileImage) ? (
-                  <img src={imgSrc(customer.profileImage)!} alt="" style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: 72, height: 72, borderRadius: 12, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No photo</div>
-                )}
+                <Avatar src={imgSrc(customer.profileImage)} name={customer.name} size={72} radius={12} />
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 20 }}>{customer.name}</div>
                   <div className="muted">{customer.phone}</div>
                   {customer.email ? <div className="muted">{customer.email}</div> : null}
                   <span className="badge" style={{ marginTop: 8, background: customer.status === 'blocked' ? 'var(--danger-light)' : customer.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>
-                    {customer.status}
+                    {capitalizeFirst(customer.status)}
                   </span>
                 </div>
               </div>
@@ -84,24 +81,24 @@ export default function CustomerDetailPage() {
           </div>
 
           <div className="grid2">
-            <div className="card" style={{ boxShadow: 'none' }}>
+            {/* <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
                 <div className="muted">Points balance</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{customer.points ?? 0}</div>
               </div>
-            </div>
+            </div> */}
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
                 <div className="muted">Total orders</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{customer.orderCount ?? customer.totalOrders ?? 0}</div>
               </div>
             </div>
-            <div className="card" style={{ boxShadow: 'none' }}>
+            {/* <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
                 <div className="muted">Total spend</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{formatMoney(customer.totalSpent ?? 0)}</div>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {customer.addresses && customer.addresses.length > 0 ? (

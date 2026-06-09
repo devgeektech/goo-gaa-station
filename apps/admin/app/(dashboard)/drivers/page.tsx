@@ -1,29 +1,28 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, Ban, Trash2, RefreshCcw, CheckCircle, XCircle, Users } from 'lucide-react';
 import {
   searchDrivers,
   getPendingApprovals,
   getPendingCount,
-  getDriver,
-  getDriverLocation,
-  getDriverOrders,
   approveDriver,
   rejectDriver,
   updateDriverStatus,
   deleteDriver,
 } from '@/lib/api/drivers.api';
-import type { DriverListItem, DriverDetail, DriverOrderItem, DriverLocationResponse } from '@/lib/api/drivers.api';
+import type { DriverListItem } from '@/lib/api/drivers.api';
 import { BlockUnblockDialog } from '@/components/customers/BlockUnblockDialog';
 import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { DeleteDriverDialog } from '@/components/drivers/DeleteDriverDialog';
-import { DriverDetailDrawer } from '@/components/drivers/DriverDetailDrawer';
+import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { formatDriverRating } from '@/lib/utils/driverRating';
-import { onlineStatusBadge } from '@/lib/utils/driverStatus';
+import { accountStatusBadge, approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
+import { formatVehicleType } from '@/lib/utils/format';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -58,6 +57,7 @@ function imgSrc(url: string | null | undefined) {
 }
 
 export default function DriversPage() {
+  const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
   const [pendingList, setPendingList] = useState<DriverListItem[]>([]);
@@ -67,21 +67,16 @@ export default function DriversPage() {
   const [filters, setFilters] = useState({ search: '', status: '', approvalStatus: '', vehicleType: '' });
   const [loadingPending, setLoadingPending] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
-  const [selectedDriver, setSelectedDriver] = useState<DriverDetail | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [driverLocation, setDriverLocation] = useState<DriverLocationResponse | null>(null);
-  const [driverOrders, setDriverOrders] = useState<DriverOrderItem[]>([]);
-  const [driverOrdersPagination, setDriverOrdersPagination] = useState({ total: 0, page: 1, totalPages: 1, hasNext: false, hasPrev: false });
-  const [ordersLoading, setOrdersLoading] = useState(false);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionDriverId, setActionDriverId] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
-  const selectedDriverIdRef = useRef<string | null>(null);
   const [rejectLoading, setRejectLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [approveLoadingId, setApproveLoadingId] = useState<string | null>(null);
+
+  const goToDetail = (id: string) => router.push(`/drivers/${id}`);
 
   const actionDriver = actionDriverId ? (allList.find((d) => d._id === actionDriverId) ?? pendingList.find((d) => d._id === actionDriverId)) : null;
 
@@ -152,50 +147,6 @@ export default function DriversPage() {
       .finally(() => setLoadingAll(false));
   };
 
-  const openDetail = (id: string) => {
-    selectedDriverIdRef.current = id;
-    setSelectedDriver(null);
-    setDriverLocation(null);
-    setDriverOrders([]);
-    setDetailOpen(true);
-    getDriver(id)
-      .then((res) => {
-        if (selectedDriverIdRef.current === id) setSelectedDriver(res.data);
-      })
-      .catch(() => {
-        if (selectedDriverIdRef.current === id) setSelectedDriver(null);
-      });
-  };
-
-  const fetchLocation = (driverId?: string) => {
-    const id = driverId ?? selectedDriver?._id;
-    if (!id) return;
-    getDriverLocation(id)
-      .then((res) => {
-        if (selectedDriverIdRef.current === id) setDriverLocation(res.data);
-      })
-      .catch(() => {
-        if (selectedDriverIdRef.current === id) setDriverLocation(null);
-      });
-  };
-
-  const fetchOrders = (page?: number) => {
-    if (!selectedDriver?._id) return;
-    setOrdersLoading(true);
-    getDriverOrders(selectedDriver._id, page ?? 1, 10)
-      .then((res) => {
-        setDriverOrders(res.data ?? []);
-        setDriverOrdersPagination({
-          total: res.total ?? 0,
-          page: res.page ?? 1,
-          totalPages: res.totalPages ?? 1,
-          hasNext: res.hasNext ?? false,
-          hasPrev: res.hasPrev ?? false,
-        });
-      })
-      .finally(() => setOrdersLoading(false));
-  };
-
   const handleApprove = async (id: string) => {
     setApproveLoadingId(id);
     try {
@@ -253,7 +204,6 @@ export default function DriversPage() {
       toast.push({ title: 'Driver deleted', variant: 'success' });
       setDeleteDialogOpen(false);
       setActionDriverId(null);
-      setDetailOpen(false);
       if (tab === 'all') fetchAllPage(allPagination.page);
     } catch (e: unknown) {
       toast.push({ title: 'Delete failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
@@ -311,13 +261,7 @@ export default function DriversPage() {
                     <div className="cardBody">
                       <div className="row" style={{ alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
                         <div className="row" style={{ gap: 16, alignItems: 'center' }}>
-                          <div>
-                            {imgSrc(d.profileImage) ? (
-                              <img src={imgSrc(d.profileImage)!} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
-                            ) : (
-                              <div style={{ width: 80, height: 80, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No photo</div>
-                            )}
-                          </div>
+                          <Avatar src={imgSrc(d.profileImage)} name={d.name} size={80} radius={8} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 800 }}>{d.name}</div>
@@ -356,7 +300,7 @@ export default function DriversPage() {
                           ) : null}
                         </div>
                         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                          <button className="btn" onClick={() => openDetail(d._id)} aria-label="View"><Eye size={18} /></button>
+                          <button className="btn" onClick={() => goToDetail(d._id)} aria-label="View"><Eye size={18} /></button>
                           {d.kycStatus === 'pending' ? (
                             <>
                               <button className="btn btnPrimary" onClick={() => handleApprove(d._id)} disabled={approveLoadingId === d._id} aria-label="Approve">
@@ -414,7 +358,7 @@ export default function DriversPage() {
             <div className="cardBody">
               {loadingAll && allList.length === 0 ? (
                 <div className="tableWrap">
-                  <table>
+                  <table className="adminListTable">
                     <thead>
                       <tr>
                         <th>Photo</th>
@@ -426,7 +370,7 @@ export default function DriversPage() {
                         <th>Online status</th>
                         <th>Vehicle</th>
                         <th>Rating</th>
-                        <th></th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -441,7 +385,7 @@ export default function DriversPage() {
               ) : (
                 <>
               <div className="tableWrap">
-                <table>
+                <table className="adminListTable">
                   <thead>
                     <tr>
                       <th>Photo</th>
@@ -453,22 +397,16 @@ export default function DriversPage() {
                       <th>Online status</th>
                       <th>Vehicle</th>
                       <th>Rating</th>
-                      <th></th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                       {allList.map((d) => (
-                        <tr key={d._id} className="clickableRow" onClick={() => openDetail(d._id)}>
+                        <tr key={d._id} className="clickableRow" onClick={() => goToDetail(d._id)}>
                           <td>
-                            {imgSrc(d.profileImage) ? (
-                              <img
-                                src={imgSrc(d.profileImage)!}
-                                alt=""
-                                style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}
-                              />
-                            ) : (
-                              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--border-light)' }} />
-                            )}
+                            <div className="adminTableCellCenter">
+                              <Avatar src={imgSrc(d.profileImage)} name={d.name} size={36} radius={8} />
+                            </div>
                           </td>
                           <td style={{ fontWeight: 700 }}>{d.name}</td>
                           <td>{d.phone}</td>
@@ -484,21 +422,21 @@ export default function DriversPage() {
                             )}
                           </td>
                           <td>
-                            <span className="badge" style={{ background: d.approvalStatus === 'approved' ? 'var(--success-light)' : d.approvalStatus === 'rejected' ? 'var(--danger-light)' : 'var(--warning-light)' }}>{d.approvalStatus}</span>
+                            <span className="badge" style={{ background: approvalStatusBadge(d.approvalStatus).background }}>{approvalStatusBadge(d.approvalStatus).label}</span>
                           </td>
                           <td>
-                            <span className="badge" style={{ background: d.status === 'blocked' ? 'var(--danger-light)' : d.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>{d.status}</span>
+                            <span className="badge" style={{ background: accountStatusBadge(d.status).background }}>{accountStatusBadge(d.status).label}</span>
                           </td>
                           <td>
                             <span className="badge" style={{ background: onlineStatusBadge(d.isOnline).background }}>
                               {onlineStatusBadge(d.isOnline).label}
                             </span>
                           </td>
-                          <td className="muted">{d.vehicleType ?? '—'}</td>
+                          <td className="muted">{formatVehicleType(d.vehicleType)}</td>
                           <td>{formatDriverRating(d.rating, d.ratingCount).value}</td>
                           <td onClick={(e) => e.stopPropagation()}>
-                            <div className="row" style={{ gap: 6 }}>
-                              <button className="btn" onClick={() => openDetail(d._id)} aria-label="View"><Eye size={16} /></button>
+                            <div className="row adminTableActions" style={{ gap: 6 }}>
+                              <button className="btn" onClick={() => goToDetail(d._id)} aria-label="View"><Eye size={16} /></button>
                               {d.status !== 'deleted' && d.approvalStatus === 'approved' && (
                                 <button className="btn" onClick={() => { setActionDriverId(d._id); setBlockDialogOpen(true); }} aria-label={d.status === 'blocked' ? 'Unblock' : 'Block'}><Ban size={16} /></button>
                               )}
@@ -524,32 +462,6 @@ export default function DriversPage() {
         </>
       )}
 
-      <DriverDetailDrawer
-        open={detailOpen}
-        driver={selectedDriver}
-        location={driverLocation}
-        orders={driverOrders}
-        ordersLoading={ordersLoading}
-        ordersPagination={driverOrdersPagination}
-        onClose={() => {
-          setDetailOpen(false);
-          setSelectedDriver(null);
-          setDriverLocation(null);
-          selectedDriverIdRef.current = null;
-        }}
-        onFetchLocation={fetchLocation}
-        onFetchOrders={(page) => selectedDriver && fetchOrders(page)}
-        onRefreshDriver={() => {
-          if (!selectedDriver?._id) return;
-          const id = selectedDriver._id;
-          getDriver(id)
-            .then((res) => {
-              if (selectedDriverIdRef.current === id) setSelectedDriver(res.data);
-            })
-            .catch(() => {});
-          fetchLocation(id);
-        }}
-      />
       <BlockUnblockDialog
         open={blockDialogOpen}
         type="driver"

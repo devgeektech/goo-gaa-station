@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, Pencil, Ban, Trash2, RefreshCcw, UserPlus } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -11,19 +12,18 @@ import {
   updateCustomer,
   deleteCustomer,
   updateCustomerStatus,
-  fetchCustomerOrders,
   setFilters,
   setShowDeleted,
-  setSelectedCustomer,
 } from '@/store/slices/customersSlice';
 import type { AddCustomerForm } from '@/components/customers/AddCustomerModal';
 import { AddCustomerModal } from '@/components/customers/AddCustomerModal';
 import { EditCustomerDrawer } from '@/components/customers/EditCustomerDrawer';
 import { BlockUnblockDialog } from '@/components/customers/BlockUnblockDialog';
 import { DeleteCustomerDialog } from '@/components/customers/DeleteCustomerDialog';
-import { CustomerDetailDrawer } from '@/components/customers/CustomerDetailDrawer';
-import { formatMoney } from '@/lib/utils/format';
+import { capitalizeFirst } from '@/lib/utils/format';
+import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Switch } from '@/components/ui/Switch';
 import { useToast } from '@/components/ui/Toast';
 
 const STATUS_OPTIONS = [
@@ -44,6 +44,7 @@ function imgSrc(url: string | null | undefined) {
 }
 
 export default function CustomersPage() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const toast = useToast();
   const {
@@ -51,14 +52,12 @@ export default function CustomersPage() {
     pagination,
     filters,
     selectedCustomer,
-    customerOrders,
     loading,
     error,
   } = useAppSelector((s) => s.customers);
 
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionCustomerId, setActionCustomerId] = useState<string | null>(null);
@@ -66,7 +65,8 @@ export default function CustomersPage() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const goToDetail = (id: string) => router.push(`/customers/${id}`);
 
   useEffect(() => {
     void dispatch(fetchCustomers({ page: 1, limit: 20 }));
@@ -162,27 +162,15 @@ export default function CustomersPage() {
       toast.push({ title: 'Customer deleted', variant: 'success' });
       setDeleteDialogOpen(false);
       setActionCustomerId(null);
-      setDetailOpen(false);
       void dispatch(fetchCustomers(undefined));
     } else {
       toast.push({ title: 'Delete failed', description: String(action.payload ?? ''), variant: 'danger' });
     }
   };
 
-  const openDetail = async (id: string) => {
-    setDetailOpen(true);
-    void dispatch(fetchCustomerById(id));
-  };
-
   const openEdit = async (id: string) => {
     void dispatch(fetchCustomerById(id));
     setEditOpen(true);
-  };
-
-  const fetchOrdersForDetail = (page?: number) => {
-    if (!selectedCustomer?._id) return;
-    setOrdersLoading(true);
-    void dispatch(fetchCustomerOrders({ id: selectedCustomer._id, page, limit: 10 })).finally(() => setOrdersLoading(false));
   };
 
   useEffect(() => {
@@ -202,9 +190,7 @@ export default function CustomersPage() {
           <button className="btn" onClick={() => void dispatch(fetchCustomers(undefined))} disabled={loading} aria-label="Refresh">
             <RefreshCcw size={18} aria-hidden /> Refresh
           </button>
-          <button className="btn btnPrimary" onClick={() => setAddOpen(true)} aria-label="Add customer">
-            <UserPlus size={18} aria-hidden /> Add Customer
-          </button>
+         
         </div>
       </div>
 
@@ -232,14 +218,17 @@ export default function CustomersPage() {
                 ))}
               </select>
             </div>
-            <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={filters.showDeleted}
-                onChange={(e) => dispatch(setShowDeleted(e.target.checked))}
-              />
-              <span className="label" style={{ marginBottom: 0 }}>Show deleted</span>
-            </label>
+            <div className="field">
+              <div className="label">Show deleted</div>
+              <div className="adminFilterSwitchControl">
+                <Switch
+                  checked={filters.showDeleted}
+                  onChange={(e) => dispatch(setShowDeleted(e.target.checked))}
+                  label={filters.showDeleted ? 'On' : 'Off'}
+                  aria-label="Show deleted customers"
+                />
+              </div>
+            </div>
             <div className="field">
               <button className="btn btnPrimary" onClick={() => applyFilters()}>Apply</button>
             </div>
@@ -254,7 +243,7 @@ export default function CustomersPage() {
         <div className="cardBody">
           {loading && items.length === 0 ? (
             <div className="tableWrap">
-              <table>
+              <table className="adminListTable adminCustomersTable">
                 <thead>
                   <tr>
                     <th>Avatar</th>
@@ -264,7 +253,7 @@ export default function CustomersPage() {
                     <th>Status</th>
                     <th>Orders</th>
                     <th>Points</th>
-                    <th></th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -280,7 +269,7 @@ export default function CustomersPage() {
             <EmptyState icon={<UserPlus size={48} />} heading="No customers found" subtext="Try adjusting search or filters." />
           ) : (
             <div className="tableWrap">
-            <table>
+            <table className="adminListTable adminCustomersTable">
               <thead>
                 <tr>
                   <th>Avatar</th>
@@ -290,23 +279,17 @@ export default function CustomersPage() {
                   <th>Status</th>
                   <th>Orders</th>
                   <th>Points</th>
-                  <th></th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {  
                   items.map((c) => (
-                    <tr key={c._id} className="clickableRow" onClick={() => openDetail(c._id)}>
+                    <tr key={c._id} className="clickableRow" onClick={() => goToDetail(c._id)}>
                       <td>
-                        {imgSrc(c.profileImage) ? (
-                          <img
-                            src={imgSrc(c.profileImage)!}
-                            alt=""
-                            style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}
-                          />
-                        ) : (
-                          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>—</div>
-                        )}
+                        <div className="adminTableCellCenter">
+                          <Avatar src={imgSrc(c.profileImage)} name={c.name} size={36} radius={8} />
+                        </div>
                       </td>
                       <td style={{ fontWeight: 700 }}>{c.name}</td>
                       <td className="muted">{c.email ?? '—'}</td>
@@ -318,14 +301,14 @@ export default function CustomersPage() {
                             background: c.status === 'blocked' ? 'var(--danger-light)' : c.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)',
                           }}
                         >
-                          {c.status}
+                          {capitalizeFirst(c.status)}
                         </span>
                       </td>
                       <td>{c.totalOrders ?? c.orderCount ?? 0}</td>
                       <td>{c.points ?? 0}</td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <div className="row" style={{ gap: 6 }}>
-                          <button className="btn" onClick={() => openDetail(c._id)} aria-label="View"><Eye size={16} /></button>
+                        <div className="row adminTableActions" style={{ gap: 6 }}>
+                          <button className="btn" onClick={() => goToDetail(c._id)} aria-label="View"><Eye size={16} /></button>
                           {/* <button className="btn" onClick={() => openEdit(c._id)} aria-label="Edit"><Pencil size={16} /></button> */}
                           {c.status !== 'deleted' && (
                             <button className="btn" onClick={() => openBlockDialog(c._id)} aria-label={c.status === 'blocked' ? 'Unblock' : 'Block'}><Ban size={16} /></button>
@@ -366,19 +349,6 @@ export default function CustomersPage() {
         onSubmit={handleEditSubmit}
         loading={updateLoading}
         error={null}
-      />
-      <CustomerDetailDrawer
-        open={detailOpen}
-        customer={selectedCustomer}
-        orders={customerOrders.items}
-        ordersLoading={ordersLoading}
-        ordersPagination={customerOrders.pagination}
-        onClose={() => setDetailOpen(false)}
-        onFetchOrders={(page) => {
-          if (!selectedCustomer?._id) return;
-          setOrdersLoading(true);
-          void dispatch(fetchCustomerOrders({ id: selectedCustomer._id, page, limit: 10 })).finally(() => setOrdersLoading(false));
-        }}
       />
       <BlockUnblockDialog
         open={blockDialogOpen}
