@@ -74,8 +74,8 @@ export default function OrderDetailPage() {
   }, [order?.statusHistory]);
 
   const customer = asObj<{ name?: string; phone?: string; email?: string }>(order?.customerId);
-  const driver = asObj<{ name?: string; phone?: string; vehicleType?: string; vehiclePlate?: string }>(order?.driverId);
-  const vendor = asObj<{ name?: string; slug?: string; logo?: string }>(order?.vendorId);
+  const driver = asObj<{ name?: string; phone?: string }>(order?.driverId);
+  const vendor = asObj<{ name?: string }>(order?.vendorId);
 
   async function copyPhone(phone?: string) {
     if (!phone) return;
@@ -157,7 +157,6 @@ export default function OrderDetailPage() {
   }
 
   const itemsSubtotal = (order?.items ?? []).reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
-  const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
   const orderAmount = Number(order?.orderAmount ?? order?.total ?? 0);
   const driverFee = Number(order?.driverFee ?? order?.deliveryFee ?? 0);
   const netOrderAmount = Number(order?.netOrderAmount ?? Math.max(0, orderAmount - driverFee));
@@ -209,21 +208,12 @@ export default function OrderDetailPage() {
                     <Copy size={16} /> {driver.phone}
                   </button>
                 ) : null}
-                {(driver?.vehicleType || driver?.vehiclePlate) ? (
-                  <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                    Vehicle: {driver?.vehicleType ?? '—'} {driver?.vehiclePlate ? `(${driver.vehiclePlate})` : ''}
-                  </div>
-                ) : null}
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
                 <div className="muted">Vendor</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>{vendor?.name ?? (order.vendorId ? getId(order.vendorId) : '—') ?? '—'}</div>
-                {vendor?.slug ? <div className="muted" style={{ fontSize: 12 }}>{vendor.slug}</div> : null}
-                {vendor?.logo ? (
-                  <img src={vendor.logo.startsWith('http') ? vendor.logo : `${IMG_BASE}${vendor.logo}`} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />
-                ) : null}
               </div>
             </div>
           </div>
