@@ -1,13 +1,13 @@
 'use client';
 
 import { GripVertical, Pencil, Trash2 } from 'lucide-react';
-import { useToggleCategoryActiveMutation } from '@/store/api';
+// import { useToggleCategoryActiveMutation } from '@/store/api';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 import { translations } from '@/lib/i18n/translations';
 import type { CategoryItem } from '@/store/api';
 
 const CAT_LABELS = { toggleOn: 'Active', toggleOff: 'Inactive' };
-import { Switch } from '@/components/ui/Switch';
+// import { Switch } from '@/components/ui/Switch';
 
 const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
 
@@ -34,7 +34,7 @@ type Props = {
 };
 
 export function CategoryCard({ category, onEdit, onDelete, dragHandleProps, isDragging }: Props) {
-  const [toggleActive, { isLoading: toggling }] = useToggleCategoryActiveMutation();
+  // const [toggleActive, { isLoading: toggling }] = useToggleCategoryActiveMutation();
   const t = useTranslations();
   const cat = t?.categories ?? translations?.en?.categories ?? CAT_LABELS;
   const style = TYPE_STYLES[category.type] ?? TYPE_STYLES.food;
@@ -85,6 +85,7 @@ export function CategoryCard({ category, onEdit, onDelete, dragHandleProps, isDr
         >
           {category.type}
         </span>
+        {/* Active/inactive toggle — hidden for now
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {toggling ? (
             <span className="muted" style={{ fontSize: 12 }}>Updating…</span>
@@ -97,6 +98,7 @@ export function CategoryCard({ category, onEdit, onDelete, dragHandleProps, isDr
           )}
           <span className="muted" style={{ fontSize: 12 }}>{category.isActive ? cat.toggleOn : cat.toggleOff}</span>
         </div>
+        */}
         <div className="row" style={{ justifyContent: 'center', gap: 8 }}>
           <button type="button" className="btn" onClick={() => onEdit(category)} aria-label="Edit category">
             <Pencil size={16} aria-hidden />

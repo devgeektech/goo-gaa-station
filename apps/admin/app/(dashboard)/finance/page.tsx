@@ -268,13 +268,11 @@ export default function FinancePage() {
                   <tr>
                     <th>Order#</th>
                     <th>Vendor</th>
-                    <th>Status</th>
                     <th>Order amt</th>
                     <th>Driver fee</th>
-                    <th>Commission</th>
-                    <th>Admin</th>
+                    <th>Admin commission</th>
                     <th>Vendor</th>
-                    <th>Driver</th>
+                    {/* <th>Driver</th> */}
                     <th>Date</th>
                   </tr>
                 </thead>
@@ -288,13 +286,11 @@ export default function FinancePage() {
                           <Link href={`/orders/${order._id}`} style={{ color: 'var(--primary)' }}>{order.orderNumber}</Link>
                         </td>
                         <td>{vendorName}</td>
-                        <td>{order.status}</td>
                         <td>{formatMoney(r.orderAmount)}</td>
                         <td>{formatMoney(r.driverFee)}</td>
                         <td>{formatMoney(r.commission)}</td>
-                        <td>{formatMoney(r.adminRevenue)}</td>
                         <td style={{ fontWeight: 700 }}>{formatMoney(r.vendorRevenue)}</td>
-                        <td>{formatMoney(r.driverRevenue)}</td>
+                        {/* <td>{formatMoney(r.driverRevenue)}</td> */}
                         <td className="muted">{formatDateTime(order.createdAt)}</td>
                       </tr>
                     );
