@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../constants/driverAssignment';
 import { Order } from '../models/Order';
 import { initiateRefund } from '../services/refundService';
+import { saveVendorInAppNotification } from '../services/vendorNotification.service';
 
 const DRIVER_ASSIGNMENT_TIMEOUT_MINUTES = DRIVER_ASSIGNMENT_WINDOW_MS / 60_000;
 const DRIVER_ASSIGNMENT_TIMEOUT_REASON = `No driver accepted within ${DRIVER_ASSIGNMENT_TIMEOUT_MINUTES} minutes`;
@@ -84,6 +85,19 @@ async function processOneTimeout(io?: SocketIOServer): Promise<boolean> {
     if (claimed.customerId) io.to(`customer:${claimed.customerId}`).emit('order:timeout', payload);
   }
 
+  if (claimed.vendorId) {
+    void saveVendorInAppNotification({
+      vendorId: claimed.vendorId,
+      type: 'order_timeout',
+      title: 'Order response timeout',
+      body: `Order ${claimed.orderNumber ?? ''} was cancelled — no vendor response in time.`.trim(),
+      orderId: claimed._id,
+      orderNumber: claimed.orderNumber ?? null,
+      screen: 'OrderDetail',
+      dedupe: false,
+    });
+  }
+
   console.info('[OrderTimeoutWorker] Completed timeout handling', {
     orderId: String(claimed._id),
     at: new Date().toISOString(),
@@ -143,6 +157,19 @@ async function processOneDriverAssignmentTimeout(io?: SocketIOServer): Promise<b
     io.to('admin').emit('order:driver_assignment_timeout', payload);
     if (claimed.vendorId) io.to(`vendor:${claimed.vendorId}`).emit('order:driver_assignment_timeout', payload);
     if (claimed.customerId) io.to(`customer:${claimed.customerId}`).emit('order:driver_assignment_timeout', payload);
+  }
+
+  if (claimed.vendorId) {
+    void saveVendorInAppNotification({
+      vendorId: claimed.vendorId,
+      type: 'driver_assignment_timeout',
+      title: 'Driver assignment timeout',
+      body: `Order ${claimed.orderNumber ?? ''} was cancelled — no driver accepted in time.`.trim(),
+      orderId: claimed._id,
+      orderNumber: claimed.orderNumber ?? null,
+      screen: 'OrderDetail',
+      dedupe: false,
+    });
   }
 
   return true;

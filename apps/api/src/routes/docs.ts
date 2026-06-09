@@ -74,7 +74,13 @@ export const ROUTES = [
     path: '/api/v1/driver/notifications',
     auth: true,
     description:
-      'Driver in-app notifications — paginated list (query: page, limit, unreadOnly=true). Response data: notifications, unreadCount, pagination.',
+      'Driver in-app notifications — paginated list (query: page, limit, unreadOnly=true). Response data: notifications (type, iconKey, title, body, read, orderId, orderNumber, screen, …), unreadCount, pagination.',
+  },
+  {
+    method: 'PATCH',
+    path: '/api/v1/driver/notifications/:id/read',
+    auth: true,
+    description: 'Driver notifications: mark one notification as read (must belong to authenticated driver).',
   },
   {
     method: 'PATCH',
@@ -208,6 +214,25 @@ export const ROUTES = [
   { method: 'PATCH', path: '/api/v1/vendor/profile/operating-hours', auth: true, description: 'Vendor: replace operatingHours (JSON body); requires all 7 days; 422 on validation errors' },
   { method: 'POST', path: '/api/v1/vendor/profile/fcm-token', auth: true, description: 'Vendor self profile: register FCM token (body: token required, device optional; max 5)' },
   { method: 'DELETE', path: '/api/v1/vendor/profile/fcm-token', auth: true, description: 'Vendor self profile: remove FCM token (body: token required)' },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/notifications',
+    auth: true,
+    description:
+      'Vendor in-app notifications — paginated list (query: page, limit, unreadOnly=true). Response data: notifications (type, iconKey, title, body, read, orderId, orderNumber, screen, …), unreadCount, pagination.',
+  },
+  {
+    method: 'PATCH',
+    path: '/api/v1/vendor/notifications/:id/read',
+    auth: true,
+    description: 'Vendor notifications: mark one notification as read (must belong to authenticated vendor).',
+  },
+  {
+    method: 'PATCH',
+    path: '/api/v1/vendor/notifications/read-all',
+    auth: true,
+    description: 'Vendor notifications: mark all as read; returns data.updated.',
+  },
   { method: 'POST', path: '/api/v1/vendor/products', auth: true, description: 'Vendor: create product (multipart: name, price, category required; description, image optional); emits product:created' },
   { method: 'PATCH', path: '/api/v1/vendor/products/:id', auth: true, description: 'Vendor: update product (multipart, all optional); replace image if uploaded' },
   { method: 'PATCH', path: '/api/v1/vendor/products/:id/toggle', auth: true, description: 'Vendor: toggle isAvailable (Stock); emits product:toggled when set to false' },

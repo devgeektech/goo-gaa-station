@@ -12,6 +12,7 @@ import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPr
 import { computeOrderFinancials } from '../../services/orderFinancials.service';
 import { getPlatformCommissionRate } from '../../services/appSettings.service';
 import type { Server as SocketIOServer } from 'socket.io';
+import { saveVendorInAppNotification } from '../../services/vendorNotification.service';
 
 const ACTIVE_STATUSES = ['pending', 'placed', 'accepted', 'confirmed', 'preparing', 'picked_up', 'on_the_way'] as const;
 
@@ -223,6 +224,16 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     io.to(`vendor:${vendorId}`).emit('vendor:orders:new_snapshot', vendorSnapshotPayload);
   }
 
+  void saveVendorInAppNotification({
+    vendorId,
+    type: 'order_new',
+    title: 'New Order Received! 🔔',
+    body: `Order ${order.orderNumber} — $${order.total}. Please accept the order.`,
+    orderId: order._id,
+    orderNumber: order.orderNumber ?? null,
+    screen: 'NewOrders',
+  });
+
   return sendSuccess(
     res,
     {
@@ -331,6 +342,17 @@ export const cancelOrder = asyncHandler(async (req: Request, res: Response) => {
     io.to('admin').emit('order:cancelled', payload);
     io.to(`vendor:${order.vendorId}`).emit('order:cancelled', payload);
   }
+
+  void saveVendorInAppNotification({
+    vendorId: order.vendorId,
+    type: 'order_cancelled',
+    title: 'Order cancelled',
+    body: `Order ${order.orderNumber} was cancelled by the customer.`,
+    orderId: order._id,
+    orderNumber: order.orderNumber ?? null,
+    screen: 'OrderDetail',
+    dedupe: false,
+  });
 
   return sendSuccess(res, { _id: order._id, orderNumber: order.orderNumber, status: order.status });
 });

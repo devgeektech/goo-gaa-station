@@ -12,6 +12,7 @@ import { parsePagination } from '../../utils/pagination';
 import { transitionOrderStatus } from '../../services/orderStatus.service';
 import { sendPushToCustomer, sendPushToVendor } from '../../services/fcm.service';
 import { saveCustomerInAppNotification } from '../../services/customerNotification.service';
+import { saveVendorInAppNotification } from '../../services/vendorNotification.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const STATUS_FLOW = ['accepted', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered'] as const;
@@ -221,6 +222,15 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
       driverVehicle: driverVehicle || null,
       driverLocation,
       status: 'preparing',
+    });
+    void saveVendorInAppNotification({
+      vendorId: updated.vendorId,
+      type: 'driver_assigned',
+      title: 'Driver assigned',
+      body: `${driver.name ?? 'A driver'} has been assigned to order ${(updated as { orderNumber?: string }).orderNumber ?? ''}.`.trim(),
+      orderId: updated._id,
+      orderNumber: (updated as { orderNumber?: string }).orderNumber ?? null,
+      screen: 'OrderDetail',
     });
     io.to(`customer:${updated.customerId}`).emit('order:preparing', {
       orderId: updated._id,
@@ -664,6 +674,15 @@ export const pickupOrder = asyncHandler(async (req: Request, res: Response) => {
       message: 'Your order has been picked up by the driver.',
     });
     io.to(`vendor:${order.vendorId}`).emit('order:status_updated', { orderId: order._id, status: 'picked_up' });
+    void saveVendorInAppNotification({
+      vendorId: order.vendorId,
+      type: 'order_picked_up',
+      title: 'Order picked up',
+      body: `${driver.name ?? 'Driver'} picked up order ${(order as { orderNumber?: string }).orderNumber ?? ''}.`.trim(),
+      orderId: order._id,
+      orderNumber: (order as { orderNumber?: string }).orderNumber ?? null,
+      screen: 'OrderDetail',
+    });
   }
 
   try {
@@ -800,6 +819,15 @@ export const deliverOrder = asyncHandler(async (req: Request, res: Response) => 
       message: 'Your order has been delivered.',
     });
     io.to(`vendor:${order.vendorId}`).emit('order:delivered', { orderId: order._id, status: 'delivered' });
+    void saveVendorInAppNotification({
+      vendorId: order.vendorId,
+      type: 'order_delivered',
+      title: 'Order delivered',
+      body: `Order ${(order as { orderNumber?: string }).orderNumber ?? ''} has been delivered.`.trim(),
+      orderId: order._id,
+      orderNumber: (order as { orderNumber?: string }).orderNumber ?? null,
+      screen: 'OrderDetail',
+    });
     io.to('admin').emit('order:delivered', {
       orderId: order._id,
       vendorId: order.vendorId,

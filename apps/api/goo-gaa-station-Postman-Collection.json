@@ -692,7 +692,7 @@
     },
     {
       "name": "Driver – Live location & notifications",
-      "description": "Update GPS (`PATCH /driver/location`) and manage in-app notifications (`GET` list, `PATCH …/read-all`). Bearer {{driverAccessToken}}.",
+      "description": "Update GPS (`PATCH /driver/location`) and manage in-app notifications (`GET` list, `PATCH …/:id/read`, `PATCH …/read-all`). Bearer {{driverAccessToken}}.",
       "item": [
         {
           "name": "PATCH live location (REST + socket driver:location)",
@@ -725,6 +725,15 @@
                 { "key": "unreadOnly", "value": "false", "description": "Set to true to list only unread" }
               ]
             }
+          }
+        },
+        {
+          "name": "PATCH mark one notification read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/notifications/{{notificationId}}/read",
+            "description": "Mark a single notification as read. Set notificationId from GET notifications list."
           }
         },
         {
@@ -957,6 +966,45 @@
             },
             "url": "{{baseUrl}}/api/v1/vendor/profile/operating-hours",
             "description": "Replaces full 7-day operatingHours array. Returns 422 on validation errors."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendor – Notifications",
+      "description": "Vendor in-app notification inbox. Bearer {{vendorAccessToken}}. authVendor + requireApproved.",
+      "item": [
+        {
+          "name": "GET notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vendor/notifications?page=1&limit=20&unreadOnly=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vendor", "notifications"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "unreadOnly", "value": "false" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH mark one notification read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/notifications/{{notificationId}}/read"
+          }
+        },
+        {
+          "name": "PATCH mark all notifications read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/notifications/read-all"
           }
         }
       ]

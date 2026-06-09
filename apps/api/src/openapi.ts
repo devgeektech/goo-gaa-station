@@ -178,6 +178,10 @@ function getQueryParametersForRoute(opKey: string): Record<string, unknown>[] {
       ...paginationParams,
       query('unreadOnly', { type: 'string', enum: ['true', 'false'] }, false, 'If true, only unread notifications (read=false)'),
     ],
+    'GET /api/v1/vendor/notifications': [
+      ...paginationParams,
+      query('unreadOnly', { type: 'string', enum: ['true', 'false'] }, false, 'If true, only unread notifications (read=false)'),
+    ],
     'GET /api/v1/driver/earnings': [],
     'GET /api/v1/driver/dashboard': [],
     'GET /api/v1/app/driver/earnings': [],
@@ -1647,6 +1651,33 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
         },
       },
     },
+    'PATCH /api/v1/driver/notifications/:id/read': {
+      description: 'Success — one notification marked read',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  _id: { type: 'string' },
+                  type: { type: 'string' },
+                  iconKey: { type: 'string' },
+                  title: { type: 'string' },
+                  body: { type: 'string' },
+                  read: { type: 'boolean', example: true },
+                  orderId: { type: 'string', nullable: true },
+                  orderNumber: { type: 'string', nullable: true },
+                  screen: { type: 'string', nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     'PATCH /api/v1/driver/notifications/read-all': {
       description: 'Success — all notifications marked read',
       content: {
@@ -1659,6 +1690,55 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
             },
           },
           example: { success: true, data: { updated: 3 } },
+        },
+      },
+    },
+    'GET /api/v1/vendor/notifications': {
+      description: 'Success — paginated vendor notifications + unreadCount',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  notifications: { type: 'array', items: { type: 'object' } },
+                  unreadCount: { type: 'integer', example: 1 },
+                  pagination: { type: 'object' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    'PATCH /api/v1/vendor/notifications/:id/read': {
+      description: 'Success — one vendor notification marked read',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: { type: 'object' },
+            },
+          },
+        },
+      },
+    },
+    'PATCH /api/v1/vendor/notifications/read-all': {
+      description: 'Success — all vendor notifications marked read',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: { type: 'object', properties: { updated: { type: 'integer', example: 2 } } },
+            },
+          },
         },
       },
     },

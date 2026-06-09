@@ -21,6 +21,7 @@ import {
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import { initiatePayment } from '../../services/wifipay.service';
 import { sendPushToVendor } from '../../services/fcm.service';
+import { saveVendorInAppNotification } from '../../services/vendorNotification.service';
 import { VENDOR_RESPONSE_WINDOW_MS } from '../../constants/vendorResponse';
 import type { Server as SocketIOServer } from 'socket.io';
 
@@ -486,10 +487,21 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     io.to(`vendor:${vendorId}`).emit('vendor:orders:new_snapshot', vendorSnapshotPayload);
   }
 
+  const placedItemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
+  void saveVendorInAppNotification({
+    vendorId,
+    type: 'order_new',
+    title: 'New Order Received! 🔔',
+    body: `Order ${order.orderNumber} — ${placedItemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
+    orderId: order._id,
+    orderNumber: order.orderNumber ?? null,
+    screen: 'NewOrders',
+  });
+
   try {
     const vendorDoc = await Vendor.findById(vendorId).select('fcmTokens').lean();
     if (vendorDoc) {
-      const itemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
+      const itemCount = placedItemCount;
       const orderForVendorLog = await Order.findById(order._id)
         .populate('customerId', 'name phone')
         .lean();
@@ -671,6 +683,17 @@ export const cancelOrder = asyncHandler(async (req: Request, res: Response) => {
     io.to('admin').emit('order:cancelled', { orderId: order._id, orderNumber: order.orderNumber, status: 'cancelled' });
     io.to(`vendor:${order.vendorId}`).emit('order:cancelled', { orderId: order._id, orderNumber: order.orderNumber, status: 'cancelled' });
   }
+
+  void saveVendorInAppNotification({
+    vendorId: order.vendorId,
+    type: 'order_cancelled',
+    title: 'Order cancelled',
+    body: `Order ${order.orderNumber} was cancelled by the customer.`,
+    orderId: order._id,
+    orderNumber: order.orderNumber ?? null,
+    screen: 'OrderDetail',
+    dedupe: false,
+  });
 
   return sendSuccess(res, {
     _id: order._id,
