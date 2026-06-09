@@ -94,3 +94,26 @@ export const markAllRead = asyncHandler(async (req: Request, res: Response) => {
 
   return sendSuccess(res, { updated: result.modifiedCount });
 });
+
+/** DELETE /api/v1/driver/notifications/:id */
+export const deleteNotification = asyncHandler(async (req: Request, res: Response) => {
+  const driverDoc = req.driver;
+  const id = req.params.id;
+  if (!driverDoc?._id) {
+    throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
+  }
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError({ en: 'Notification not found', de: 'Benachrichtigung nicht gefunden' }, 404);
+  }
+
+  const deleted = await DN.findOneAndDelete({
+    _id: id,
+    driver: driverDoc._id,
+  }).lean();
+
+  if (!deleted) {
+    throw new AppError({ en: 'Notification not found', de: 'Benachrichtigung nicht gefunden' }, 404);
+  }
+
+  return sendSuccess(res, { deleted: true, _id: id });
+});

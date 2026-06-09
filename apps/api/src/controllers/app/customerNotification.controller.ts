@@ -81,3 +81,26 @@ export const markCustomerNotificationRead = asyncHandler(async (req: Request, re
 
   return sendSuccess(res, toListItem(updated as Record<string, unknown>));
 });
+
+/** DELETE /api/v1/app/customer/notifications/:id */
+export const deleteCustomerNotification = asyncHandler(async (req: Request, res: Response) => {
+  const customerId = req.user?._id;
+  const id = req.params.id;
+  if (!customerId) {
+    throw new AppError({ en: MESSAGES.AUTH.en.unauthorized, de: MESSAGES.AUTH.de.unauthorized }, 401);
+  }
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError({ en: 'Notification not found', de: 'Benachrichtigung nicht gefunden' }, 404);
+  }
+
+  const deleted = await CN.findOneAndDelete({
+    _id: id,
+    customer: new mongoose.Types.ObjectId(String(customerId)),
+  }).lean();
+
+  if (!deleted) {
+    throw new AppError({ en: 'Notification not found', de: 'Benachrichtigung nicht gefunden' }, 404);
+  }
+
+  return sendSuccess(res, { deleted: true, _id: id });
+});

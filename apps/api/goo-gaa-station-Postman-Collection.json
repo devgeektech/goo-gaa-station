@@ -743,6 +743,14 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/driver/notifications/read-all"
           }
+        },
+        {
+          "name": "DELETE notification",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{driverAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/driver/notifications/{{notificationId}}"
+          }
         }
       ]
     },
@@ -1005,6 +1013,14 @@
             "method": "PATCH",
             "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
             "url": "{{baseUrl}}/api/v1/vendor/notifications/read-all"
+          }
+        },
+        {
+          "name": "DELETE notification",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{vendorAccessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/vendor/notifications/{{notificationId}}"
           }
         }
       ]

@@ -89,6 +89,12 @@ export const ROUTES = [
     description: 'Driver notifications: mark all as read for the authenticated driver; returns data.updated (MongoDB modified count).',
   },
   {
+    method: 'DELETE',
+    path: '/api/v1/driver/notifications/:id',
+    auth: true,
+    description: 'Driver notifications: delete one notification (must belong to authenticated driver). Returns data.deleted true.',
+  },
+  {
     method: 'GET',
     path: '/api/v1/driver/earnings',
     auth: true,
@@ -233,6 +239,12 @@ export const ROUTES = [
     auth: true,
     description: 'Vendor notifications: mark all as read; returns data.updated.',
   },
+  {
+    method: 'DELETE',
+    path: '/api/v1/vendor/notifications/:id',
+    auth: true,
+    description: 'Vendor notifications: delete one notification (must belong to authenticated vendor). Returns data.deleted true.',
+  },
   { method: 'POST', path: '/api/v1/vendor/products', auth: true, description: 'Vendor: create product (multipart: name, price, category required; description, image optional); emits product:created' },
   { method: 'PATCH', path: '/api/v1/vendor/products/:id', auth: true, description: 'Vendor: update product (multipart, all optional); replace image if uploaded' },
   { method: 'PATCH', path: '/api/v1/vendor/products/:id/toggle', auth: true, description: 'Vendor: toggle isAvailable (Stock); emits product:toggled when set to false' },
@@ -285,6 +297,12 @@ export const ROUTES = [
     path: '/api/v1/app/customer/notifications/:id/read',
     auth: true,
     description: 'Mark one customer notification as read (must belong to authenticated user).',
+  },
+  {
+    method: 'DELETE',
+    path: '/api/v1/app/customer/notifications/:id',
+    auth: true,
+    description: 'Delete one customer notification (must belong to authenticated user). Returns data.deleted true.',
   },
   {
     method: 'GET',

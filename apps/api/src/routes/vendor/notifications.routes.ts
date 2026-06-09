@@ -4,6 +4,7 @@ import {
   listVendorNotifications,
   markVendorNotificationRead,
   markAllVendorNotificationsRead,
+  deleteVendorNotification,
 } from '../../controllers/vendor/notification.controller';
 
 const router = Router();
@@ -12,5 +13,6 @@ router.get('/', listVendorNotifications);
 router.patch('/read-all', markAllVendorNotificationsRead);
 router.param('id', validateIdParam);
 router.patch('/:id/read', markVendorNotificationRead);
+router.delete('/:id', deleteVendorNotification);
 
 export default router;

@@ -95,3 +95,26 @@ export const markAllVendorNotificationsRead = asyncHandler(async (req: Request, 
 
   return sendSuccess(res, { updated: result.modifiedCount });
 });
+
+/** DELETE /api/v1/vendor/notifications/:id */
+export const deleteVendorNotification = asyncHandler(async (req: Request, res: Response) => {
+  const vendorId = req.vendor?._id;
+  const id = req.params.id;
+  if (!vendorId) {
+    throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
+  }
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new AppError({ en: 'Notification not found', de: 'Benachrichtigung nicht gefunden' }, 404);
+  }
+
+  const deleted = await VN.findOneAndDelete({
+    _id: id,
+    vendor: new mongoose.Types.ObjectId(String(vendorId)),
+  }).lean();
+
+  if (!deleted) {
+    throw new AppError({ en: 'Notification not found', de: 'Benachrichtigung nicht gefunden' }, 404);
+  }
+
+  return sendSuccess(res, { deleted: true, _id: id });
+});

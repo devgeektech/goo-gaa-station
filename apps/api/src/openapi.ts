@@ -1742,6 +1742,43 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
         },
       },
     },
+    'DELETE /api/v1/app/customer/notifications/:id': {
+      description: 'Success — customer notification deleted',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean', example: true },
+              data: {
+                type: 'object',
+                properties: {
+                  deleted: { type: 'boolean', example: true },
+                  _id: { type: 'string' },
+                },
+              },
+            },
+          },
+          example: { success: true, data: { deleted: true, _id: '507f1f77bcf86cd799439011' } },
+        },
+      },
+    },
+    'DELETE /api/v1/driver/notifications/:id': {
+      description: 'Success — driver notification deleted',
+      content: {
+        'application/json': {
+          example: { success: true, data: { deleted: true, _id: '507f1f77bcf86cd799439011' } },
+        },
+      },
+    },
+    'DELETE /api/v1/vendor/notifications/:id': {
+      description: 'Success — vendor notification deleted',
+      content: {
+        'application/json': {
+          example: { success: true, data: { deleted: true, _id: '507f1f77bcf86cd799439011' } },
+        },
+      },
+    },
     'GET /api/v1/driver/orders/:id/detail': {
       description: 'Success — delivery detail payload (map, pickup, dropoff, items, earnings)',
       content: {
