@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { formatDriverRating } from '@/lib/utils/driverRating';
-import { accountStatusBadge, approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
+import { approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
 import { formatVehicleType } from '@/lib/utils/format';
 
 const STATUS_OPTIONS = [
@@ -366,7 +366,7 @@ export default function DriversPage() {
                         <th>Phone</th>
                         <th>License</th>
                         <th>Approval</th>
-                        <th>Account Status</th>
+                        {/* <th>Account Status</th> */}
                         <th>Online status</th>
                         <th>Vehicle</th>
                         <th>Rating</th>
@@ -375,7 +375,7 @@ export default function DriversPage() {
                     </thead>
                     <tbody>
                       {Array.from({ length: 6 }).map((_, i) => (
-                        <tr key={i}><td colSpan={10}><Skeleton height={18} /></td></tr>
+                        <tr key={i}><td colSpan={9}><Skeleton height={18} /></td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -393,7 +393,7 @@ export default function DriversPage() {
                       <th>Phone</th>
                       <th>License</th>
                       <th>Approval</th>
-                      <th>Account Status</th>
+                      {/* <th>Account Status</th> */}
                       <th>Online status</th>
                       <th>Vehicle</th>
                       <th>Rating</th>
@@ -424,9 +424,9 @@ export default function DriversPage() {
                           <td>
                             <span className="badge" style={{ background: approvalStatusBadge(d.approvalStatus).background }}>{approvalStatusBadge(d.approvalStatus).label}</span>
                           </td>
-                          <td>
+                          {/* <td>
                             <span className="badge" style={{ background: accountStatusBadge(d.status).background }}>{accountStatusBadge(d.status).label}</span>
-                          </td>
+                          </td> */}
                           <td>
                             <span className="badge" style={{ background: onlineStatusBadge(d.isOnline).background }}>
                               {onlineStatusBadge(d.isOnline).label}

@@ -253,7 +253,7 @@ export default function VendorsPage() {
                     <th>Logo</th>
                     <th>Name</th>
                     <th>Approval</th>
-                    <th>Account status</th>
+                    {/* <th>Account status</th> */}
                     <th>Rating</th>
                     <th>Revenue</th>
                     <th>Orders</th>
@@ -277,7 +277,7 @@ export default function VendorsPage() {
                   <th>Logo</th>
                   <th>Name</th>
                   <th>Approval</th>
-                  <th>Account status</th>
+                  {/* <th>Account status</th> */}
                   <th>Rating</th>
                   <th>Revenue</th>
                   <th>Orders</th>
@@ -302,9 +302,9 @@ export default function VendorsPage() {
                       <td>
                         <span className="badge" style={ab.style}>{ab.label}</span>
                       </td>
-                      <td>
+                      {/* <td>
                         <span className="badge" style={{ background: v.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{v.status}</span>
-                      </td>
+                      </td> */}
                       <td className="muted">—</td>
                       <td style={{ fontWeight: 700 }}>{formatMoney(v.revenue ?? 0)}</td>
                       <td className="muted">—</td>
