@@ -20,13 +20,15 @@ import {
 } from '../../utils/orderTrackLocations';
 import { syncPreferredAddressFromOrderDelivery } from '../../services/customerPreferredAddress.service';
 import { initiatePayment } from '../../services/wifipay.service';
-import { sendPushToVendor } from '../../services/fcm.service';
-import { saveVendorInAppNotification } from '../../services/vendorNotification.service';
-import { VENDOR_RESPONSE_WINDOW_MS } from '../../constants/vendorResponse';
+import { CUSTOMER_CANCEL_WINDOW_MS } from '../../constants/customerCancel';
+import {
+  customerCancelRemainingSeconds,
+  isBeforeVendorNotification,
+} from '../../services/vendorOrderNotify.service';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const MAX_ORDER_RADIUS_KM = 30;
-const ACTIVE_STATUSES = ['pending', 'accepted', 'preparing', 'picked_up', 'on_the_way'] as const;
+const ACTIVE_STATUSES = ['pending', 'vendor_notified', 'accepted', 'preparing', 'picked_up', 'on_the_way'] as const;
 
 function getCurrentDayKey(now: Date): 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' {
   const days: Array<'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'> = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -103,39 +105,6 @@ function isVendorAvailableNow(vendor: any, now: Date): boolean {
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
-}
-
-function withRemainingTime<T extends Record<string, unknown>>(order: T): T & { remainingTime: number } {
-  const deadline = (order as { vendorResponseDeadline?: Date | string | null }).vendorResponseDeadline;
-  if (!deadline) return { ...(order as object), remainingTime: 0 } as T & { remainingTime: number };
-  const ms = new Date(deadline).getTime() - Date.now();
-  return {
-    ...(order as object),
-    remainingTime: Math.max(0, Math.ceil(ms / 1000)),
-  } as T & { remainingTime: number };
-}
-
-async function buildVendorNewOrdersSocketPayload(vendorId: string): Promise<Record<string, unknown>> {
-  const page = 1;
-  const limit = 20;
-  const filter: Record<string, unknown> = {
-    vendorId: new mongoose.Types.ObjectId(String(vendorId)),
-    status: 'vendor_notified',
-  };
-  const [orders, total] = await Promise.all([
-    Order.find(filter)
-      .populate('customerId', 'name phone')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    Order.countDocuments(filter),
-  ]);
-  const pages = Math.ceil(total / limit) || 1;
-  const withTimer = orders.map((o) => withRemainingTime(o as Record<string, unknown>));
-  return {
-    data: { orders: withTimer, total, page, pages },
-  };
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -405,6 +374,9 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   }
   WIFIPAY_END */
 
+  const placedAt = new Date();
+  const customerCancelDeadline = new Date(placedAt.getTime() + CUSTOMER_CANCEL_WINDOW_MS);
+
   const order = await Order.create({
     orderNumber,
     customerId: customerIdObj,
@@ -415,7 +387,9 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     discount,
     total: totalAmount,
     status: 'pending',
-    statusHistory: [{ status: 'pending', timestamp: new Date(), changedByModel: 'User' }],
+    statusHistory: [{ status: 'pending', timestamp: placedAt, changedByModel: 'User' }],
+    customerCancelDeadline,
+    vendorNotifiedAt: null,
     paymentStatus,
     paymentMethod: 'wifipay',
     wifipayRef,
@@ -433,21 +407,6 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     deliveryOtp,
   });
 
-  const vendorNotifyAt = new Date();
-  const vendorResponseDeadline = new Date(vendorNotifyAt.getTime() + VENDOR_RESPONSE_WINDOW_MS);
-  order.status = 'vendor_notified';
-  (order as unknown as { vendorResponseDeadline: Date }).vendorResponseDeadline = vendorResponseDeadline;
-  (order as unknown as { vendorResponseStatus: 'pending' | 'accepted' | 'rejected' | 'timeout' }).vendorResponseStatus = 'pending';
-  const history = (order as unknown as { statusHistory?: Array<Record<string, unknown>> }).statusHistory ?? [];
-  history.push({
-    status: 'vendor_notified',
-    timestamp: vendorNotifyAt,
-    updatedBy: 'system',
-    changedByModel: 'System',
-  });
-  (order as unknown as { statusHistory: typeof history }).statusHistory = history;
-  await order.save();
-
   await syncPreferredAddressFromOrderDelivery(String(customerId), addr);
 
   await User.findByIdAndUpdate(customerIdObj, {
@@ -459,109 +418,31 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
 
   await Cart.deleteOne({ customer: customerIdObj });
 
+  const cancelRemainingSeconds = customerCancelRemainingSeconds(customerCancelDeadline);
   const io = getIo(req);
-  const remainingSeconds = Math.max(0, Math.ceil(VENDOR_RESPONSE_WINDOW_MS / 1000));
-  const newOrderRealtimePayload = {
-    orderId: order._id,
-    orderNumber: order.orderNumber,
-    items: orderItems,
-    totalAmount: order.total,
-    paymentMethod: order.paymentMethod,
-    vendorResponseDeadline: vendorResponseDeadline.toISOString(),
-    remainingSeconds,
-  };
   if (io) {
-    io.to('admin').emit('order:new', { ...newOrderRealtimePayload, vendorId });
+    io.to('admin').emit('order:placed', {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      vendorId,
+      status: 'pending',
+      customerCancelDeadline: customerCancelDeadline.toISOString(),
+      cancelRemainingSeconds,
+    });
     io.to(`customer:${customerIdObj}`).emit('order:placed', {
       orderId: order._id,
       orderNumber: order.orderNumber,
       status: 'placed',
+      customerCancelDeadline: customerCancelDeadline.toISOString(),
+      cancelRemainingSeconds,
     });
     io.to(`customer:${customerIdObj}`).emit('order:status_updated', {
       orderId: order._id,
       status: 'placed',
-      message: 'Your order has been placed.',
+      message: 'Your order has been placed. You can cancel within 30 seconds.',
+      customerCancelDeadline: customerCancelDeadline.toISOString(),
+      cancelRemainingSeconds,
     });
-    const vendorSnapshotPayload = await buildVendorNewOrdersSocketPayload(String(vendorId));
-    io.to(`vendor:${vendorId}`).emit('order:new', vendorSnapshotPayload);
-    io.to(`vendor:${vendorId}`).emit('vendor:orders:new_snapshot', vendorSnapshotPayload);
-  }
-
-  const placedItemCount = orderItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
-  void saveVendorInAppNotification({
-    vendorId,
-    type: 'order_new',
-    title: 'New Order Received! 🔔',
-    body: `Order ${order.orderNumber} — ${placedItemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
-    orderId: order._id,
-    orderNumber: order.orderNumber ?? null,
-    screen: 'NewOrders',
-  });
-
-  try {
-    const vendorDoc = await Vendor.findById(vendorId).select('fcmTokens').lean();
-    if (vendorDoc) {
-      const itemCount = placedItemCount;
-      const orderForVendorLog = await Order.findById(order._id)
-        .populate('customerId', 'name phone')
-        .lean();
-      const vendorOrderPayload =
-        orderForVendorLog
-          ? {
-              ...orderForVendorLog,
-              remainingTime: Math.max(
-                0,
-                Math.ceil((new Date(orderForVendorLog.vendorResponseDeadline as Date | string).getTime() - Date.now()) / 1000)
-              ),
-            }
-          : null;
-      const vendorOrderPayloadJson = vendorOrderPayload ? JSON.stringify(vendorOrderPayload) : '';
-      const pushPayload = {
-        title: 'New Order Received! 🔔',
-        body: `Order ${order.orderNumber} — ${itemCount} item(s) — $${order.total}. Accept within ${remainingSeconds} seconds!`,
-        data: {
-          screen: 'NewOrders',
-          orderId: String(order._id),
-          vendorId: String(vendorId),
-          orderPayload: vendorOrderPayloadJson,
-        },
-      };
-      const vendorTokenCount = ((vendorDoc as { fcmTokens?: Array<{ token?: string | null }> })?.fcmTokens ?? [])
-        .map((t) => t?.token ?? '')
-        .filter(Boolean).length;
-      // eslint-disable-next-line no-console -- debug aid for production FCM verification
-      console.log('[FCM][Vendor][OrderPlaced] preparing vendor push', {
-        vendorId: String(vendorId),
-        orderId: String(order._id),
-        orderNumber: order.orderNumber,
-        tokenCount: vendorTokenCount,
-        orderPayload: vendorOrderPayload ?? (order.toObject?.() ?? order),
-        realtimePayload: newOrderRealtimePayload,
-        fcmPayload: pushPayload,
-      });
-      const pushRes = await sendPushToVendor(vendorDoc as { _id?: unknown; fcmTokens?: Array<{ token: string }> }, pushPayload);
-      // eslint-disable-next-line no-console -- debug aid for production FCM verification
-      console.log('[FCM][Vendor][OrderPlaced] push result', {
-        vendorId: String(vendorId),
-        orderId: String(order._id),
-        success: pushRes.success,
-        failed: pushRes.failed,
-      });
-    } else {
-      // eslint-disable-next-line no-console -- debug aid for missing vendor record during push
-      console.warn('[FCM][Vendor][OrderPlaced] vendor not found, skipping push', {
-        vendorId: String(vendorId),
-        orderId: String(order._id),
-      });
-    }
-  } catch (err) {
-    // eslint-disable-next-line no-console -- debug aid when Firebase/token send fails
-    console.error('[FCM][Vendor][OrderPlaced] push failed', {
-      vendorId: String(vendorId),
-      orderId: String(order._id),
-      error: err instanceof Error ? err.message : String(err),
-    });
-    // Do not fail order placement if vendor push fails.
   }
 
   return sendSuccess(
@@ -592,6 +473,8 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
       createdAt: order.createdAt,
+      customerCancelDeadline: customerCancelDeadline.toISOString(),
+      cancelRemainingSeconds,
     },
     200
   );
@@ -646,54 +529,123 @@ export const getOrder = asyncHandler(async (req: Request, res: Response) => {
     _id: (out as { _id?: unknown })._id,
   });
   out.grandTotal = (out as { total?: number }).total ?? null;
+  const deadline = (out as { customerCancelDeadline?: Date | string | null }).customerCancelDeadline;
+  if (deadline && isBeforeVendorNotification(out as { status?: string; vendorNotifiedAt?: Date | string | null })) {
+    out.customerCancelDeadline = new Date(deadline).toISOString();
+    out.cancelRemainingSeconds = customerCancelRemainingSeconds(deadline);
+  }
   return sendSuccess(res, mapOrderStatusForCustomer(out));
 });
 
-/** POST /:id/cancel — Cancel order (pending|accepted only); restore points if discount > 0 */
+/** POST /:id/cancel — Customer may cancel only within 30s grace (pending, vendor not yet notified) */
 export const cancelOrder = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user?._id;
   const id = req.params.id;
-  const reason = (req.body ?? {}).reason ?? 'Cancelled by customer';
+  const reason = typeof (req.body ?? {}).reason === 'string' ? String((req.body ?? {}).reason) : 'Cancelled by customer';
   if (!customerId) throw new AppError({ en: 'Unauthorized', de: 'Nicht autorisiert' }, 401, 'UNAUTHORIZED');
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new AppError({ en: 'Order not found', de: 'Bestellung nicht gefunden' }, 404, 'NOT_FOUND');
   }
 
-  const order = await Order.findOne({ _id: id, customerId: new mongoose.Types.ObjectId(customerId) });
-  if (!order) throw new AppError({ en: 'Order not found', de: 'Bestellung nicht gefunden' }, 404, 'NOT_FOUND');
-  if (order.status !== 'pending' && order.status !== 'accepted') {
-    throw new AppError({ en: 'Order can only be cancelled when pending or accepted', de: 'Nur ausstehende Bestellungen stornierbar' }, 400, 'INVALID_STATUS');
+  const customerIdObj = new mongoose.Types.ObjectId(customerId);
+  const now = new Date();
+  const cancelHistory = {
+    status: 'cancelled',
+    timestamp: now,
+    note: reason,
+    changedByModel: 'User' as const,
+  };
+
+  type CancelledOrder = {
+    _id: mongoose.Types.ObjectId;
+    orderNumber?: string | null;
+    customerId?: mongoose.Types.ObjectId | string;
+    discount?: number;
+    total?: number;
+    paymentMethod?: string | null;
+    paymentStatus?: string | null;
+    wifipayRef?: string | null;
+    status: string;
+  };
+
+  const order = (await Order.findOneAndUpdate(
+    {
+      _id: id,
+      customerId: customerIdObj,
+      status: 'pending',
+      vendorNotifiedAt: null,
+      customerCancelDeadline: { $gt: now },
+    },
+    {
+      $set: { status: 'cancelled', cancelledBy: 'customer', cancellationReason: reason },
+      $push: { statusHistory: cancelHistory },
+    },
+    { new: true }
+  ).lean()) as unknown as CancelledOrder | null;
+
+  if (!order) {
+    const existing = await Order.findOne({ _id: id, customerId: customerIdObj })
+      .select('status customerCancelDeadline vendorNotifiedAt')
+      .lean();
+    if (!existing) {
+      throw new AppError({ en: 'Order not found', de: 'Bestellung nicht gefunden' }, 404, 'NOT_FOUND');
+    }
+    const graceExpired =
+      existing.status === 'pending' &&
+      !(existing as { vendorNotifiedAt?: Date | null }).vendorNotifiedAt &&
+      (existing as { customerCancelDeadline?: Date | null }).customerCancelDeadline &&
+      new Date((existing as { customerCancelDeadline: Date }).customerCancelDeadline).getTime() <= now.getTime();
+    if (graceExpired) {
+      throw new AppError(
+        { en: 'Cancel window has expired; order is being sent to the vendor', de: 'Stornierungsfenster abgelaufen; Bestellung wird an den Anbieter gesendet' },
+        400,
+        'CANCEL_WINDOW_EXPIRED'
+      );
+    }
+    throw new AppError(
+      { en: 'Order can only be cancelled within 30 seconds of placement, before it is sent to the vendor', de: 'Stornierung nur innerhalb von 30 Sekunden und vor Benachrichtigung des Anbieters möglich' },
+      400,
+      'INVALID_STATUS'
+    );
   }
 
   const discount = order.discount ?? 0;
-  if (discount > 0 && User.schema.paths.points) {
-    await User.findByIdAndUpdate(customerId, { $inc: { points: discount } });
-  }
-
-  order.status = 'cancelled';
-  order.cancelledBy = 'customer';
-  order.cancellationReason = typeof reason === 'string' ? reason : 'Cancelled by customer';
-  const history = (order as { statusHistory?: Array<{ status: string; timestamp: Date; note?: string; changedByModel?: string }> }).statusHistory ?? [];
-  history.push({ status: 'cancelled', timestamp: new Date(), note: order.cancellationReason ?? undefined, changedByModel: 'User' });
-  (order as { statusHistory: typeof history }).statusHistory = history;
-  await order.save();
+  const userInc: Record<string, number> = { totalOrders: -1 };
+  if (discount > 0 && User.schema.paths.points) userInc.points = discount;
+  await User.findByIdAndUpdate(customerId, { $inc: userInc });
 
   const io = getIo(req);
+
+  /* WIFIPAY_CUSTOMER_CANCEL_REFUND_START
+  // Uncomment when WifiPay online payment is live (see placeOrder WIFIPAY block).
+  // import { initiateRefund } from '../../services/refundService';
+  try {
+    await initiateRefund(
+      {
+        _id: order._id,
+        orderNumber: order.orderNumber ?? null,
+        customerId: customerIdObj,
+        paymentMethod: order.paymentMethod ?? null,
+        paymentStatus: order.paymentStatus ?? null,
+        total: order.total ?? 0,
+        wifipayRef: order.wifipayRef ?? null,
+      },
+      reason,
+      io
+    );
+  } catch {
+    // Do not fail customer cancel if refund side effects fail.
+  }
+  WIFIPAY_CUSTOMER_CANCEL_REFUND_END */
+
   if (io) {
     io.to('admin').emit('order:cancelled', { orderId: order._id, orderNumber: order.orderNumber, status: 'cancelled' });
-    io.to(`vendor:${order.vendorId}`).emit('order:cancelled', { orderId: order._id, orderNumber: order.orderNumber, status: 'cancelled' });
+    io.to(`customer:${customerId}`).emit('order:status_updated', {
+      orderId: order._id,
+      status: 'cancelled',
+      message: 'Your order has been cancelled.',
+    });
   }
-
-  void saveVendorInAppNotification({
-    vendorId: order.vendorId,
-    type: 'order_cancelled',
-    title: 'Order cancelled',
-    body: `Order ${order.orderNumber} was cancelled by the customer.`,
-    orderId: order._id,
-    orderNumber: order.orderNumber ?? null,
-    screen: 'OrderDetail',
-    dedupe: false,
-  });
 
   return sendSuccess(res, {
     _id: order._id,

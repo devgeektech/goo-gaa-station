@@ -4,6 +4,7 @@ import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../constants/driverAssignment';
 import { Order } from '../models/Order';
 import { initiateRefund } from '../services/refundService';
 import { saveVendorInAppNotification } from '../services/vendorNotification.service';
+import { claimAndForwardPendingOrder } from '../services/vendorOrderNotify.service';
 
 const DRIVER_ASSIGNMENT_TIMEOUT_MINUTES = DRIVER_ASSIGNMENT_WINDOW_MS / 60_000;
 const DRIVER_ASSIGNMENT_TIMEOUT_REASON = `No driver accepted within ${DRIVER_ASSIGNMENT_TIMEOUT_MINUTES} minutes`;
@@ -175,11 +176,19 @@ async function processOneDriverAssignmentTimeout(io?: SocketIOServer): Promise<b
   return true;
 }
 
+async function processCustomerCancelGraceForwards(io?: SocketIOServer): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    const forwarded = await claimAndForwardPendingOrder(io);
+    if (!forwarded) break;
+  }
+}
+
 export function startVendorResponseTimeoutWorker(io?: SocketIOServer): void {
-  const intervalMs = 12_000; // 10–15 seconds
+  const intervalMs = 3_000; // poll frequently so 30s grace forwards promptly
   setInterval(() => {
     // Drain multiple expired orders each tick, but yield to event loop.
     (async () => {
+      await processCustomerCancelGraceForwards(io);
       // safety cap per tick
       for (let i = 0; i < 50; i++) {
         const handled = await processOneTimeout(io);

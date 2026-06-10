@@ -7,6 +7,7 @@ export type CustomerOrderStatus = (typeof CUSTOMER_ORDER_STATUSES)[number];
 
 const INTERNAL_TO_CUSTOMER: Record<string, CustomerOrderStatus> = {
   pending: 'placed',
+  vendor_notified: 'placed',
   placed: 'placed',
   accepted: 'accepted',
   confirmed: 'accepted',

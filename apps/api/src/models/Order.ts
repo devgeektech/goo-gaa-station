@@ -75,6 +75,10 @@ const OrderSchema = new mongoose.Schema(
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: 'pending' },
     paymentMethod: { type: String, enum: PAYMENT_METHODS, default: 'wifipay' },
     wifipayRef: { type: String, default: null },
+    /** Customer may cancel freely until this time; vendor is not notified before then. */
+    customerCancelDeadline: { type: Date, default: null },
+    /** Set when the order is forwarded to the vendor after the customer cancel window. */
+    vendorNotifiedAt: { type: Date, default: null },
     vendorResponseDeadline: { type: Date, required: true, default: () => new Date(Date.now() + VENDOR_RESPONSE_WINDOW_MS) },
     vendorResponseStatus: { type: String, enum: VENDOR_RESPONSE_STATUSES, default: 'pending' },
     vendorRespondedAt: { type: Date, default: null },
@@ -113,6 +117,7 @@ OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ wifipayRef: 1 }, { sparse: true, unique: false });
 OrderSchema.index({ customerId: 1, status: 1 });
 OrderSchema.index({ vendorResponseDeadline: 1 });
+OrderSchema.index({ status: 1, customerCancelDeadline: 1, vendorNotifiedAt: 1 });
 OrderSchema.index({ driver_assigned: 1, driverAssignmentDeadline: 1, status: 1 });
 OrderSchema.index({ broadcastedToDrivers: 1, driverAssignmentDeadline: 1, status: 1 });
 
