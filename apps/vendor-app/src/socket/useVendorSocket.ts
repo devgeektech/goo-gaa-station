@@ -20,10 +20,8 @@ export type VendorSocketEvents = {
 };
 
 /**
- * Connect to Socket.IO and listen for vendor:approved and vendor:rejected.
- * Call connect() with accessToken so the server can identify the vendor room if needed.
- * The backend currently emits to 'admin' room; vendor-specific room can be added later.
- * For now we rely on polling; this hook sets up listeners when vendor joins a vendor room.
+ * Connect to Socket.IO, join vendor room with JWT, and listen for vendor events.
+ * Server sets isOnline on join and clears it on disconnect (same pattern as driver).
  */
 export function useVendorSocket(accessToken: string | null, handlers: VendorSocketEvents) {
   const socketRef = useRef<Socket | null>(null);
@@ -46,6 +44,14 @@ export function useVendorSocket(accessToken: string | null, handlers: VendorSock
       transports: ['websocket', 'polling'],
     });
 
+    socket.on('connect', () => {
+      const vendorId = handlersRef.current.vendorId;
+      socket.emit('vendor:join', {
+        accessToken,
+        ...(vendorId ? { vendorId } : {}),
+      });
+    });
+
     socket.on('vendor:approved', () => {
       handlersRef.current.onApproved();
     });
@@ -55,10 +61,6 @@ export function useVendorSocket(accessToken: string | null, handlers: VendorSock
     socket.on('order:new', (order) => {
       handlersRef.current.onNewOrder?.(order);
     });
-    const vendorId = handlersRef.current.vendorId;
-    if (vendorId) {
-      socket.emit('vendor:join', { vendorId });
-    }
 
     socketRef.current = socket;
     return () => {

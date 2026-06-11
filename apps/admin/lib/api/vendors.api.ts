@@ -59,6 +59,8 @@ export type VendorDetail = VendorListItem & {
   deliveryTime?: number | null;
   globalToggle?: boolean;
   isOpen?: boolean;
+  isOnline?: boolean;
+  lastActiveAt?: string | null;
   averageRating?: number;
   totalRatings?: number;
   sortOrder?: number;

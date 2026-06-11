@@ -39,6 +39,8 @@ function toProfileShape(vendor: any) {
     deliveryTime: vendor?.deliveryTime ?? null,
     minimumOrder: vendor?.minimumOrder ?? null,
     isOpen: vendor?.isOpen ?? null,
+    isOnline: vendor?.isOnline ?? false,
+    lastActiveAt: vendor?.lastActiveAt ?? null,
     rating: vendor?.rating ?? null,
     operatingHours: vendor?.operatingHours ?? [],
     status: vendor?.status ?? null,
@@ -180,6 +182,7 @@ export const toggleVendorOpenStatus = asyncHandler(async (req: Request, res: Res
       vendorId: vendor._id,
       vendorName: vendor.name,
       isOpen: vendor.isOpen,
+      isOnline: (vendor as { isOnline?: boolean }).isOnline ?? false,
       updatedAt: vendor.updatedAt,
     });
   }

@@ -14,6 +14,7 @@ import { registerChatHandlers } from './sockets/chatHandler';
 import { driverSessionMatches } from './services/driverSession.service';
 import { driverHasActiveDelivery } from './utils/driverActiveDelivery';
 import { tryRebroadcastOpenOrdersToDriver } from './services/driverOpenOrderBroadcast.service';
+import { setVendorOffline } from './services/vendorPresence.service';
 
 const server = http.createServer(app);
 
@@ -37,7 +38,7 @@ io.on('connection', (socket) => {
     socket.join('admin');
   });
 
-  registerVendorSocket(socket);
+  registerVendorSocket(socket, io);
 
   /** Customer app: join `customer:<customerId>` for order notifications. */
   socket.on('customer:join', (payload: { customerId?: string }) => {
@@ -161,6 +162,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', async () => {
+    const vendorId = socket.data?.vendorId as string | undefined;
+    if (vendorId) {
+      try {
+        await setVendorOffline(vendorId, io);
+      } catch {
+        // ignore
+      }
+    }
+
     const driverId = socket.data?.driverId as string | undefined;
     if (!driverId) return;
 

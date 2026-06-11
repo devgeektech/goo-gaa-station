@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import { Vendor } from '../models/Vendor';
+import { setVendorOffline } from '../services/vendorPresence.service';
 import { User } from '../models/User';
 import { AppError } from '../utils/AppError';
 import { sendSuccess } from '../utils/response';
@@ -16,6 +17,7 @@ import {
   verifyRefreshToken,
   type AccessPayload,
 } from '../services/auth.service';
+import { setVendorOffline } from '../services/vendorPresence.service';
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const MAX_OTP_ATTEMPTS = 5;
@@ -270,6 +272,9 @@ export const vendorLogout = asyncHandler(async (req: Request, res: Response) => 
     const tokens = (vendor.fcmTokens ?? []).filter((t) => t.token !== fcmToken);
     await Vendor.findByIdAndUpdate(vendor._id, { fcmTokens: tokens }, { runValidators: false });
   }
+
+  const io = (req.app as { get?(key: string): unknown }).get?.('io') as import('socket.io').Server | undefined;
+  await setVendorOffline(String(vendor._id), io);
 
   return sendSuccess(res, {});
 });

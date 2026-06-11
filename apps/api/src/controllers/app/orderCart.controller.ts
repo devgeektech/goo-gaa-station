@@ -83,6 +83,8 @@ function getVendorLocalNow(
 }
 
 function isVendorAvailableNow(vendor: any, now: Date): boolean {
+  if (vendor?.isOnline !== true) return false;
+
   // 1) Global availability check
   if (vendor?.isOpen !== true) return false;
 
@@ -238,9 +240,13 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   if (!vendor || (vendor as { status?: string }).status !== 'active') {
     throw new AppError({ en: 'Vendor not found or not active', de: 'Anbieter nicht verfügbar' }, 400, 'VALIDATION_ERROR');
   }
-  const v = vendor as { isOpen?: boolean; minimumOrder?: number; operatingHours?: unknown[] };
+  const v = vendor as { isOpen?: boolean; isOnline?: boolean; minimumOrder?: number; operatingHours?: unknown[] };
   if (!isVendorAvailableNow(v, new Date())) {
-    throw new AppError({ en: 'Vendor is currently closed', de: 'Anbieter ist geschlossen' }, 400, 'VENDOR_CLOSED');
+    throw new AppError(
+      { en: 'Vendor is currently unavailable (offline or closed)', de: 'Anbieter ist derzeit nicht verfügbar' },
+      400,
+      'VENDOR_CLOSED'
+    );
   }
 
   const vendorLat = Number((vendor as { address?: { lat?: number | null } })?.address?.lat);

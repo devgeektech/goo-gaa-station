@@ -74,6 +74,9 @@ function getVendorLocalNow(nowUtc: Date, timezone: string): { dayKey: 'mon' | 't
 }
 
 function isVendorAvailableNow(vendor: any, now: Date): boolean {
+  // 0) Vendor app must be connected (socket presence)
+  if (vendor?.isOnline !== true) return false;
+
   // 1) Global availability
   if (vendor?.isOpen !== true) return false;
 
@@ -236,7 +239,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const typeQ = String(req.query.type || '').trim();
   const sortQ = String(req.query.sort || 'recommended').trim();
 
-  const filter: Record<string, unknown> = { status: 'active', isOpen: true };
+  const filter: Record<string, unknown> = { status: 'active', isOpen: true, isOnline: true };
   const andClauses: Record<string, unknown>[] = [];
   const categoryById =
     categoryQ && mongoose.Types.ObjectId.isValid(categoryQ) && String(new mongoose.Types.ObjectId(categoryQ)) === categoryQ
@@ -291,7 +294,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   // We apply business-time availability filtering in-memory, so we must compute pagination
   // after filtering to keep page sizes and total/pages metadata consistent.
   let vendors = await Vendor.find(filter)
-    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
+    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen isOnline operatingHours timezone rating averageRating totalRatings')
     .populate('categoryIds', '_id name slug icon')
     .lean()
     .sort(sort);
@@ -354,12 +357,12 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
   const typeQ = String(req.query.type || '').trim();
   const now = new Date();
 
-  const filter: Record<string, unknown> = { status: 'active', isOpen: true };
+  const filter: Record<string, unknown> = { status: 'active', isOpen: true, isOnline: true };
   const categoryFilter = await resolveVendorCategoryIdsFilter(categoryQ, typeQ);
   if (categoryFilter) filter.categoryIds = categoryFilter;
 
   const vendorSelect =
-    'name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings createdAt';
+    'name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen isOnline operatingHours timezone rating averageRating totalRatings createdAt';
   const customerCoords = await resolveCustomerCoordsFromRequest(req);
 
   let vendors: any[];
@@ -420,6 +423,9 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
     .lean();
   if (!vendor) {
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+  }
+  if (!isVendorAvailableNow(vendor, new Date())) {
+    throw new AppError({ en: 'Vendor is currently unavailable', de: 'Anbieter ist derzeit nicht verfügbar' }, 404, 'NOT_FOUND');
   }
   const products = await (Product as any).find({
     vendor: new mongoose.Types.ObjectId(id),
