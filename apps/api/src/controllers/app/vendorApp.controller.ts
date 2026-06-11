@@ -24,79 +24,6 @@ function toEtaRange(minutes: number | null): string | null {
   return `${min}-${max} mins`;
 }
 
-function getCurrentDayKey(now: Date): 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' {
-  const days: Array<'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'> = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  return days[now.getDay()];
-}
-
-function toMinutes(hhmm: string): number | null {
-  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
-  if (!m) return null;
-  const hh = Number(m[1]);
-  const mm = Number(m[2]);
-  if (!Number.isInteger(hh) || !Number.isInteger(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-  return hh * 60 + mm;
-}
-
-function resolveVendorTimezone(vendor: any): string {
-  const tz = String(vendor?.timezone || '').trim() || 'Asia/Kolkata';
-  try {
-    Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
-    return tz;
-  } catch {
-    return 'UTC';
-  }
-}
-
-function getVendorLocalNow(nowUtc: Date, timezone: string): { dayKey: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'; nowMin: number } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(nowUtc);
-  const weekday = parts.find((p) => p.type === 'weekday')?.value?.toLowerCase() ?? 'sun';
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
-  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
-  const map: Record<string, 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'> = {
-    mon: 'mon',
-    tue: 'tue',
-    wed: 'wed',
-    thu: 'thu',
-    fri: 'fri',
-    sat: 'sat',
-    sun: 'sun',
-  };
-  const dayKey = map[weekday.slice(0, 3)] ?? 'sun';
-  const nowMin = (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
-  return { dayKey, nowMin };
-}
-
-function isVendorAvailableNow(vendor: any, now: Date): boolean {
-  // 0) Vendor app must be connected (socket presence)
-  if (vendor?.isOnline !== true) return false;
-
-  // 1) Global availability
-  if (vendor?.isOpen !== true) return false;
-
-  // 2) Operating-hours toggle for today + 3) time window validation
-  const timezone = resolveVendorTimezone(vendor);
-  const { dayKey, nowMin } = getVendorLocalNow(now, timezone);
-  const todays = Array.isArray(vendor?.operatingHours)
-    ? vendor.operatingHours.find((x: any) => x?.day === dayKey)
-    : null;
-  if (!todays || todays?.isOpen !== true) return false;
-
-  const fromMin = toMinutes(String(todays?.from ?? ''));
-  const toMin = toMinutes(String(todays?.to ?? ''));
-  if (fromMin == null || toMin == null) return false;
-
-  // Supports same-day and overnight windows.
-  if (fromMin <= toMin) return nowMin >= fromMin && nowMin <= toMin;
-  return nowMin >= fromMin || nowMin <= toMin;
-}
-
 /** Customer origin for Distance Matrix: optional query `customerLat`/`customerLng` (WGS84). */
 const VENDOR_LIST_MAX_RADIUS_KM = 30;
 
@@ -239,7 +166,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   const typeQ = String(req.query.type || '').trim();
   const sortQ = String(req.query.sort || 'recommended').trim();
 
-  const filter: Record<string, unknown> = { status: 'active', isOpen: true, isOnline: true };
+  const filter: Record<string, unknown> = { status: 'active' };
   const andClauses: Record<string, unknown>[] = [];
   const categoryById =
     categoryQ && mongoose.Types.ObjectId.isValid(categoryQ) && String(new mongoose.Types.ObjectId(categoryQ)) === categoryQ
@@ -291,22 +218,13 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 
   const customerCoords = await resolveCustomerCoordsFromRequest(req);
 
-  // We apply business-time availability filtering in-memory, so we must compute pagination
-  // after filtering to keep page sizes and total/pages metadata consistent.
+  // Return all active vendors; client uses `isOpen` for offline/faded UI. Pagination after radius filter.
   let vendors = await Vendor.find(filter)
-    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen isOnline operatingHours timezone rating averageRating totalRatings')
+    .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
     .populate('categoryIds', '_id name slug icon')
     .lean()
     .sort(sort);
   let total = 0;
-
-  // Availability checks for customer list:
-  // - global isOpen === true
-  // - today's operating-hours toggle isOpen === true
-  // - current time within from/to
-  const now = new Date();
-  vendors = (vendors as any[]).filter((v) => isVendorAvailableNow(v, now));
-  total = vendors.length;
 
   // If customer coords are provided, restrict to 30km radius and sort by nearest first.
   // Uses straight-line (Haversine) distance for fast filtering/sorting.
@@ -327,6 +245,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     const end = start + limit;
     vendors = within.slice(start, end).map((x) => x.v);
   } else {
+    total = (vendors as any[]).length;
     const start = Math.max(0, (page - 1) * limit);
     const end = start + limit;
     vendors = (vendors as any[]).slice(start, end);
@@ -355,14 +274,13 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
   const fallbackLimit = 4;
   const categoryQ = String(req.query.category || '').trim();
   const typeQ = String(req.query.type || '').trim();
-  const now = new Date();
 
-  const filter: Record<string, unknown> = { status: 'active', isOpen: true, isOnline: true };
+  const filter: Record<string, unknown> = { status: 'active' };
   const categoryFilter = await resolveVendorCategoryIdsFilter(categoryQ, typeQ);
   if (categoryFilter) filter.categoryIds = categoryFilter;
 
   const vendorSelect =
-    'name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen isOnline operatingHours timezone rating averageRating totalRatings createdAt';
+    'name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings createdAt';
   const customerCoords = await resolveCustomerCoordsFromRequest(req);
 
   let vendors: any[];
@@ -374,7 +292,6 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
       .populate('categoryIds', '_id name slug icon type')
       .lean()
       .sort({ createdAt: -1, sortOrder: 1, name: 1 })) as any[];
-    pool = pool.filter((v) => isVendorAvailableNow(v, now));
     pool = filterVendorsWithinRadiusKm(pool, customerCoords, VENDOR_LIST_MAX_RADIUS_KM);
     vendors = pickRecommendedVendorsFromPool(pool, fallbackLimit);
     await applyDistanceAndEtaToVendors(vendors, customerCoords);
@@ -390,15 +307,12 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
       : baseQuery.clone().where({ rating: { $gt: 0 } }).sort({ rating: -1, createdAt: -1, sortOrder: 1, name: 1 });
 
     vendors = (await ratedQuery.limit(fallbackLimit)) as any[];
-    vendors = vendors.filter((v) => isVendorAvailableNow(v, now));
 
     if (vendors.length === 0) {
       const unratedQuery = Vendor.schema.paths.averageRating
         ? baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 })
         : baseQuery.clone().sort({ createdAt: -1, sortOrder: 1, name: 1 });
-      vendors = ((await unratedQuery.limit(fallbackLimit)) as any[])
-        .filter((v) => isVendorAvailableNow(v, now))
-        .slice(0, fallbackLimit);
+      vendors = ((await unratedQuery.limit(fallbackLimit)) as any[]).slice(0, fallbackLimit);
     }
 
     for (let i = 0; i < vendors.length; i++) {
@@ -423,9 +337,6 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
     .lean();
   if (!vendor) {
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
-  }
-  if (!isVendorAvailableNow(vendor, new Date())) {
-    throw new AppError({ en: 'Vendor is currently unavailable', de: 'Anbieter ist derzeit nicht verfügbar' }, 404, 'NOT_FOUND');
   }
   const products = await (Product as any).find({
     vendor: new mongoose.Types.ObjectId(id),

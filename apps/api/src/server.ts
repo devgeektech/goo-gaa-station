@@ -14,7 +14,7 @@ import { registerChatHandlers } from './sockets/chatHandler';
 import { driverSessionMatches } from './services/driverSession.service';
 import { driverHasActiveDelivery } from './utils/driverActiveDelivery';
 import { tryRebroadcastOpenOrdersToDriver } from './services/driverOpenOrderBroadcast.service';
-import { setVendorOffline } from './services/vendorPresence.service';
+import { setVendorClosedFromApp } from './services/vendorPresence.service';
 
 const server = http.createServer(app);
 
@@ -165,7 +165,7 @@ io.on('connection', (socket) => {
     const vendorId = socket.data?.vendorId as string | undefined;
     if (vendorId) {
       try {
-        await setVendorOffline(vendorId, io);
+        await setVendorClosedFromApp(vendorId, io);
       } catch {
         // ignore
       }

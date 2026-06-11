@@ -19,6 +19,7 @@ import {
 } from '../../utils/storageProvider';
 import type { Server as SocketIOServer } from 'socket.io';
 import { sendPushToVendor } from '../../services/fcm.service';
+import { getVendorAvailabilityStatus } from '../../services/vendorAvailability.service';
 
 const VENDOR_IMAGE_MAX = MAX_FILE_SIZE_10MB;
 
@@ -82,9 +83,17 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
     );
   }
 
+  const now = new Date();
   const vendorsWithRevenue = vendors.map((v) => {
     const id = String((v as { _id: mongoose.Types.ObjectId })._id);
-    return { ...v, revenue: revenueByVendor.get(id) ?? 0 };
+    const availability = getVendorAvailabilityStatus(v as Parameters<typeof getVendorAvailabilityStatus>[0], now);
+    return {
+      ...v,
+      revenue: revenueByVendor.get(id) ?? 0,
+      isOpen: availability.isOpen,
+      isAvailableNow: availability.isAvailableNow,
+      withinOperatingHours: availability.withinOperatingHours,
+    };
   });
 
   const meta = toPaginated(vendorsWithRevenue, total, page, limit);
@@ -117,7 +126,16 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const revenue = Math.round((Number(revenueRows[0]?.revenue) || 0) * 100) / 100;
-  return sendSuccess(res, { ...vendor, menuItems, revenue, deliveredOrderCount: orderCount });
+  const availability = getVendorAvailabilityStatus(vendor as Parameters<typeof getVendorAvailabilityStatus>[0]);
+  return sendSuccess(res, {
+    ...vendor,
+    menuItems,
+    revenue,
+    deliveredOrderCount: orderCount,
+    isOpen: availability.isOpen,
+    isAvailableNow: availability.isAvailableNow,
+    withinOperatingHours: availability.withinOperatingHours,
+  });
 });
 
 /** POST /api/v1/admin/vendors — Create vendor (logo and coverImage max 10MB each) */

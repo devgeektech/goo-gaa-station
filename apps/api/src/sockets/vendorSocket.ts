@@ -4,7 +4,7 @@ import type { Server as SocketIOServer } from 'socket.io';
 import type { Socket } from 'socket.io';
 import { env } from '../config/env';
 import { Vendor } from '../models/Vendor';
-import { setVendorOnline } from '../services/vendorPresence.service';
+import { setVendorOpenFromApp } from '../services/vendorPresence.service';
 
 type VendorJoinPayload = {
   vendorId?: string;
@@ -40,7 +40,7 @@ export function registerVendorSocket(socket: Socket, io: SocketIOServer): void {
 
       socket.data.vendorId = vendorId;
       socket.join(`vendor:${vendorId}`);
-      await setVendorOnline(vendorId, io);
+      await setVendorOpenFromApp(vendorId, io);
     } catch {
       // ignore invalid JWT
     }

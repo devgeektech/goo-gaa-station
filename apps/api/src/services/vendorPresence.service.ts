@@ -1,15 +1,11 @@
 import type { Server as SocketIOServer } from 'socket.io';
 import { Vendor } from '../models/Vendor';
 
-/** Mark vendor app as connected (socket joined). */
-export async function setVendorOnline(vendorId: string, io?: SocketIOServer): Promise<void> {
+/** Vendor app connected — open for orders (socket joined). */
+export async function setVendorOpenFromApp(vendorId: string, io?: SocketIOServer): Promise<void> {
   const now = new Date();
-  const updated = await Vendor.findByIdAndUpdate(
-    vendorId,
-    { isOnline: true, lastActiveAt: now },
-    { new: true }
-  )
-    .select('name isOpen isOnline updatedAt')
+  const updated = await Vendor.findByIdAndUpdate(vendorId, { isOpen: true }, { new: true })
+    .select('name isOpen updatedAt')
     .lean();
 
   if (!updated || !io) return;
@@ -17,21 +13,16 @@ export async function setVendorOnline(vendorId: string, io?: SocketIOServer): Pr
   io.to('admin').emit('vendor:availability_changed', {
     vendorId,
     vendorName: (updated as { name?: string }).name ?? null,
-    isOpen: (updated as { isOpen?: boolean }).isOpen ?? false,
-    isOnline: true,
+    isOpen: true,
     updatedAt: (updated as { updatedAt?: Date }).updatedAt ?? now,
   });
 }
 
-/** Mark vendor app as disconnected (socket dropped or logout). */
-export async function setVendorOffline(vendorId: string, io?: SocketIOServer): Promise<void> {
+/** Vendor app disconnected — closed (socket dropped or logout). */
+export async function setVendorClosedFromApp(vendorId: string, io?: SocketIOServer): Promise<void> {
   const now = new Date();
-  const updated = await Vendor.findByIdAndUpdate(
-    vendorId,
-    { isOnline: false },
-    { new: true }
-  )
-    .select('name isOpen isOnline updatedAt')
+  const updated = await Vendor.findByIdAndUpdate(vendorId, { isOpen: false }, { new: true })
+    .select('name isOpen updatedAt')
     .lean();
 
   if (!updated || !io) return;
@@ -39,8 +30,13 @@ export async function setVendorOffline(vendorId: string, io?: SocketIOServer): P
   io.to('admin').emit('vendor:availability_changed', {
     vendorId,
     vendorName: (updated as { name?: string }).name ?? null,
-    isOpen: (updated as { isOpen?: boolean }).isOpen ?? false,
-    isOnline: false,
+    isOpen: false,
     updatedAt: (updated as { updatedAt?: Date }).updatedAt ?? now,
   });
 }
+
+/** @deprecated Use setVendorOpenFromApp */
+export const setVendorOnline = setVendorOpenFromApp;
+
+/** @deprecated Use setVendorClosedFromApp */
+export const setVendorOffline = setVendorClosedFromApp;

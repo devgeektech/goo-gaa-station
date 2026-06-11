@@ -425,7 +425,7 @@ export default function VendorDetailPage() {
               }
             />
             <DetailField label="Address" value={formatFullAddress(vendor.address)} />
-            <DetailField label="Timezone" value={formatValue(vendor.timezone)} />
+            {/* <DetailField label="Timezone" value={formatValue(vendor.timezone)} /> */}
             <DetailField label="Latitude" value={hasCoords ? lat!.toFixed(6) : '—'} />
             <DetailField label="Longitude" value={hasCoords ? lng!.toFixed(6) : '—'} />
 

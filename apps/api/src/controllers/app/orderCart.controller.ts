@@ -26,84 +26,10 @@ import {
   isBeforeVendorNotification,
 } from '../../services/vendorOrderNotify.service';
 import type { Server as SocketIOServer } from 'socket.io';
+import { isVendorAvailableNow } from '../../services/vendorAvailability.service';
 
 const MAX_ORDER_RADIUS_KM = 30;
 const ACTIVE_STATUSES = ['pending', 'vendor_notified', 'accepted', 'preparing', 'picked_up', 'on_the_way'] as const;
-
-function getCurrentDayKey(now: Date): 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' {
-  const days: Array<'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'> = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  return days[now.getDay()];
-}
-
-function toMinutes(hhmm: string): number | null {
-  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
-  if (!m) return null;
-  const hh = Number(m[1]);
-  const mm = Number(m[2]);
-  if (!Number.isInteger(hh) || !Number.isInteger(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-  return hh * 60 + mm;
-}
-
-function resolveVendorTimezone(vendor: any): string {
-  const tz = String(vendor?.timezone || '').trim() || 'Asia/Kolkata';
-  try {
-    Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
-    return tz;
-  } catch {
-    return 'UTC';
-  }
-}
-
-function getVendorLocalNow(
-  nowUtc: Date,
-  timezone: string
-): { dayKey: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'; nowMin: number } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(nowUtc);
-  const weekday = parts.find((p) => p.type === 'weekday')?.value?.toLowerCase() ?? 'sun';
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
-  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
-  const map: Record<string, 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'> = {
-    mon: 'mon',
-    tue: 'tue',
-    wed: 'wed',
-    thu: 'thu',
-    fri: 'fri',
-    sat: 'sat',
-    sun: 'sun',
-  };
-  const dayKey = map[weekday.slice(0, 3)] ?? 'sun';
-  const nowMin = (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
-  return { dayKey, nowMin };
-}
-
-function isVendorAvailableNow(vendor: any, now: Date): boolean {
-  if (vendor?.isOnline !== true) return false;
-
-  // 1) Global availability check
-  if (vendor?.isOpen !== true) return false;
-
-  // 2) Operating-hours toggle check for today
-  const timezone = resolveVendorTimezone(vendor);
-  const { dayKey, nowMin } = getVendorLocalNow(now, timezone);
-  const todays = Array.isArray(vendor?.operatingHours)
-    ? vendor.operatingHours.find((x: any) => x?.day === dayKey)
-    : null;
-  if (!todays || todays?.isOpen !== true) return false;
-
-  // 3) Current time within operating window
-  const fromMin = toMinutes(String(todays?.from ?? ''));
-  const toMin = toMinutes(String(todays?.to ?? ''));
-  if (fromMin == null || toMin == null) return false;
-
-  if (fromMin <= toMin) return nowMin >= fromMin && nowMin <= toMin;
-  return nowMin >= fromMin || nowMin <= toMin;
-}
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
@@ -240,7 +166,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   if (!vendor || (vendor as { status?: string }).status !== 'active') {
     throw new AppError({ en: 'Vendor not found or not active', de: 'Anbieter nicht verfügbar' }, 400, 'VALIDATION_ERROR');
   }
-  const v = vendor as { isOpen?: boolean; isOnline?: boolean; minimumOrder?: number; operatingHours?: unknown[] };
+  const v = vendor as { isOpen?: boolean; minimumOrder?: number; operatingHours?: unknown[] };
   if (!isVendorAvailableNow(v, new Date())) {
     throw new AppError(
       { en: 'Vendor is currently unavailable (offline or closed)', de: 'Anbieter ist derzeit nicht verfügbar' },

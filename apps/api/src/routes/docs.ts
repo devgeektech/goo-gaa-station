@@ -216,7 +216,7 @@ export const ROUTES = [
   },
   { method: 'GET', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor self profile (authVendor + requireApproved)' },
   { method: 'PATCH', path: '/api/v1/vendor/profile', auth: true, description: 'Vendor update profile (multipart, all optional): name, phone (unique), logo (10MB), coverImage (10MB), deliveryTime, minimumOrder, address JSON' },
-  { method: 'PATCH', path: '/api/v1/vendor/profile/toggle', auth: true, description: 'Vendor: toggle isOpen (manual override); emits vendor:availability_changed to admin. Customer listing also requires isOnline (vendor app socket connected).' },
+  { method: 'PATCH', path: '/api/v1/vendor/profile/toggle', auth: true, description: 'Vendor: toggle isOpen (manual override); emits vendor:availability_changed to admin. Socket join/disconnect also sets isOpen for customer app faded/offline UI.' },
   { method: 'PATCH', path: '/api/v1/vendor/profile/operating-hours', auth: true, description: 'Vendor: replace operatingHours (JSON body); requires all 7 days; 422 on validation errors' },
   { method: 'POST', path: '/api/v1/vendor/profile/fcm-token', auth: true, description: 'Vendor self profile: register FCM token (body: token required, device optional; max 5)' },
   { method: 'DELETE', path: '/api/v1/vendor/profile/fcm-token', auth: true, description: 'Vendor self profile: remove FCM token (body: token required)' },

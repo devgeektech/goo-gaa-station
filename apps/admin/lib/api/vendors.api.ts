@@ -17,6 +17,11 @@ export type VendorListItem = {
   approvalStatus?: string | null;
   /** Sum of vendor revenue on delivered, non-refunded orders */
   revenue?: number;
+  /** Global open flag (vendor app connected or manual toggle). */
+  isOpen?: boolean;
+  /** True when isOpen and current time is within today's operating hours. */
+  isAvailableNow?: boolean;
+  withinOperatingHours?: boolean;
 };
 
 export type VendorAddress = {
@@ -59,8 +64,6 @@ export type VendorDetail = VendorListItem & {
   deliveryTime?: number | null;
   globalToggle?: boolean;
   isOpen?: boolean;
-  isOnline?: boolean;
-  lastActiveAt?: string | null;
   averageRating?: number;
   totalRatings?: number;
   sortOrder?: number;

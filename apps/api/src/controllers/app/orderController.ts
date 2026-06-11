@@ -71,9 +71,6 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   if (v.status !== 'active') {
     throw new AppError({ en: 'Vendor not found or not active', de: 'Anbieter nicht verfügbar' }, 404, 'NOT_FOUND');
   }
-  if ((v as { isOnline?: boolean }).isOnline !== true) {
-    throw new AppError({ en: 'Vendor is currently offline', de: 'Anbieter ist offline' }, 400, 'VENDOR_OFFLINE');
-  }
   if (v.isOpen === false) {
     throw new AppError({ en: 'Vendor is currently closed', de: 'Anbieter ist geschlossen' }, 400, 'VENDOR_CLOSED');
   }

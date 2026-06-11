@@ -73,11 +73,8 @@ const VendorSchema = new mongoose.Schema(
     totalRatings: { type: Number, default: 0, min: 0 },
     /** Global manual availability toggle (independent of schedule). */
     globalToggle: { type: Boolean, default: true },
-    /** Effective open/closed flag used by app/vendor flows (manual override). */
-    isOpen: { type: Boolean, default: true },
-    /** Vendor app connected (socket joined); mirrors driver isOnline. */
-    isOnline: { type: Boolean, default: false },
-    lastActiveAt: { type: Date, default: null },
+    /** Open when vendor app is connected or manually toggled on; false when app disconnects or toggled off. */
+    isOpen: { type: Boolean, default: false },
     status: { type: String, enum: ['active', 'blocked', 'deleted', 'pending'], default: 'active' },
     blockReason: { type: String, default: null },
     categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: [] }],
@@ -97,7 +94,7 @@ const VendorSchema = new mongoose.Schema(
 );
 
 VendorSchema.index({ status: 1 });
-VendorSchema.index({ isOnline: 1, isOpen: 1, status: 1 });
+VendorSchema.index({ isOpen: 1, status: 1 });
 VendorSchema.index({ slug: 1 });
 VendorSchema.index({ categoryIds: 1 });
 VendorSchema.index({ phone: 1 }, { unique: true, sparse: true });

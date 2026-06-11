@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useVendorPending } from '@/lib/context/VendorPendingContext';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatMoney } from '@/lib/utils/format';
+import { vendorAvailabilityBadge } from '@/lib/utils/vendorStatus';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -253,6 +254,7 @@ export default function VendorsPage() {
                     <th>Logo</th>
                     <th>Name</th>
                     <th>Approval</th>
+                    <th>Availability</th>
                     {/* <th>Account status</th> */}
                     <th>Rating</th>
                     <th>Revenue</th>
@@ -262,7 +264,7 @@ export default function VendorsPage() {
                 </thead>
                 <tbody>
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}><td colSpan={8}><Skeleton height={18} /></td></tr>
+                    <tr key={i}><td colSpan={9}><Skeleton height={18} /></td></tr>
                   ))}
                 </tbody>
               </table>
@@ -277,6 +279,7 @@ export default function VendorsPage() {
                   <th>Logo</th>
                   <th>Name</th>
                   <th>Approval</th>
+                  <th>Availability</th>
                   {/* <th>Account status</th> */}
                   <th>Rating</th>
                   <th>Revenue</th>
@@ -287,6 +290,7 @@ export default function VendorsPage() {
               <tbody>
                   {items.map((v) => {
                     const ab = approvalStatusBadge(v.approvalStatus ?? null);
+                    const avail = vendorAvailabilityBadge(v);
                     return (
                     <tr key={v._id} className="clickableRow" onClick={() => router.push(`/vendors/${v._id}`)}>
                       <td>
@@ -301,6 +305,9 @@ export default function VendorsPage() {
                       <td style={{ fontWeight: 700 }}>{v.name}</td>
                       <td>
                         <span className="badge" style={ab.style}>{ab.label}</span>
+                      </td>
+                      <td title={avail.hint}>
+                        <span className="badge" style={{ background: avail.background }}>{avail.label}</span>
                       </td>
                       {/* <td>
                         <span className="badge" style={{ background: v.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{v.status}</span>

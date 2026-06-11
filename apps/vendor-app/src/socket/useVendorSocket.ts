@@ -21,7 +21,7 @@ export type VendorSocketEvents = {
 
 /**
  * Connect to Socket.IO, join vendor room with JWT, and listen for vendor events.
- * Server sets isOnline on join and clears it on disconnect (same pattern as driver).
+ * Server sets isOpen true on join and isOpen false on disconnect/logout.
  */
 export function useVendorSocket(accessToken: string | null, handlers: VendorSocketEvents) {
   const socketRef = useRef<Socket | null>(null);
