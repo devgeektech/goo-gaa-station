@@ -48,14 +48,6 @@ function isPlaceholderVendor(vendor: { name?: string; description?: string }): b
   return name.startsWith(PLACEHOLDER_NAME_PREFIX) && name.length < 25;
 }
 
-function getOnboardingStep(vendor: { name?: string; description?: string; categoryIds?: unknown[] }): number {
-  if (!isPlaceholderVendor(vendor) && (vendor.description ?? '').trim().length > 0) return 6;
-  if (!isPlaceholderVendor(vendor)) return 5;
-  const hasCategories = Array.isArray(vendor.categoryIds) && vendor.categoryIds.length > 0;
-  if (hasCategories) return 4;
-  return 1;
-}
-
 /** POST /api/v1/auth/vendor/send-otp */
 export const vendorSendOtp = asyncHandler(async (req: Request, res: Response) => {
   const { phone } = req.body ?? {};
@@ -152,11 +144,21 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
     throw new AppError({ en: 'Invalid OTP', de: 'Ungültiger OTP' }, 400, 'INVALID_OTP');
   }
 
-  await Vendor.findByIdAndUpdate(
+  const updated = await Vendor.findByIdAndUpdate(
     vendor._id,
-    { $set: { isPhoneVerified: true, phoneOtp: null, phoneOtpExpiry: null, phoneOtpAttempts: 0 } },
-    { runValidators: false }
-  );
+    {
+      $set: { isPhoneVerified: true, phoneOtp: null, phoneOtpExpiry: null, phoneOtpAttempts: 0 },
+      // Phone verified = at least step 1; never lower an in-progress step (2, 3, 5, 6).
+      $max: { onboardingStep: 1 },
+    },
+    { new: true, runValidators: false }
+  )
+    .select('name description onboardingStep approvalStatus')
+    .lean();
+
+  if (!updated) {
+    throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
+  }
 
   const payload: AccessPayload = {
     _id: vendor._id.toString(),
@@ -168,14 +170,15 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
   const refreshToken = generateRefreshToken(payload);
   await storeRefreshToken(vendor._id, 'Vendor', refreshToken);
 
-  const isNewVendor = isPlaceholderVendor(vendor);
-  const onboardingStep = getOnboardingStep(vendor);
+  const isNewVendor = isPlaceholderVendor(updated as { name?: string; description?: string });
+  const onboardingStep = Math.max(0, Number((updated as { onboardingStep?: number }).onboardingStep) || 0);
 
   return sendSuccess(res, {
     accessToken,
     refreshToken,
     isNewVendor,
     onboardingStep,
+    approvalStatus: (updated as { approvalStatus?: string | null }).approvalStatus ?? null,
   });
 });
 
