@@ -8,6 +8,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess } from '../../utils/response';
 import { getCommissionPercent } from '../../services/appSettings.service';
 import { REVENUE_ELIGIBLE_MATCH, vendorRevenueMongoExpr } from '../../services/orderRevenue.service';
+import { VENDOR_CURRENT_ORDER_STATUSES, VENDOR_NEW_ORDER_STATUS } from '../../constants/vendorOrderStatuses';
 
 type ReqVendor = { _id: mongoose.Types.ObjectId | string };
 
@@ -58,8 +59,6 @@ function withRemainingTime<T extends Record<string, unknown>>(order: T): T & { r
 
 /** Max orders per list embedded in dashboard (same shape as /vendor/orders/new and /current). */
 const DASHBOARD_ORDERS_LIST_CAP = 200;
-
-const ACTIVE_ORDER_STATUSES = ['accepted', 'preparing', 'ready', 'picked_up', 'on_the_way'] as const;
 
 async function sumDeliveredVendorShareForDayYmd(
   vendorId: mongoose.Types.ObjectId,
@@ -147,8 +146,8 @@ export const getVendorDashboard = asyncHandler(async (req: Request, res: Respons
 
   const oid = vendorId;
 
-  const newFilter = { vendorId: oid, status: 'vendor_notified' as const };
-  const activeFilter = { vendorId: oid, status: { $in: [...ACTIVE_ORDER_STATUSES] } };
+  const newFilter = { vendorId: oid, status: VENDOR_NEW_ORDER_STATUS };
+  const activeFilter = { vendorId: oid, status: { $in: [...VENDOR_CURRENT_ORDER_STATUSES] } };
 
   const [
     todayAgg,

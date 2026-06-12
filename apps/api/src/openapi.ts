@@ -1030,7 +1030,7 @@ function getResponseExampleForRoute(opKey: string): Record<string, unknown> | un
                   newOrdersTruncated: { type: 'boolean', description: 'True if more than 200 new orders exist' },
                   activeOrdersCount: {
                     type: 'integer',
-                    description: 'Total in-kitchen pipeline: accepted, preparing, ready, picked_up, on_the_way',
+                    description: 'Same as GET /vendor/orders/current: accepted, preparing, picked_up, on_the_way (excludes ready)',
                   },
                   activeOrders: {
                     type: 'array',

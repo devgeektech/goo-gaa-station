@@ -189,7 +189,7 @@ export const ROUTES = [
     path: '/api/v1/vendor/dashboard',
     auth: true,
     description:
-      'Vendor app dashboard: store + storeId, today earnings (paid delivered, vendor timezone), vs-yesterday %, rating, newOrdersCount, embedded newOrders[] and activeOrders[] (same order documents + remainingTime as /vendor/orders/new and in-kitchen pipeline including ready; capped at 200 each with newOrdersTruncated/activeOrdersTruncated when more exist), activeOrdersCount, wallet, menu summary. Use GET /vendor/orders/new|current with page for full pagination when truncated.',
+      'Vendor app dashboard: store + storeId, today earnings (paid delivered, vendor timezone), vs-yesterday %, rating, newOrdersCount, embedded newOrders[] and activeOrders[] (same order documents + remainingTime as /vendor/orders/new and /vendor/orders/current: accepted, preparing, picked_up, on_the_way; capped at 200 each with newOrdersTruncated/activeOrdersTruncated when more exist), activeOrdersCount, wallet, menu summary. Use GET /vendor/orders/new|current with page for full pagination when truncated.',
   },
   {
     method: 'GET',

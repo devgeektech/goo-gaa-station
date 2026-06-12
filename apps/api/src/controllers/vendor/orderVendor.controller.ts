@@ -15,6 +15,7 @@ import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../../constants/driverAssignment';
 import { findNearbyDrivers } from '../../services/driverAssignmentService';
 import { notifyNearbyDriversOnVendorAccept } from '../../services/driverOpenOrderBroadcast.service';
 import type { Server as SocketIOServer } from 'socket.io';
+import { VENDOR_CURRENT_ORDER_STATUSES, VENDOR_NEW_ORDER_STATUS } from '../../constants/vendorOrderStatuses';
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   pending: ['accepted'],
@@ -83,7 +84,7 @@ export const getNewOrders = asyncHandler(async (req: Request, res: Response) => 
   const { page, limit } = parsePagination(req.query, 20);
   const filter: Record<string, unknown> = {
     vendorId: new mongoose.Types.ObjectId(String(vendorId)),
-    status: 'vendor_notified',
+    status: VENDOR_NEW_ORDER_STATUS,
   };
   const [orders, total] = await Promise.all([
     Order.find(filter)
@@ -107,7 +108,7 @@ export const getCurrentOrders = asyncHandler(async (req: Request, res: Response)
   const { page, limit } = parsePagination(req.query, 20);
   const filter: Record<string, unknown> = {
     vendorId: new mongoose.Types.ObjectId(String(vendorId)),
-    status: { $in: ['accepted', 'preparing', 'picked_up', 'on_the_way'] },
+    status: { $in: [...VENDOR_CURRENT_ORDER_STATUSES] },
   };
   const [orders, total] = await Promise.all([
     Order.find(filter)
