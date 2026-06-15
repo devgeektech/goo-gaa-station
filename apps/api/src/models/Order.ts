@@ -85,6 +85,11 @@ const OrderSchema = new mongoose.Schema(
     driver_assigned: { type: Boolean, default: false },
     driverAcceptedAt: { type: Date, default: null },
     driverAssignmentDeadline: { type: Date, default: null },
+    /** Set when vendor marks order ready; system cancels if still `ready` after this time. */
+    readyAt: { type: Date, default: null },
+    readyPickupDeadline: { type: Date, default: null },
+    /** Set when driver picks up; system cancels if not delivered after this time. */
+    deliverySlaDeadline: { type: Date, default: null },
     notifiedDriverIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Driver' }],
     broadcastedToDrivers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Driver' }],
     rejectedByDrivers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Driver' }],
@@ -120,6 +125,8 @@ OrderSchema.index({ vendorResponseDeadline: 1 });
 OrderSchema.index({ status: 1, customerCancelDeadline: 1, vendorNotifiedAt: 1 });
 OrderSchema.index({ driver_assigned: 1, driverAssignmentDeadline: 1, status: 1 });
 OrderSchema.index({ broadcastedToDrivers: 1, driverAssignmentDeadline: 1, status: 1 });
+OrderSchema.index({ status: 1, readyPickupDeadline: 1 });
+OrderSchema.index({ status: 1, deliverySlaDeadline: 1 });
 
 // Phase 12 indexes
 OrderSchema.index({ driverId: 1, status: 1 });

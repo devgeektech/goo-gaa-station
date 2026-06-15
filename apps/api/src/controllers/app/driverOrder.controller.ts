@@ -13,6 +13,7 @@ import { transitionOrderStatus } from '../../services/orderStatus.service';
 import { sendPushToCustomer, sendPushToVendor } from '../../services/fcm.service';
 import { saveCustomerInAppNotification } from '../../services/customerNotification.service';
 import { saveVendorInAppNotification } from '../../services/vendorNotification.service';
+import { DELIVERY_SLA_WINDOW_MS } from '../../constants/orderFulfillment';
 import type { Server as SocketIOServer } from 'socket.io';
 
 const STATUS_FLOW = ['accepted', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered'] as const;
@@ -654,6 +655,10 @@ export const pickupOrder = asyncHandler(async (req: Request, res: Response) => {
 
   order.status = 'picked_up';
   const now = new Date();
+  (order as unknown as { readyPickupDeadline?: Date | null }).readyPickupDeadline = null;
+  (order as unknown as { deliverySlaDeadline?: Date }).deliverySlaDeadline = new Date(
+    now.getTime() + DELIVERY_SLA_WINDOW_MS
+  );
   const history = (order as unknown as { statusHistory?: Array<Record<string, unknown>> }).statusHistory ?? [];
   history.push({ status: 'picked_up', timestamp: now, updatedBy: 'driver', changedByModel: 'Driver' });
   (order as unknown as { statusHistory: typeof history }).statusHistory = history;
@@ -794,6 +799,8 @@ export const deliverOrder = asyncHandler(async (req: Request, res: Response) => 
   if (order.paymentStatus === 'pending') order.paymentStatus = 'paid';
   const now = new Date();
   order.actualDeliveryAt = now;
+  (order as unknown as { deliverySlaDeadline?: Date | null }).deliverySlaDeadline = null;
+  (order as unknown as { readyPickupDeadline?: Date | null }).readyPickupDeadline = null;
   const history = (order as unknown as { statusHistory?: Array<Record<string, unknown>> }).statusHistory ?? [];
   history.push({ status: 'delivered', timestamp: now, updatedBy: 'driver', changedByModel: 'Driver' });
   (order as unknown as { statusHistory: typeof history }).statusHistory = history;

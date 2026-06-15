@@ -10,6 +10,7 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { transitionOrderStatus } from '../../services/orderStatus.service';
+import { cancelOrderByAdmin } from '../../services/orderCancel.service';
 import { enrichOrderFinancials } from '../../services/orderFinancials.service';
 import { getCommissionPercent } from '../../services/appSettings.service';
 import {
@@ -126,19 +127,28 @@ export const cancelOrder = asyncHandler(async (req: Request, res: Response) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
   }
-  const order = await Order.findById(id);
-  if (!order) throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
-  (order as { cancelledBy?: string; cancellationReason?: string }).cancelledBy = 'admin';
-  (order as { cancellationReason?: string }).cancellationReason = String(reason).trim();
-  const io = (req.app as { get?(key: string): unknown }).get?.('io');
-  await transitionOrderStatus(order, {
-    status: 'cancelled',
-    note: (order as { cancellationReason?: string }).cancellationReason,
-    changedBy: adminId ?? undefined,
-    changedByModel: 'Admin',
-    isAdminOverride: true,
-  }, io as import('socket.io').Server | undefined);
-  const doc = order.toObject();
+
+  const io = (req.app as { get?(key: string): unknown }).get?.('io') as import('socket.io').Server | undefined;
+  const doc = await cancelOrderByAdmin(id, String(reason).trim(), {
+    adminId: adminId?.toString(),
+    io,
+  });
+
+  if (!doc) {
+    const existing = await Order.findById(id).select('status').lean();
+    if (!existing) {
+      throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
+    }
+    if (existing.status === 'delivered' || existing.status === 'cancelled') {
+      throw new AppError(
+        { en: 'Order cannot be cancelled in its current status', de: 'Bestellung kann im aktuellen Status nicht storniert werden' },
+        400,
+        'INVALID_STATUS'
+      );
+    }
+    throw new AppError({ en: MESSAGES.ORDER.en.notFound, de: MESSAGES.ORDER.de.notFound }, 404);
+  }
+
   return sendSuccess(res, doc);
 });
 

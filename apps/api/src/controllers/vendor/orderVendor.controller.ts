@@ -12,6 +12,7 @@ import { initiateRefund } from '../../services/refundService';
 import { sendPushToCustomer, sendPushToDriver } from '../../services/fcm.service';
 import { saveCustomerInAppNotification } from '../../services/customerNotification.service';
 import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../../constants/driverAssignment';
+import { READY_PICKUP_WINDOW_MS } from '../../constants/orderFulfillment';
 import { findNearbyDrivers } from '../../services/driverAssignmentService';
 import { notifyNearbyDriversOnVendorAccept } from '../../services/driverOpenOrderBroadcast.service';
 import type { Server as SocketIOServer } from 'socket.io';
@@ -452,6 +453,10 @@ export const markOrderReady = asyncHandler(async (req: Request, res: Response) =
 
   const now = new Date();
   order.status = 'ready';
+  (order as unknown as { readyAt?: Date }).readyAt = now;
+  (order as unknown as { readyPickupDeadline?: Date }).readyPickupDeadline = new Date(
+    now.getTime() + READY_PICKUP_WINDOW_MS
+  );
   const history = (order as unknown as { statusHistory?: Array<Record<string, unknown>> }).statusHistory ?? [];
   history.push({
     status: 'ready',

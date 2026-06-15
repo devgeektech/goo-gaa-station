@@ -1,8 +1,17 @@
 import type { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import { DRIVER_ASSIGNMENT_WINDOW_MS } from '../constants/driverAssignment';
+import {
+  DELIVERY_SLA_TIMEOUT_NOTE,
+  DELIVERY_SLA_TIMEOUT_REASON,
+  DELIVERY_SLA_WINDOW_MS,
+  READY_PICKUP_TIMEOUT_NOTE,
+  READY_PICKUP_TIMEOUT_REASON,
+  READY_PICKUP_WINDOW_MS,
+} from '../constants/orderFulfillment';
 import { Order } from '../models/Order';
 import { initiateRefund } from '../services/refundService';
+import { claimOrderSystemCancel } from '../services/orderCancel.service';
 import { saveVendorInAppNotification } from '../services/vendorNotification.service';
 import { claimAndForwardPendingOrder } from '../services/vendorOrderNotify.service';
 
@@ -176,6 +185,92 @@ async function processOneDriverAssignmentTimeout(io?: SocketIOServer): Promise<b
   return true;
 }
 
+/** Backfill deadlines for orders created before timeout fields existed. */
+async function backfillMissingFulfillmentDeadlines(): Promise<void> {
+  const readyOrders = await OrderModel.find({
+    status: 'ready',
+    readyPickupDeadline: null,
+  })
+    .select('_id updatedAt')
+    .limit(25)
+    .lean();
+
+  for (const row of readyOrders as Array<{ _id: mongoose.Types.ObjectId; updatedAt?: Date }>) {
+    const base = row.updatedAt ? new Date(row.updatedAt) : new Date();
+    await OrderModel.updateOne(
+      { _id: row._id, status: 'ready', readyPickupDeadline: null },
+      {
+        $set: {
+          readyAt: base,
+          readyPickupDeadline: new Date(base.getTime() + READY_PICKUP_WINDOW_MS),
+        },
+      }
+    );
+  }
+
+  const inDelivery = await OrderModel.find({
+    status: { $in: ['picked_up', 'on_the_way'] },
+    deliverySlaDeadline: null,
+  })
+    .select('_id updatedAt')
+    .limit(25)
+    .lean();
+
+  for (const row of inDelivery as Array<{ _id: mongoose.Types.ObjectId; updatedAt?: Date }>) {
+    const base = row.updatedAt ? new Date(row.updatedAt) : new Date();
+    await OrderModel.updateOne(
+      { _id: row._id, status: { $in: ['picked_up', 'on_the_way'] }, deliverySlaDeadline: null },
+      {
+        $set: {
+          deliverySlaDeadline: new Date(base.getTime() + DELIVERY_SLA_WINDOW_MS),
+        },
+      }
+    );
+  }
+}
+
+async function processOneReadyPickupTimeout(io?: SocketIOServer): Promise<boolean> {
+  const now = new Date();
+  return claimOrderSystemCancel(
+    {
+      status: 'ready',
+      readyPickupDeadline: { $lt: now, $ne: null },
+    },
+    READY_PICKUP_TIMEOUT_REASON,
+    READY_PICKUP_TIMEOUT_NOTE,
+    {
+      io,
+      socketEvent: 'order:ready_pickup_timeout',
+      vendorNotification: {
+        type: 'order_timeout',
+        title: 'Pickup timeout',
+        body: `Order was cancelled — driver did not pick up within 1 hour.`,
+      },
+    }
+  );
+}
+
+async function processOneDeliverySlaTimeout(io?: SocketIOServer): Promise<boolean> {
+  const now = new Date();
+  return claimOrderSystemCancel(
+    {
+      status: { $in: ['picked_up', 'on_the_way'] },
+      deliverySlaDeadline: { $lt: now, $ne: null },
+    },
+    DELIVERY_SLA_TIMEOUT_REASON,
+    DELIVERY_SLA_TIMEOUT_NOTE,
+    {
+      io,
+      socketEvent: 'order:delivery_timeout',
+      vendorNotification: {
+        type: 'order_cancelled',
+        title: 'Delivery timeout',
+        body: `Order was cancelled — delivery not completed within 1 hour.`,
+      },
+    }
+  );
+}
+
 async function processCustomerCancelGraceForwards(io?: SocketIOServer): Promise<void> {
   for (let i = 0; i < 50; i++) {
     const forwarded = await claimAndForwardPendingOrder(io);
@@ -189,6 +284,7 @@ export function startVendorResponseTimeoutWorker(io?: SocketIOServer): void {
     // Drain multiple expired orders each tick, but yield to event loop.
     (async () => {
       await processCustomerCancelGraceForwards(io);
+      await backfillMissingFulfillmentDeadlines();
       // safety cap per tick
       for (let i = 0; i < 50; i++) {
         const handled = await processOneTimeout(io);
@@ -196,6 +292,14 @@ export function startVendorResponseTimeoutWorker(io?: SocketIOServer): void {
       }
       for (let i = 0; i < 50; i++) {
         const handled = await processOneDriverAssignmentTimeout(io);
+        if (!handled) break;
+      }
+      for (let i = 0; i < 50; i++) {
+        const handled = await processOneReadyPickupTimeout(io);
+        if (!handled) break;
+      }
+      for (let i = 0; i < 50; i++) {
+        const handled = await processOneDeliverySlaTimeout(io);
         if (!handled) break;
       }
     })().catch(() => {
