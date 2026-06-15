@@ -19,6 +19,8 @@ import {
   type AccessPayload,
 } from '../services/auth.service';
 import { driverSessionMatches, startNewDriverSession } from '../services/driverSession.service';
+import { assertDriverAccountActive } from '../services/accountBlock.service';
+import { createAccountBlockedError } from '../utils/accountBlockError';
 import { permanentlyDeleteLegacySoftDeletedDriver } from '../services/driverHardDelete.service';
 import { MESSAGES } from '../constants/messages';
 import type { Server as SocketIOServer } from 'socket.io';
@@ -106,6 +108,9 @@ export const driverSendOtp = asyncHandler(async (req: Request, res: Response) =>
   const phoneOtpExpiry = getOTPExpiry();
 
   const { driver } = await findOrCreateDriverByPhone(normalizedPhone);
+  if (driver.status === 'blocked') {
+    throw createAccountBlockedError(driver.blockReason);
+  }
   // Reset OTP state for fresh verification.
   driver.isPhoneVerified = false;
   driver.phoneOtp = otpHash;
@@ -147,6 +152,9 @@ export const driverVerifyOtp = asyncHandler(async (req: Request, res: Response) 
       404,
       'NOT_FOUND'
     );
+  }
+  if (driver.status === 'blocked') {
+    throw createAccountBlockedError(driver.blockReason);
   }
 
   const expiry = driver.phoneOtpExpiry;
@@ -276,6 +284,7 @@ export const driverRefresh = asyncHandler(async (req: Request, res: Response) =>
       'ACCOUNT_DELETED'
     );
   }
+  await assertDriverAccountActive(payload._id);
   if (!driverSessionMatches(payload.sessionVersion, driver.sessionVersion)) {
     throw new AppError(
       {

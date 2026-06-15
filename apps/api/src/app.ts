@@ -19,6 +19,7 @@ import { paymentCallback, wifipayWebhookHandler } from './controllers/payment.co
 import customerChatRouter from './routes/customer/chat';
 import driverChatRouter from './routes/driver/chat';
 import { authenticateJWT, requireRole } from './middlewares/auth.middleware';
+import { enforceCustomerAccount } from './middlewares/enforceCustomerAccount.middleware';
 import { authDriver } from './middlewares/authDriver.middleware';
 
 const app = express();
@@ -176,7 +177,7 @@ if ((env.STORAGE_PROVIDER || 'local').toLowerCase() === 'local') {
 app.use('/api', routes);
 
 // ── PHASE 14: Driver <-> Customer Chat ─────────────────────────────
-const authApp = [authenticateJWT, requireRole('user')];
+const authApp = [authenticateJWT, enforceCustomerAccount, requireRole('user')];
 app.use('/api/v1/app/orders/:orderId/chat', authApp, customerChatRouter);
 app.use('/api/v1/driver/orders/:orderId/chat', authDriver, driverChatRouter);
 // ── END PHASE 14 ────────────────────────────────────────────────────

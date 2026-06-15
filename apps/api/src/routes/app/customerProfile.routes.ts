@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateJWT, requireRole } from '../../middlewares/auth.middleware';
+import { enforceCustomerAccount } from '../../middlewares/enforceCustomerAccount.middleware';
 import {
   getProfile,
   updateProfile,
@@ -17,6 +18,7 @@ import {
 const router = Router();
 
 router.use(authenticateJWT);
+router.use(enforceCustomerAccount);
 router.use(requireRole('user')); // JWT role for customer (phone OTP login)
 
 router.get('/profile', getProfile);

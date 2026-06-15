@@ -4,6 +4,7 @@ import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { MESSAGES } from '../constants/messages';
 import { Vendor } from '../models/Vendor';
+import { createAccountBlockedError } from '../utils/accountBlockError';
 
 export interface VendorJwtPayload {
   _id: string;
@@ -60,7 +61,7 @@ export function authVendor(req: Request, res: Response, next: NextFunction): voi
         return;
       }
       if ((v as { status?: string }).status === 'blocked') {
-        next(new AppError({ en: 'Vendor account is blocked', de: 'Anbieter-Konto ist gesperrt' }, 403, 'FORBIDDEN'));
+        next(createAccountBlockedError((v as { blockReason?: string | null }).blockReason));
         return;
       }
       (req as Request).vendor = v as Request['vendor'];

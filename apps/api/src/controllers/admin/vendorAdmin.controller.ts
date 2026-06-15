@@ -20,6 +20,7 @@ import {
 import type { Server as SocketIOServer } from 'socket.io';
 import { sendPushToVendor } from '../../services/fcm.service';
 import { getVendorAvailabilityStatus } from '../../services/vendorAvailability.service';
+import { applyVendorAccountBlock } from '../../services/accountBlock.service';
 
 const VENDOR_IMAGE_MAX = MAX_FILE_SIZE_10MB;
 
@@ -200,6 +201,7 @@ export const updateVendor = asyncHandler(async (req: Request, res: Response) => 
   }
 
   const body = req.body ?? {};
+  const prevStatus = vendor.status;
   if (body.name !== undefined) vendor.name = String(body.name).trim();
   if (body.description !== undefined) vendor.description = String(body.description).trim();
   if (body.email !== undefined) vendor.email = body.email ? String(body.email).toLowerCase().trim() : null;
@@ -249,6 +251,14 @@ export const updateVendor = asyncHandler(async (req: Request, res: Response) => 
   }
 
   await vendor.save();
+
+  if (vendor.status === 'blocked' && prevStatus !== 'blocked') {
+    await applyVendorAccountBlock(vendor._id, {
+      io: (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined,
+      blockReason: vendor.blockReason,
+    });
+  }
+
   return sendSuccess(res, vendor.toObject());
 });
 
@@ -347,6 +357,14 @@ export const blockVendor = asyncHandler(async (req: Request, res: Response) => {
   vendor.status = newStatus;
   vendor.blockReason = newStatus === 'blocked' ? String(reason).trim() : null;
   await vendor.save();
+
+  if (newStatus === 'blocked') {
+    await applyVendorAccountBlock(vendor._id, {
+      io: (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined,
+      blockReason: vendor.blockReason,
+    });
+  }
+
   return sendSuccess(res, vendor.toObject());
 });
 

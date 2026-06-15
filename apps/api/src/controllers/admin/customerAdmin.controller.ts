@@ -14,8 +14,14 @@ import {
   getFileUrl,
   MAX_FILE_SIZE_10MB,
 } from '../../utils/storageProvider';
+import { applyCustomerAccountBlock } from '../../services/accountBlock.service';
+import type { Server as SocketIOServer } from 'socket.io';
 
 const uploadCustomerImage = getUploadMiddleware('users', MAX_FILE_SIZE_10MB);
+
+function getIo(req: Request): SocketIOServer | undefined {
+  return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+}
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
@@ -294,6 +300,13 @@ export const blockCustomer = asyncHandler(async (req: Request, res: Response) =>
   user.status = newStatus;
   user.blockReason = newStatus === 'blocked' ? String(reason).trim() : null;
   await user.save();
+
+  if (newStatus === 'blocked') {
+    await applyCustomerAccountBlock(user._id, {
+      io: getIo(req),
+      blockReason: user.blockReason,
+    });
+  }
 
   const doc = user.toObject();
   delete (doc as Record<string, unknown>).password;

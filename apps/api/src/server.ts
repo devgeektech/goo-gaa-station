@@ -66,8 +66,9 @@ io.on('connection', (socket) => {
       if (payload?.driverId && payload.driverId !== driverId) return;
       if (!mongoose.Types.ObjectId.isValid(driverId)) return;
 
-      const driver = await Driver.findById(driverId).select('sessionVersion isOnline').lean();
+      const driver = await Driver.findById(driverId).select('sessionVersion isOnline status blockReason').lean();
       if (!driver || !driverSessionMatches(decoded.sessionVersion, driver.sessionVersion)) return;
+      if (driver.status === 'blocked') return;
 
       socket.data.driverId = driverId;
       socket.join(`driver:${driverId}`);

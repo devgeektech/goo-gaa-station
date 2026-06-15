@@ -6,6 +6,7 @@ import { AppError } from '../utils/AppError';
 import { MESSAGES } from '../constants/messages';
 import { Driver } from '../models/Driver';
 import { driverSessionMatches } from '../services/driverSession.service';
+import { createAccountBlockedError } from '../utils/accountBlockError';
 
 export interface DriverJwtPayload {
   _id: string;
@@ -86,7 +87,7 @@ export function authDriver(req: Request, _res: Response, next: NextFunction): vo
         return;
       }
       if ((driver as { status?: string }).status === 'blocked') {
-        next(new AppError({ en: 'Driver account is blocked', de: 'Fahrer-Konto ist gesperrt' }, 403, 'FORBIDDEN'));
+        next(createAccountBlockedError((driver as { blockReason?: string | null }).blockReason));
         return;
       }
       const driverVersion = (driver as { sessionVersion?: number }).sessionVersion;
@@ -131,7 +132,7 @@ export function enforceDriverSession(req: Request, _res: Response, next: NextFun
         return;
       }
       if (driver.status === 'blocked') {
-        next(new AppError({ en: 'Driver account is blocked', de: 'Fahrer-Konto ist gesperrt' }, 403, 'FORBIDDEN'));
+        next(createAccountBlockedError(driver.blockReason));
         return;
       }
       if (!driverSessionMatches(tokenVersion, driver.sessionVersion)) {

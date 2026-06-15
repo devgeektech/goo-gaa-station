@@ -9,8 +9,14 @@ import { sendSuccess } from '../../utils/response';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { parsePagination } from '../../utils/pagination';
 import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } from '../../utils/storageProvider';
+import { applyCustomerAccountBlock } from '../../services/accountBlock.service';
+import type { Server as SocketIOServer } from 'socket.io';
 
 const uploadUserImage = getUploadMiddleware('users', MAX_FILE_SIZE_10MB);
+
+function getIo(req: Request): SocketIOServer | undefined {
+  return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+}
 
 function toPaginated<T>(data: T[], total: number, page: number, limit: number) {
   const totalPages = Math.ceil(total / limit) || 1;
@@ -295,6 +301,14 @@ export const updateUserStatus = asyncHandler(async (req: Request, res: Response)
       'NOT_FOUND'
     );
   }
+
+  if (status === 'blocked') {
+    await applyCustomerAccountBlock(id, {
+      io: getIo(req),
+      blockReason: String(reason).trim(),
+    });
+  }
+
   return sendSuccess(res, user);
 });
 

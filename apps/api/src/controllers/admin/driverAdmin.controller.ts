@@ -13,6 +13,7 @@ import { getUploadMiddleware, deleteLocalFile, getFileUrl, MAX_FILE_SIZE_10MB } 
 import { sendPushToDriver } from '../../services/fcm.service';
 import { attachDriverRatingStats, computeDriverRatingStats } from '../../services/driverRating.service';
 import { permanentlyDeleteDriver } from '../../services/driverHardDelete.service';
+import { applyDriverAccountBlock } from '../../services/accountBlock.service';
 
 const uploadDriverImages = getUploadMiddleware('drivers', MAX_FILE_SIZE_10MB).fields([
   { name: 'profileImage', maxCount: 1 },
@@ -334,13 +335,22 @@ export const blockDriver = asyncHandler(async (req: Request, res: Response) => {
   }
   driver.status = newStatus;
   await driver.save();
+
+  if (newStatus === 'blocked') {
+    await applyDriverAccountBlock(driver._id, {
+      io: getIo(req),
+      blockReason: driver.blockReason,
+      sendPush: false,
+    });
+  }
+
   await sendPushToDriver(driver, {
     title: newStatus === 'blocked' ? 'Account Update' : 'Account Restored',
     body:
       newStatus === 'blocked'
         ? (driver.blockReason || 'Your driver account has been blocked.')
         : 'Your driver account has been unblocked. You can go online again.',
-    data: { type: 'block', status: newStatus },
+    data: { type: newStatus === 'blocked' ? 'account_block' : 'block', status: newStatus },
   });
   const doc = driver.toObject();
   delete (doc as Record<string, unknown>).password;
@@ -371,6 +381,15 @@ export const updateDriverStatus = asyncHandler(async (req: Request, res: Respons
   if (!driver) {
     throw new AppError({ en: MESSAGES.DRIVER.en.notFound, de: MESSAGES.DRIVER.de.notFound }, 404, 'NOT_FOUND');
   }
+
+  if (status === 'blocked') {
+    await applyDriverAccountBlock(id, {
+      io: getIo(req),
+      blockReason: String(reason).trim(),
+      sendPush: false,
+    });
+  }
+
   return sendSuccess(res, driver);
 });
 

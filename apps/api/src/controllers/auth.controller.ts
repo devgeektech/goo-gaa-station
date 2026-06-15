@@ -23,6 +23,8 @@ import {
   type AccessPayload,
 } from '../services/auth.service';
 import { logAuthFailure } from '../utils/securityLog';
+import { assertCustomerAccountActive } from '../services/accountBlock.service';
+import { createAccountBlockedError } from '../utils/accountBlockError';
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
@@ -194,6 +196,9 @@ export const appRefresh = asyncHandler(async (req: Request, res: Response) => {
   }
   try {
     const payload = await verifyRefreshToken(raw);
+    if (payload.model === 'User') {
+      await assertCustomerAccountActive(payload._id);
+    }
     const refreshed = await rotateRefreshToken(
       raw,
       new mongoose.Types.ObjectId(payload._id),
@@ -206,6 +211,7 @@ export const appRefresh = asyncHandler(async (req: Request, res: Response) => {
       expiresIn: refreshed.expiresIn,
     });
   } catch (err) {
+    if (err instanceof AppError) throw err;
     const e = err as Error & { name?: string };
     if (e.message === 'REFRESH_TOKEN_EXPIRED' || e.name === 'TokenExpiredError') {
       throw new AppError(
@@ -440,11 +446,7 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
       }
       vendor = reactivatedVendor;
     } else if (vendorStatus === 'blocked') {
-      throw new AppError(
-        { en: 'Vendor account is blocked', de: 'Anbieter-Konto ist gesperrt' },
-        403,
-        'FORBIDDEN'
-      );
+      throw createAccountBlockedError((vendor as { blockReason?: string | null }).blockReason);
     }
     const payload: AccessPayload = {
       _id: (vendor as { _id: unknown })._id.toString(),
@@ -510,11 +512,7 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
       }
       user = reactivatedUser;
     } else if (userStatus === 'blocked') {
-      throw new AppError(
-        { en: 'Account is blocked', de: 'Konto ist gesperrt' },
-        403,
-        'FORBIDDEN'
-      );
+      throw createAccountBlockedError((user as { blockReason?: string | null }).blockReason);
     }
     const payload: AccessPayload = {
       _id: (user as { _id: unknown })._id.toString(),

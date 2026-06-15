@@ -17,6 +17,8 @@ import {
   type AccessPayload,
 } from '../services/auth.service';
 import { setVendorClosedFromApp } from '../services/vendorPresence.service';
+import { assertVendorAccountActive } from '../services/accountBlock.service';
+import { createAccountBlockedError } from '../utils/accountBlockError';
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const MAX_OTP_ATTEMPTS = 5;
@@ -119,7 +121,7 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
   }
 
   if (vendor.status === 'blocked') {
-    throw new AppError({ en: 'Vendor account is blocked', de: 'Anbieter-Konto ist gesperrt' }, 403, 'FORBIDDEN');
+    throw createAccountBlockedError(vendor.blockReason);
   }
 
   const now = new Date();
@@ -227,6 +229,7 @@ export const vendorRefresh = asyncHandler(async (req: Request, res: Response) =>
     if (payload.model !== 'Vendor') {
       throw new AppError({ en: 'Invalid token for vendor', de: 'Ungültiger Token' }, 401, 'INVALID_REFRESH_TOKEN');
     }
+    await assertVendorAccountActive(payload._id);
     const refreshed = await rotateRefreshToken(
       raw,
       new mongoose.Types.ObjectId(payload._id),
@@ -239,6 +242,7 @@ export const vendorRefresh = asyncHandler(async (req: Request, res: Response) =>
       expiresIn: refreshed.expiresIn,
     });
   } catch (err) {
+    if (err instanceof AppError) throw err;
     const e = err as Error & { message?: string; name?: string };
     if (e.message === 'REFRESH_TOKEN_EXPIRED' || e.name === 'TokenExpiredError') {
       throw new AppError({ en: 'Refresh token expired', de: 'Refresh-Token abgelaufen' }, 401, 'REFRESH_TOKEN_EXPIRED');
