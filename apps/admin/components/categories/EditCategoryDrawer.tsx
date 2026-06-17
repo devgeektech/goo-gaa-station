@@ -1,23 +1,29 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import type { CategoryItem } from '@/store/api';
 import { useUpdateCategoryMutation } from '@/store/api';
 import { Switch } from '@/components/ui/Switch';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 
 const MAX_ICON_SIZE = 2 * 1024 * 1024;
 const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
-const TYPE_OPTIONS = [
-  { value: 'food', label: 'Food' },
-  { value: 'grocery', label: 'Grocery' },
-  { value: 'pharmacy', label: 'Pharmacy' },
-  { value: 'fashion', label: 'Fashion' },
-];
 
 type Props = { category: CategoryItem | null; open: boolean; onClose: () => void };
 
 export function EditCategoryDrawer({ category, open, onClose }: Props) {
+  const t = useTranslations();
+  const TYPE_OPTIONS = useMemo(
+    () => [
+      { value: 'food', label: t.categories.filterFood },
+      { value: 'grocery', label: t.categories.filterGrocery },
+      { value: 'pharmacy', label: t.categories.filterPharmacy },
+      { value: 'fashion', label: t.categories.filterFashion },
+    ],
+    [t]
+  );
+
   const [updateCategory, { isLoading }] = useUpdateCategoryMutation();
   const toast = useToast();
   const [name, setName] = useState('');
@@ -57,7 +63,7 @@ export function EditCategoryDrawer({ category, open, onClose }: Props) {
     if (file.size > MAX_ICON_SIZE) {
       setIconFile(null);
       setIconPreview(null);
-      setSubmitError('Icon must be at most 2MB');
+      setSubmitError(t.categories.iconMaxSize);
       return;
     }
     setSubmitError('');
@@ -78,13 +84,13 @@ export function EditCategoryDrawer({ category, open, onClose }: Props) {
     if (iconFile) formData.append('icon', iconFile);
     try {
       await updateCategory({ id: category._id, body: formData }).unwrap();
-      toast.push({ title: 'Category updated', variant: 'success' });
+      toast.push({ title: t.categories.updateSuccess, variant: 'success' });
       if (iconPreview) URL.revokeObjectURL(iconPreview);
       onClose();
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'data' in err
-        ? String((err as { data?: { message?: string } }).data?.message ?? 'Update failed')
-        : err instanceof Error ? err.message : 'Update failed';
+        ? String((err as { data?: { message?: string } }).data?.message ?? t.common.updateFailed)
+        : err instanceof Error ? err.message : t.common.updateFailed;
       setSubmitError(msg);
     }
   };
@@ -118,17 +124,17 @@ export function EditCategoryDrawer({ category, open, onClose }: Props) {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h2 style={{ margin: 0, fontSize: 20 }}>Edit Category</h2>
-          <button type="button" className="btn" onClick={onClose} aria-label="Close">×</button>
+          <h2 style={{ margin: 0, fontSize: 20 }}>{t.categories.editTitle}</h2>
+          <button type="button" className="btn" onClick={onClose} aria-label={t.common.close}>×</button>
         </div>
         {category ? (
           <form onSubmit={handleSubmit}>
             <div className="field" style={{ marginBottom: 16 }}>
-              <div className="label">Name *</div>
+              <div className="label">{t.categories.fieldName} *</div>
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
             <div className="field" style={{ marginBottom: 16 }}>
-              <div className="label">Type *</div>
+              <div className="label">{t.categories.fieldType} *</div>
               <select className="select" value={type} onChange={(e) => setType(e.target.value)}>
                 {TYPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -136,7 +142,7 @@ export function EditCategoryDrawer({ category, open, onClose }: Props) {
               </select>
             </div>
             <div className="field" style={{ marginBottom: 16 }}>
-              <div className="label">Icon</div>
+              <div className="label">{t.categories.fieldIcon}</div>
               {currentIconUrl && !iconPreview ? (
                 <div style={{ marginBottom: 8 }}>
                   <img src={currentIconUrl} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
@@ -144,7 +150,7 @@ export function EditCategoryDrawer({ category, open, onClose }: Props) {
               ) : null}
               {iconPreview ? (
                 <div style={{ marginBottom: 8 }}>
-                  <img src={iconPreview} alt="New" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
+                  <img src={iconPreview} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
                 </div>
               ) : null}
               <input
@@ -154,23 +160,23 @@ export function EditCategoryDrawer({ category, open, onClose }: Props) {
                 onChange={onFileChange}
                 style={{ fontSize: 14 }}
               />
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Replace image (max 2MB)</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{t.categories.iconReplace}</div>
             </div>
             <div className="field" style={{ marginBottom: 16 }}>
-              <div className="label">Description</div>
+              <div className="label">{t.categories.fieldDescription}</div>
               <textarea className="input" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
             </div>
             <div className="field" style={{ marginBottom: 16 }}>
-              <div className="label">Sort Order</div>
+              <div className="label">{t.categories.fieldSortOrder}</div>
               <input type="number" className="input" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value) || 0)} />
             </div>
             <div className="field" style={{ marginBottom: 16 }}>
-              <Switch checked={isActive} onChange={(e) => setIsActive(e.target.checked)} label="Active" />
+              <Switch checked={isActive} onChange={(e) => setIsActive(e.target.checked)} label={t.categories.toggleOn} />
             </div>
             {submitError ? <div style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 16 }}>{submitError}</div> : null}
             <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" className="btn" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn btnPrimary" disabled={isLoading}>{isLoading ? 'Saving…' : 'Save'}</button>
+              <button type="button" className="btn" onClick={onClose}>{t.common.cancel}</button>
+              <button type="submit" className="btn btnPrimary" disabled={isLoading}>{isLoading ? t.common.saving : t.common.save}</button>
             </div>
           </form>
         ) : null}

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useDeleteCategoryMutation } from '@/store/api';
 import type { CategoryItem } from '@/store/api';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 type Props = {
   category: CategoryItem | null;
@@ -13,6 +15,7 @@ type Props = {
 };
 
 export function DeleteCategoryDialog({ category, open, onClose, onDeleted }: Props) {
+  const t = useTranslations();
   const [deleteCategory, { isLoading }] = useDeleteCategoryMutation();
   const toast = useToast();
   const [blockedVendors, setBlockedVendors] = useState<Array<{ _id: string; name: string }>>([]);
@@ -24,7 +27,7 @@ export function DeleteCategoryDialog({ category, open, onClose, onDeleted }: Pro
     setBlockedMode(false);
     try {
       await deleteCategory(category._id).unwrap();
-      toast.push({ title: 'Category deleted', variant: 'success' });
+      toast.push({ title: t.categories.deleteSuccess, variant: 'success' });
       onClose();
       onDeleted?.();
     } catch (err: unknown) {
@@ -34,8 +37,8 @@ export function DeleteCategoryDialog({ category, open, onClose, onDeleted }: Pro
         setBlockedMode(true);
       } else {
         toast.push({
-          title: 'Delete failed',
-          description: e?.data && typeof e.data === 'object' && 'message' in e.data ? String((e.data as { message?: string }).message) : 'Unknown error',
+          title: t.common.deleteFailed,
+          description: e?.data && typeof e.data === 'object' && 'message' in e.data ? String((e.data as { message?: string }).message) : t.common.unknownError,
           variant: 'danger',
         });
       }
@@ -77,10 +80,10 @@ export function DeleteCategoryDialog({ category, open, onClose, onDeleted }: Pro
         {blockedMode && category ? (
           <>
             <h2 id="delete-dialog-title" style={{ margin: '0 0 12px 0', fontSize: 18 }}>
-              Cannot delete {category.name}
+              {formatT(t.categories.cannotDelete, { name: category.name })}
             </h2>
             <p className="muted" style={{ marginBottom: 16 }}>
-              This category is used by the following vendors. Remove the category from these vendors first:
+              {t.categories.deleteBlockedVendorsDesc}
             </p>
             <ul style={{ margin: '0 0 20px 0', paddingLeft: 20 }}>
               {blockedVendors.map((v) => (
@@ -88,19 +91,19 @@ export function DeleteCategoryDialog({ category, open, onClose, onDeleted }: Pro
               ))}
             </ul>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btnPrimary" onClick={handleClose}>Close</button>
+              <button type="button" className="btn btnPrimary" onClick={handleClose}>{t.common.close}</button>
             </div>
           </>
         ) : (
           <>
             <h2 id="delete-dialog-title" style={{ margin: '0 0 12px 0', fontSize: 18 }}>
-              Are you sure you want to delete {category?.name ?? 'this category'}?
+              {formatT(t.categories.deleteConfirmSure, { name: category?.name ?? t.categories.deleteTitle })}
             </h2>
-            <p className="muted" style={{ marginBottom: 20 }}>This cannot be undone.</p>
+            <p className="muted" style={{ marginBottom: 20 }}>{t.common.cannotUndo}</p>
             <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" className="btn" onClick={handleClose}>Cancel</button>
+              <button type="button" className="btn" onClick={handleClose}>{t.common.cancel}</button>
               <button type="button" className="btn btnDanger" onClick={handleConfirm} disabled={isLoading}>
-                {isLoading ? 'Deleting…' : 'Delete'}
+                {isLoading ? t.common.deleting : t.common.delete}
               </button>
             </div>
           </>

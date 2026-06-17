@@ -6,9 +6,12 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchCustomerById, fetchCustomerOrders } from '@/store/slices/customersSlice';
-import { capitalizeFirst, formatDateTime, formatMoney } from '@/lib/utils/format';
+import { formatDateTime, formatMoney } from '@/lib/utils/format';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useDriverStatusBadges } from '@/lib/i18n/useStatusBadges';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 function publicFileBase(): string {
   const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
@@ -20,6 +23,8 @@ function imgSrc(url: string | null | undefined) {
 }
 
 export default function CustomerDetailPage() {
+  const t = useTranslations();
+  const { accountStatusBadge } = useDriverStatusBadges();
   const params = useParams();
   const id = typeof params?.id === 'string' ? params.id : '';
   const dispatch = useAppDispatch();
@@ -50,18 +55,18 @@ export default function CustomerDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row" style={{ alignItems: 'center', gap: 12 }}>
-        <Link href="/customers" className="btn" aria-label="Back to customers">
+        <Link href="/customers" className="btn" aria-label={t.common.backToCustomers}>
           <ArrowLeft size={18} aria-hidden />
         </Link>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>Customer detail</h1>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{t.customers.detailTitle}</h1>
       </div>
 
       {!id ? (
-        <div className="muted">Invalid customer ID.</div>
+        <div className="muted">{t.customers.invalidId}</div>
       ) : loading && !customer ? (
         <Skeleton height={320} />
       ) : !customer ? (
-        <div className="muted">Customer not found.</div>
+        <div className="muted">{t.customers.notFound}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div className="card">
@@ -72,8 +77,8 @@ export default function CustomerDetailPage() {
                   <div style={{ fontWeight: 800, fontSize: 20 }}>{customer.name}</div>
                   <div className="muted">{customer.phone}</div>
                   {customer.email ? <div className="muted">{customer.email}</div> : null}
-                  <span className="badge" style={{ marginTop: 8, background: customer.status === 'blocked' ? 'var(--danger-light)' : customer.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)' }}>
-                    {capitalizeFirst(customer.status)}
+                  <span className="badge" style={{ marginTop: 8, background: accountStatusBadge(customer.status).background }}>
+                    {accountStatusBadge(customer.status).label}
                   </span>
                 </div>
               </div>
@@ -81,30 +86,18 @@ export default function CustomerDetailPage() {
           </div>
 
           <div className="grid2">
-            {/* <div className="card" style={{ boxShadow: 'none' }}>
-              <div className="cardBody">
-                <div className="muted">Points balance</div>
-                <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{customer.points ?? 0}</div>
-              </div>
-            </div> */}
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Total orders</div>
+                <div className="muted">{t.customers.totalOrders}</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{customer.orderCount ?? customer.totalOrders ?? 0}</div>
               </div>
             </div>
-            {/* <div className="card" style={{ boxShadow: 'none' }}>
-              <div className="cardBody">
-                <div className="muted">Total spend</div>
-                <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{formatMoney(customer.totalSpent ?? 0)}</div>
-              </div>
-            </div> */}
           </div>
 
           {customer.addresses && customer.addresses.length > 0 ? (
             <div className="card">
               <div className="cardBody">
-                <div style={{ fontWeight: 800 }}>Addresses</div>
+                <div style={{ fontWeight: 800 }}>{t.customers.addresses}</div>
                 <div className="divider" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {customer.addresses.map((a, i) => (
@@ -120,23 +113,23 @@ export default function CustomerDetailPage() {
 
           <div className="card">
             <div className="cardBody">
-              <div style={{ fontWeight: 800 }}>Order history</div>
-              <div className="muted" style={{ fontSize: 14 }}>Total {customerOrders.pagination.total}</div>
+              <div style={{ fontWeight: 800 }}>{t.customers.orderHistory}</div>
+              <div className="muted" style={{ fontSize: 14 }}>{formatT(t.common.totalCount, { total: customerOrders.pagination.total })}</div>
               <div className="divider" />
               {ordersLoading && customerOrders.items.length === 0 ? (
                 <Skeleton height={120} />
               ) : customerOrders.items.length === 0 ? (
-                <div className="muted">No orders yet.</div>
+                <div className="muted">{t.empty.ordersYet}</div>
               ) : (
                 <>
                   <div className="tableWrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Order#</th>
-                          <th>Date</th>
-                          <th>Total</th>
-                          <th>Status</th>
+                          <th>{t.orders.orderNumber}</th>
+                          <th>{t.common.date}</th>
+                          <th>{t.common.total}</th>
+                          <th>{t.common.status}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -152,10 +145,10 @@ export default function CustomerDetailPage() {
                     </table>
                   </div>
                   <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
-                    <span className="muted">Page {customerOrders.pagination.page} / {customerOrders.pagination.totalPages}</span>
+                    <span className="muted">{formatT(t.common.pageOfShort, { page: customerOrders.pagination.page, totalPages: customerOrders.pagination.totalPages })}</span>
                     <div className="row">
-                      <button className="btn" disabled={!customerOrders.pagination.hasPrev || ordersLoading} onClick={() => fetchOrders(customerOrders.pagination.page - 1)}>Prev</button>
-                      <button className="btn" disabled={!customerOrders.pagination.hasNext || ordersLoading} onClick={() => fetchOrders(customerOrders.pagination.page + 1)}>Next</button>
+                      <button className="btn" disabled={!customerOrders.pagination.hasPrev || ordersLoading} onClick={() => fetchOrders(customerOrders.pagination.page - 1)}>{t.common.prev}</button>
+                      <button className="btn" disabled={!customerOrders.pagination.hasNext || ordersLoading} onClick={() => fetchOrders(customerOrders.pagination.page + 1)}>{t.common.next}</button>
                     </div>
                   </div>
                 </>

@@ -15,10 +15,12 @@ import {
 } from '@/store/slices/ordersSlice';
 import { searchDrivers, type DriverListItem } from '@/lib/api/drivers.api';
 import { formatDateTime, formatMoney, copyToClipboard } from '@/lib/utils/format';
-import { paymentBadge, statusBadge } from '@/components/orders/orderBadges';
+import { OrderStatusBadge, PaymentStatusBadge } from '@/components/orders/orderBadges';
 import { OrderDriversNotified } from '@/components/orders/OrderDriversNotified';
 import { OrderAddressesSection } from '@/components/orders/OrderAddressesSection';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 import { useToast } from '@/components/ui/Toast';
 
 function asObj<T extends object>(v: unknown): T | null {
@@ -31,9 +33,10 @@ function getId(v: unknown): string | null {
   return o?._id ?? null;
 }
 
-const ALL_STATUSES: OrderStatus[] = ['placed', 'confirmed', 'preparing', 'picked_up', 'on_the_way', 'delivered', 'cancelled'];
+const ORDER_STATUS_VALUES = ['placed', 'confirmed', 'preparing', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] as const;
 
 export default function OrderDetailPage() {
+  const t = useTranslations();
   const params = useParams();
   const id = typeof params?.id === 'string' ? params.id : '';
   const dispatch = useAppDispatch();
@@ -81,7 +84,7 @@ export default function OrderDetailPage() {
   async function copyPhone(phone?: string) {
     if (!phone) return;
     const ok = await copyToClipboard(phone);
-    toast.push({ title: ok ? 'Copied' : 'Copy failed', description: phone, variant: ok ? 'success' : 'danger' });
+    toast.push({ title: ok ? t.common.copied : t.common.copyFailed, description: phone, variant: ok ? 'success' : 'danger' });
   }
 
   async function runDriverSearch(q: string) {
@@ -106,9 +109,9 @@ export default function OrderDetailPage() {
     if (!order || !selectedDriver) return;
     const action = await dispatch(adminAssignDriver({ id: order._id, driverId: selectedDriver._id }));
     if (adminAssignDriver.fulfilled.match(action)) {
-      toast.push({ title: 'Driver assigned', description: selectedDriver.name ?? selectedDriver._id, variant: 'success' });
+      toast.push({ title: t.orders.driverAssigned, description: selectedDriver.name ?? selectedDriver._id, variant: 'success' });
     } else {
-      toast.push({ title: 'Assign failed', description: String(action.payload ?? action.error?.message), variant: 'danger' });
+      toast.push({ title: t.orders.assignFailed, description: String(action.payload ?? action.error?.message), variant: 'danger' });
     }
   }
 
@@ -116,10 +119,10 @@ export default function OrderDetailPage() {
     if (!order) return;
     const action = await dispatch(adminUpdateOrderStatus({ id: order._id, status: nextStatus, note: statusNote || undefined }));
     if (adminUpdateOrderStatus.fulfilled.match(action)) {
-      toast.push({ title: 'Status updated', description: nextStatus, variant: 'success' });
+      toast.push({ title: t.orders.statusUpdated, description: nextStatus, variant: 'success' });
       setStatusNote('');
     } else {
-      toast.push({ title: 'Update failed', description: String(action.payload ?? action.error?.message), variant: 'danger' });
+      toast.push({ title: t.orders.updateFailed, description: String(action.payload ?? action.error?.message), variant: 'danger' });
     }
   }
 
@@ -131,12 +134,12 @@ export default function OrderDetailPage() {
     );
     setRefunding(false);
     if (adminRecordOrderRefund.fulfilled.match(action)) {
-      toast.push({ title: 'Refund recorded', description: 'Payment status updated for ledger.', variant: 'success' });
+      toast.push({ title: t.orders.refundRecordedToast, description: t.orders.refundPaymentUpdated, variant: 'success' });
       setRefundOpen(false);
       setRefundReason('');
     } else {
       toast.push({
-        title: 'Refund failed',
+        title: t.orders.refundFailed,
         description: String(action.payload ?? action.error?.message),
         variant: 'danger',
       });
@@ -146,14 +149,14 @@ export default function OrderDetailPage() {
   async function onCancelOrder() {
     if (!order) return;
     if (!cancelReason.trim()) {
-      toast.push({ title: 'Reason required', description: 'Please enter a cancellation reason.', variant: 'danger' });
+      toast.push({ title: t.orders.reasonRequired, description: t.orders.cancelReasonHint, variant: 'danger' });
       return;
     }
     const action = await dispatch(adminCancelOrder({ id: order._id, reason: cancelReason.trim() }));
     if (adminCancelOrder.fulfilled.match(action)) {
-      toast.push({ title: 'Order cancelled', variant: 'success' });
+      toast.push({ title: t.orders.orderCancelled, variant: 'success' });
     } else {
-      toast.push({ title: 'Cancel failed', description: String(action.payload ?? action.error?.message), variant: 'danger' });
+      toast.push({ title: t.orders.cancelFailed, description: String(action.payload ?? action.error?.message), variant: 'danger' });
     }
   }
 
@@ -170,27 +173,27 @@ export default function OrderDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <Link href="/orders" className="btn" aria-label="Back to orders">
+        <Link href="/orders" className="btn" aria-label={t.common.backToOrders}>
           <ArrowLeft size={18} aria-hidden />
         </Link>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>
-          {order ? `Order ${order.orderNumber}` : 'Order detail'}
+          {order ? formatT(t.orders.orderTitle, { number: order.orderNumber }) : t.orders.detailTitle}
         </h1>
       </div>
 
       {!id ? (
-        <div className="muted">Invalid order ID.</div>
+        <div className="muted">{t.orders.invalidOrderId}</div>
       ) : loading && !order ? (
         <Skeleton height={320} />
       ) : !order ? (
-        <div className="muted">Order not found.</div>
+        <div className="muted">{t.orders.notFound}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* Customer / Driver / Vendor cards */}
           <div className="grid3">
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Customer</div>
+                <div className="muted">{t.orders.customerSection}</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>{customer?.name ?? getId(order.customerId) ?? '—'}</div>
                 <button type="button" className="btn" style={{ marginTop: 8 }} onClick={() => void copyPhone(customer?.phone)}>
                   <Copy size={16} /> {customer?.phone ?? '—'}
@@ -200,9 +203,9 @@ export default function OrderDetailPage() {
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Driver</div>
+                <div className="muted">{t.orders.driverSection}</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>
-                  {driver?.name ?? (order.driverId ? getId(order.driverId) : 'Unassigned') ?? 'Unassigned'}
+                  {driver?.name ?? (order.driverId ? getId(order.driverId) : t.common.unassigned) ?? t.common.unassigned}
                 </div>
                 {driver?.phone ? (
                   <button type="button" className="btn" style={{ marginTop: 8 }} onClick={() => void copyPhone(driver.phone)}>
@@ -213,7 +216,7 @@ export default function OrderDetailPage() {
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Vendor</div>
+                <div className="muted">{t.orders.vendorSection}</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>{vendor?.name ?? (order.vendorId ? getId(order.vendorId) : '—') ?? '—'}</div>
               </div>
             </div>
@@ -223,33 +226,33 @@ export default function OrderDetailPage() {
           <div className="grid2">
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Order info</div>
+                <div className="muted">{t.orders.orderInfo}</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>{order.orderNumber}</div>
-                <div className="muted" style={{ fontSize: 12 }}>Created {formatDateTime(order.createdAt)}</div>
-                <div style={{ marginTop: 12 }}>{statusBadge(order.status)}</div>
+                <div className="muted" style={{ fontSize: 12 }}>{formatT(t.common.createdAt, { date: formatDateTime(order.createdAt) })}</div>
+                <div style={{ marginTop: 12 }}><OrderStatusBadge status={order.status} /></div>
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Payment</div>
+                <div className="muted">{t.orders.paymentSection}</div>
                 <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>{formatMoney(order.total)}</div>
-                <div className="muted" style={{ fontSize: 12 }}>Method: {order.paymentMethod ?? '—'}</div>
-                <div className="muted" style={{ fontSize: 12 }}>WifiPay ref: {order.wifipayRef ?? '—'}</div>
-                <div style={{ marginTop: 10 }}>{paymentBadge(order.paymentStatus)}</div>
+                <div className="muted" style={{ fontSize: 12 }}>{formatT(t.common.methodLabel, { method: order.paymentMethod ?? '—' })}</div>
+                <div className="muted" style={{ fontSize: 12 }}>{t.orders.wifipayRef}: {order.wifipayRef ?? '—'}</div>
+                <div style={{ marginTop: 10 }}><PaymentStatusBadge status={order.paymentStatus} /></div>
                 {isRefunded ? (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>Refund recorded in transactions.</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{t.orders.refundRecorded}</div>
                 ) : canRecordRefund ? (
                   <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {!refundOpen ? (
                       <button type="button" className="btn btnPrimary" onClick={() => setRefundOpen(true)}>
-                        <RotateCcw size={16} /> Record refund
+                        <RotateCcw size={16} /> {t.orders.recordRefund}
                       </button>
                     ) : (
                       <>
                         <textarea
                           className="input"
                           rows={2}
-                          placeholder="Refund reason (optional)"
+                          placeholder={t.orders.refundReasonOptional}
                           value={refundReason}
                           onChange={(e) => setRefundReason(e.target.value)}
                           disabled={refunding}
@@ -261,7 +264,7 @@ export default function OrderDetailPage() {
                             onClick={() => void onRecordRefund()}
                             disabled={refunding}
                           >
-                            {refunding ? 'Recording…' : 'Confirm refund'}
+                            {refunding ? t.common.recording : t.orders.confirmRefund}
                           </button>
                           <button
                             type="button"
@@ -272,11 +275,11 @@ export default function OrderDetailPage() {
                             }}
                             disabled={refunding}
                           >
-                            Cancel
+                            {t.common.cancel}
                           </button>
                         </div>
                         <div className="muted" style={{ fontSize: 12 }}>
-                          Manual record for COD — admin processes cash return offline.
+                          {t.orders.codManualNote}
                         </div>
                       </>
                     )}
@@ -293,7 +296,7 @@ export default function OrderDetailPage() {
               toast.push({
                 title: label,
                 description: text,
-                variant: label.startsWith('Copied') ? 'success' : 'danger',
+                variant: label === t.orders.copiedDriverId || label === t.common.copied ? 'success' : 'danger',
               });
             }}
           />
@@ -301,40 +304,40 @@ export default function OrderDetailPage() {
           {/* Finance & ledger */}
           <div className="card">
             <div className="cardBody">
-              <div style={{ fontWeight: 800 }}>Finance & Ledger</div>
+              <div style={{ fontWeight: 800 }}>{t.orders.financeSection}</div>
               <div className="divider" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Order amount</span>
+                  <span className="muted">{t.orders.orderAmount}</span>
                   <span>{formatMoney(orderAmount)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Driver fee</span>
+                  <span className="muted">{t.orders.driverFee}</span>
                   <span>{formatMoney(driverFee)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Net order amount</span>
+                  <span className="muted">{t.orders.netOrderAmount}</span>
                   <span>{formatMoney(netOrderAmount)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Commission</span>
+                  <span className="muted">{t.orders.commission}</span>
                   <span>{formatMoney(commission)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Admin revenue</span>
+                  <span className="muted">{t.orders.adminRevenue}</span>
                   <span>{formatMoney(adminRevenue)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Vendor revenue</span>
+                  <span className="muted">{t.orders.vendorRevenue}</span>
                   <span>{formatMoney(vendorRevenue)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span className="muted">Driver delivery fee</span>
+                  <span className="muted">{t.orders.driverDeliveryFee}</span>
                   <span>{formatMoney(driverRevenue)}</span>
                 </div>
                 <div className="divider" />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
-                  <span>Refund record amount</span>
+                  <span>{t.orders.refundRecordAmount}</span>
                   <span>{formatMoney(refundAmount)}</span>
                 </div>
               </div>
@@ -344,16 +347,16 @@ export default function OrderDetailPage() {
           {/* Items */}
           <div className="card">
             <div className="cardBody">
-              <div style={{ fontWeight: 800 }}>Items</div>
+              <div style={{ fontWeight: 800 }}>{t.orders.itemsSection}</div>
               <div className="divider" />
               <div className="tableWrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>Item</th>
-                      <th>Qty</th>
-                      <th>Unit price</th>
-                      <th>Subtotal</th>
+                      <th>{t.orders.item}</th>
+                      <th>{t.orders.qty}</th>
+                      <th>{t.orders.unitPrice}</th>
+                      <th>{t.orders.subtotal}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -370,10 +373,10 @@ export default function OrderDetailPage() {
               </div>
               <div className="divider" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">Subtotal</span><span>{formatMoney(itemsSubtotal)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">Delivery fee</span><span>{formatMoney(order.deliveryFee ?? 0)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">Discount</span><span>{formatMoney(order.discount ?? 0)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}><span>Total</span><span>{formatMoney(order.total)}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">{t.orders.subtotal}</span><span>{formatMoney(itemsSubtotal)}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">{t.orders.deliveryFee}</span><span>{formatMoney(order.deliveryFee ?? 0)}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">{t.orders.discount}</span><span>{formatMoney(order.discount ?? 0)}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}><span>{t.common.total}</span><span>{formatMoney(order.total)}</span></div>
               </div>
             </div>
           </div>
@@ -381,7 +384,7 @@ export default function OrderDetailPage() {
           {/* Addresses */}
           <div className="card">
             <div className="cardBody">
-              <div style={{ fontWeight: 800 }}>Addresses</div>
+              <div style={{ fontWeight: 800 }}>{t.orders.addressesSection}</div>
               <div className="divider" />
               <OrderAddressesSection order={order} onCopyPhone={(phone) => void copyPhone(phone)} />
             </div>
@@ -418,33 +421,33 @@ export default function OrderDetailPage() {
           {!isFinal ? (
             <div className="card">
               <div className="cardBody">
-                <div style={{ fontWeight: 900 }}>Admin actions</div>
+                <div style={{ fontWeight: 900 }}>{t.orders.adminActions}</div>
                 <div className="divider" />
                 <div className="grid2" style={{ gap: 24 }}>
                   <div>
-                    <div className="muted" style={{ marginBottom: 8 }}>Change status</div>
+                    <div className="muted" style={{ marginBottom: 8 }}>{t.orders.changeStatus}</div>
                     <select className="select" value={nextStatus} onChange={(e) => setNextStatus(e.target.value as OrderStatus)}>
-                      {ALL_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                      {ORDER_STATUS_VALUES.map((s) => (
+                        <option key={s} value={s}>{t.status.order[s]}</option>
                       ))}
                     </select>
-                    <textarea className="textarea" placeholder="Note (optional)" value={statusNote} onChange={(e) => setStatusNote(e.target.value)} style={{ marginTop: 8, minHeight: 60 }} />
+                    <textarea className="textarea" placeholder={t.common.noteOptional} value={statusNote} onChange={(e) => setStatusNote(e.target.value)} style={{ marginTop: 8, minHeight: 60 }} />
                     <button type="button" className="btn btnPrimary" style={{ marginTop: 10 }} onClick={() => void onChangeStatus()}>
-                      Update status
+                      {t.orders.updateStatus}
                     </button>
                   </div>
                   <div>
-                    <div className="muted" style={{ marginBottom: 8 }}>Assign driver</div>
+                    <div className="muted" style={{ marginBottom: 8 }}>{t.orders.assignDriver}</div>
                     <div className="adminDriverSearchRow">
-                      <input className="input" value={driverQuery} onChange={(e) => setDriverQuery(e.target.value)} placeholder="Search drivers" />
-                      <button type="button" className="btn" onClick={() => void runDriverSearch(driverQuery)} disabled={driverLoading} aria-label="Search"><Search size={16} /></button>
+                      <input className="input" value={driverQuery} onChange={(e) => setDriverQuery(e.target.value)} placeholder={t.orders.searchDrivers} />
+                      <button type="button" className="btn" onClick={() => void runDriverSearch(driverQuery)} disabled={driverLoading} aria-label={t.common.search}><Search size={16} /></button>
                     </div>
                     {driverLoading ? (
                       <div style={{ marginTop: 10 }}>
                         <Skeleton height={42} />
                       </div>
                     ) : driverResults.length === 0 ? (
-                      <div className="muted" style={{ marginTop: 10, fontSize: 13 }}>No approved active drivers. Click Search to load.</div>
+                      <div className="muted" style={{ marginTop: 10, fontSize: 13 }}>{t.orders.noDriversSearchHint}</div>
                     ) : (
                       <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflow: 'auto' }}>
                         {driverResults.map((d) => (
@@ -456,22 +459,22 @@ export default function OrderDetailPage() {
                       </div>
                     )}
                     <button type="button" className="btn btnPrimary" style={{ marginTop: 10 }} onClick={() => void onAssignDriver()} disabled={!selectedDriver}>
-                      Assign selected driver
+                      {t.orders.assignSelectedDriver}
                     </button>
                   </div>
                 </div>
                 <div className="divider" />
                 <div>
-                  <div className="muted" style={{ marginBottom: 8 }}>Cancel order</div>
-                  <textarea className="textarea" placeholder="Reason (required)" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} style={{ minHeight: 60 }} />
+                  <div className="muted" style={{ marginBottom: 8 }}>{t.orders.cancelOrder}</div>
+                  <textarea className="textarea" placeholder={t.common.reasonRequired} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} style={{ minHeight: 60 }} />
                   <button type="button" className="btn" style={{ marginTop: 10, background: 'var(--danger)', color: 'white' }} onClick={() => void onCancelOrder()} disabled={!cancelReason.trim()}>
-                    Cancel order
+                    {t.orders.cancelOrder}
                   </button>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="muted" style={{ fontSize: 13 }}>Admin actions are disabled for delivered/cancelled orders.</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.orders.actionsDisabled}</div>
           )}
         </div>
       )}

@@ -6,9 +6,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import type { LucideProps } from 'lucide-react';
-import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent, RotateCcw, Wallet, Settings, Image as ImageIcon } from 'lucide-react';
+import { BarChart3, Package, Receipt, Users, UserPlus, Store, Menu, LogOut, Sun, Moon, LayoutGrid, Percent, Wallet, Settings, Image as ImageIcon } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n/useTranslations';
+import { useLocale } from '@/lib/i18n/LocaleContext';
 import type { Locale } from '@/lib/i18n/translations';
+import { formatT } from '@/lib/i18n/translations';
 
 const NAV_KEYS = [
   { href: '/', key: 'dashboard' as const, icon: BarChart3 },
@@ -17,7 +19,6 @@ const NAV_KEYS = [
   { href: '/customers', key: 'customers' as const, icon: UserPlus },
   { href: '/drivers', key: 'drivers' as const, icon: Users },
   { href: '/vendors', key: 'vendors' as const, icon: Store },
-  // { href: '/refunds', key: 'refunds' as const, icon: RotateCcw },
   { href: '/categories', key: 'categories' as const, icon: LayoutGrid },
   { href: '/banners', key: 'banners' as const, icon: ImageIcon },
   { href: '/fees', key: 'fees' as const, icon: Percent },
@@ -35,6 +36,7 @@ function NavLink({
   active,
   onNavigate,
   badge,
+  pendingAria,
 }: {
   href: string;
   label: string;
@@ -42,6 +44,7 @@ function NavLink({
   active: boolean;
   onNavigate?: () => void;
   badge?: number;
+  pendingAria: string;
 }) {
   return (
     <Link
@@ -66,7 +69,7 @@ function NavLink({
             alignItems: 'center',
             justifyContent: 'center',
           }}
-          aria-label={`${badge} pending`}
+          aria-label={pendingAria}
         >
           {badge > 99 ? '99+' : badge}
         </span>
@@ -83,8 +86,8 @@ export function DashboardShell({ children }: PropsWithChildren) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [locale, setLocale] = useState<Locale>('en');
-  const t = useTranslations(locale);
+  const { locale, setLocale } = useLocale();
+  const t = useTranslations();
 
   useEffect(() => setMounted(true), []);
 
@@ -136,7 +139,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
         type="button"
         className="sidebarToggle"
         onClick={() => setSidebarOpen((o) => !o)}
-        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+        aria-label={sidebarOpen ? t.shell.closeMenu : t.shell.openMenu}
         aria-expanded={sidebarOpen}
       >
         <Menu size={22} aria-hidden />
@@ -144,14 +147,14 @@ export function DashboardShell({ children }: PropsWithChildren) {
 
       <div className="sidebarOverlay" onClick={closeSidebar} aria-hidden />
 
-      <aside className="sidebar" aria-label="Main navigation">
+      <aside className="sidebar" aria-label={t.shell.mainNav}>
         <div className="sidebarHeader">
-          <Link href="/" className="sidebarBrand" aria-label="Goo-Gaa Station Admin home" onClick={closeSidebar}>
-            Goo-Gaa Station Admin
+          <Link href="/" className="sidebarBrand" aria-label={t.shell.brandHome} onClick={closeSidebar}>
+            {t.shell.brand}
           </Link>
         </div>
-        <nav className="sidebarNav" aria-label="Main">
-          <div className="sidebarNavSection">Menu</div>
+        <nav className="sidebarNav" aria-label={t.shell.mainNav}>
+          <div className="sidebarNavSection">{t.shell.menu}</div>
           {NAV_KEYS.map((item) => (
             <NavLink
               key={item.href}
@@ -161,6 +164,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
               active={isActive(item.href)}
               onNavigate={closeSidebar}
               badge={item.key === 'vendors' ? pendingCount : undefined}
+              pendingAria={formatT(t.shell.pending, { n: pendingCount })}
             />
           ))}
         </nav>
@@ -174,7 +178,7 @@ export function DashboardShell({ children }: PropsWithChildren) {
               value={locale}
               onChange={(e) => setLocale(e.target.value as Locale)}
               style={{ minWidth: 72, fontSize: 14 }}
-              aria-label="Language"
+              aria-label={t.shell.language}
             >
               <option value="en">EN</option>
               <option value="so">SO</option>

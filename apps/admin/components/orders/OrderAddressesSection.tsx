@@ -3,6 +3,7 @@
 import { Copy } from 'lucide-react';
 import type { OrderListItem } from '@/lib/api/orders.api';
 import { resolveDeliveryForOrder, resolvePickupForOrder } from '@/lib/utils/orderAddresses';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 
 type Props = {
   order: OrderListItem;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function OrderAddressesSection({ order, onCopyPhone, addressLineStyle }: Props) {
+  const t = useTranslations();
   const pickup = resolvePickupForOrder(order);
   const delivery = resolveDeliveryForOrder(order);
   const lineStyle: React.CSSProperties = {
@@ -23,7 +25,7 @@ export function OrderAddressesSection({ order, onCopyPhone, addressLineStyle }: 
   return (
     <div className="grid2">
       <div>
-        <div className="muted">Pickup</div>
+        <div className="muted">{t.orders.pickup}</div>
         <div style={{ marginTop: 6 }}>
           {pickup.line ? (
             <>
@@ -37,7 +39,7 @@ export function OrderAddressesSection({ order, onCopyPhone, addressLineStyle }: 
         </div>
       </div>
       <div>
-        <div className="muted">Delivery</div>
+        <div className="muted">{t.orders.delivery}</div>
         <div style={{ marginTop: 6 }}>
           {delivery.line ? (
             <>

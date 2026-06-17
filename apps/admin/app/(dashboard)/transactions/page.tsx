@@ -13,8 +13,11 @@ import { getTransactions } from '@/lib/api/transactions.api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 export default function TransactionsPage(): JSX.Element {
+  const t = useTranslations();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const toast = useToast();
@@ -45,35 +48,35 @@ export default function TransactionsPage(): JSX.Element {
         if (!res.hasNext) break;
         page += 1;
       }
-      const rows = all.map((t) => {
+      const rows = all.map((txn) => {
         const orderIdStr =
-          typeof t.orderId === 'string' ? t.orderId : t.orderId?._id != null ? String(t.orderId._id) : '';
-        const orderNumber = typeof t.orderId === 'string' ? '' : t.orderId?.orderNumber ?? '';
+          typeof txn.orderId === 'string' ? txn.orderId : txn.orderId?._id != null ? String(txn.orderId._id) : '';
+        const orderNumber = typeof txn.orderId === 'string' ? '' : txn.orderId?.orderNumber ?? '';
         const customerIdStr =
-          typeof t.customerId === 'string' ? t.customerId : t.customerId?._id != null ? String(t.customerId._id) : '';
-        const customerPhone = typeof t.customerId === 'string' ? '' : t.customerId?.phone ?? '';
+          typeof txn.customerId === 'string' ? txn.customerId : txn.customerId?._id != null ? String(txn.customerId._id) : '';
+        const customerPhone = typeof txn.customerId === 'string' ? '' : txn.customerId?.phone ?? '';
         return {
-          transactionId: t._id,
+          transactionId: txn._id,
           orderId: orderIdStr,
           orderNumber,
           customerId: customerIdStr,
           customerPhone,
-          amount: t.amount,
-          currency: t.currency,
-          type: t.type,
-          status: t.status,
-          wifipayRef: t.wifipayRef ?? '',
-          failureReason: t.failureReason ?? '',
-          createdAt: t.createdAt,
+          amount: txn.amount,
+          currency: txn.currency,
+          type: txn.type,
+          status: txn.status,
+          wifipayRef: txn.wifipayRef ?? '',
+          failureReason: txn.failureReason ?? '',
+          createdAt: txn.createdAt,
         };
       });
       const csv = toCsv(rows as unknown as Record<string, unknown>[]);
       downloadCsv(`transactions-${new Date().toISOString().slice(0, 10)}.csv`, csv);
-      toast.push({ title: 'CSV exported', description: `${rows.length} row(s)`, variant: 'success' });
+      toast.push({ title: t.common.exportSuccess, description: formatT(t.transactions.rowsExported, { n: rows.length }), variant: 'success' });
     } catch (e) {
       toast.push({
-        title: 'Export failed',
-        description: e instanceof Error ? e.message : 'Unknown error',
+        title: t.common.exportFailed,
+        description: e instanceof Error ? e.message : t.common.unknownError,
         variant: 'danger',
       });
     } finally {
@@ -86,20 +89,20 @@ export default function TransactionsPage(): JSX.Element {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Transactions</h1>
-          <div className="muted" style={{ marginTop: 4 }}>Payments, refunds and payout records.</div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>{t.transactions.title}</h1>
+          <div className="muted" style={{ marginTop: 4 }}>{t.transactions.subtitle}</div>
         </div>
         <div className="row">
-          <button className="btn" onClick={() => void dispatch(fetchTransactions(undefined))} disabled={loading} aria-label="Refresh transactions list">
-            <RefreshCcw size={18} aria-hidden /> Refresh
+          <button className="btn" onClick={() => void dispatch(fetchTransactions(undefined))} disabled={loading} aria-label={t.common.refresh}>
+            <RefreshCcw size={18} aria-hidden /> {t.common.refresh}
           </button>
           <button
             className="btn btnPrimary"
             onClick={() => void exportCsv()}
             disabled={exporting || loading}
-            aria-label="Export transactions to CSV"
+            aria-label={t.common.exportCsv}
           >
-            <Download size={18} aria-hidden /> {exporting ? 'Exporting…' : 'Export CSV'}
+            <Download size={18} aria-hidden /> {exporting ? t.common.exporting : t.common.exportCsv}
           </button>
         </div>
       </div>
@@ -108,46 +111,46 @@ export default function TransactionsPage(): JSX.Element {
         <div className="cardBody">
           <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
-              <div className="label">Search (WifiPay ref)</div>
-              <input className="input" value={filters.search} onChange={(e) => dispatch(setFilters({ search: e.target.value }))} placeholder="wifipayRef…" />
+              <div className="label">{t.transactions.searchPlaceholder}</div>
+              <input className="input" value={filters.search} onChange={(e) => dispatch(setFilters({ search: e.target.value }))} placeholder={t.transactions.searchWifipayPlaceholder} />
             </div>
 
             <div className="field">
-              <div className="label">Type</div>
+              <div className="label">{t.transactions.type}</div>
               <select className="select" value={filters.type} onChange={(e) => dispatch(setFilters({ type: e.target.value }))}>
-                <option value="">All</option>
-                <option value="payment">Payment</option>
-                <option value="refund">Refund</option>
-                <option value="payout">Payout</option>
+                <option value="">{t.common.all}</option>
+                <option value="payment">{t.status.txn.payment}</option>
+                <option value="refund">{t.status.txn.refund}</option>
+                <option value="payout">{t.status.txn.payout}</option>
               </select>
             </div>
             <div className="field">
-              <div className="label">Status</div>
+              <div className="label">{t.common.status}</div>
               <select className="select" value={filters.status} onChange={(e) => dispatch(setFilters({ status: e.target.value }))}>
-                <option value="">All</option>
-                <option value="pending">Pending</option>
-                <option value="success">Success</option>
-                <option value="failed">Failed</option>
+                <option value="">{t.common.all}</option>
+                <option value="pending">{t.status.payment.pending}</option>
+                <option value="success">{t.status.txn.success}</option>
+                <option value="failed">{t.status.payment.failed}</option>
               </select>
             </div>
             <div className="field">
-              <div className="label">Date from</div>
+              <div className="label">{t.orders.dateFrom}</div>
               <input className="input" type="date" value={filters.dateFrom} onChange={(e) => dispatch(setFilters({ dateFrom: e.target.value }))} />
             </div>
             <div className="field">
-              <div className="label">Date to</div>
+              <div className="label">{t.orders.dateTo}</div>
               <input className="input" type="date" value={filters.dateTo} onChange={(e) => dispatch(setFilters({ dateTo: e.target.value }))} />
             </div>
             <div className="field" style={{ minWidth: 120 }}>
               <div className="label"> </div>
               <button className="btn btnPrimary" onClick={() => void dispatch(fetchTransactions({ page: 1 }))}>
-                Apply
+                {t.common.apply}
               </button>
             </div>
           </div>
           {error ? (
             <div style={{ marginTop: 12 }} className="muted">
-              <span style={{ color: 'var(--danger)', fontWeight: 700 }}>Error:</span> {error}
+              <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{t.common.error}:</span> {error}
             </div>
           ) : null}
         </div>
@@ -160,14 +163,14 @@ export default function TransactionsPage(): JSX.Element {
               <table>
                 <thead>
                   <tr>
-                    <th>Txn ID</th>
-                    <th>Order#</th>
-                    <th>Customer phone</th>
-                    <th>Amount</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>WifiPay Ref</th>
-                    <th>Date</th>
+                    <th>{t.transactions.txnId}</th>
+                    <th>{t.orders.orderNumber}</th>
+                    <th>{t.transactions.customerPhone}</th>
+                    <th>{t.common.amount}</th>
+                    <th>{t.transactions.type}</th>
+                    <th>{t.common.status}</th>
+                    <th>{t.transactions.wifipayRef}</th>
+                    <th>{t.common.date}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -179,45 +182,45 @@ export default function TransactionsPage(): JSX.Element {
               </table>
             </div>
           ) : items.length === 0 ? (
-            <EmptyState icon={<Receipt size={48} />} heading="No transactions found" subtext="Try adjusting type, status or date range." />
+            <EmptyState icon={<Receipt size={48} />} heading={t.empty.transactions} subtext={t.empty.transactionsSub} />
           ) : (
             <div className="tableWrap">
             <table>
               <thead>
                 <tr>
-                  <th>Txn ID</th>
-                  <th>Order#</th>
-                  <th>Customer phone</th>
-                  <th>Amount</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>WifiPay Ref</th>
-                  <th>Date</th>
+                  <th>{t.transactions.txnId}</th>
+                  <th>{t.orders.orderNumber}</th>
+                  <th>{t.transactions.customerPhone}</th>
+                  <th>{t.common.amount}</th>
+                  <th>{t.transactions.type}</th>
+                  <th>{t.common.status}</th>
+                  <th>{t.transactions.wifipayRef}</th>
+                  <th>{t.common.date}</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                  {items.map((t) => {
-                    const orderNumber = typeof t.orderId === 'string' ? t.orderId : t.orderId?.orderNumber ?? '—';
-                    const customerPhone = typeof t.customerId === 'string' ? '' : t.customerId?.phone ?? '';
+                  {items.map((txn) => {
+                    const orderNumber = typeof txn.orderId === 'string' ? txn.orderId : txn.orderId?.orderNumber ?? '—';
+                    const customerPhone = typeof txn.customerId === 'string' ? '' : txn.customerId?.phone ?? '';
                     return (
                       <tr
-                        key={t._id}
+                        key={txn._id}
                         className="clickableRow"
-                        onClick={() => router.push(`/transactions/${t._id}`)}
+                        onClick={() => router.push(`/transactions/${txn._id}`)}
                       >
-                        <td style={{ fontWeight: 800 }}>{truncateId(t._id)}</td>
+                        <td style={{ fontWeight: 800 }}>{truncateId(txn._id)}</td>
                         <td>{orderNumber}</td>
                         <td>{customerPhone || '—'}</td>
-                        <td style={{ fontWeight: 800 }}>{formatMoney(t.amount, t.currency)}</td>
-                        <td>{txnTypeBadge(t.type)}</td>
-                        <td>{txnStatusBadge(t.status)}</td>
+                        <td style={{ fontWeight: 800 }}>{formatMoney(txn.amount, txn.currency)}</td>
+                        <td>{txnTypeBadge(txn.type)}</td>
+                        <td>{txnStatusBadge(txn.status)}</td>
                         <td className="muted" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t.wifipayRef ?? '—'}
+                          {txn.wifipayRef ?? '—'}
                         </td>
-                        <td className="muted">{formatDateTime(t.createdAt)}</td>
+                        <td className="muted">{formatDateTime(txn.createdAt)}</td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <Link href={`/transactions/${t._id}`} className="btn" aria-label="View transaction details">
+                          <Link href={`/transactions/${txn._id}`} className="btn" aria-label={t.common.view}>
                             <Eye size={18} aria-hidden />
                           </Link>
                         </td>
@@ -232,14 +235,14 @@ export default function TransactionsPage(): JSX.Element {
           {items.length > 0 ? (
           <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">
-              Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
+              {formatT(t.common.pageOf, { page: pagination.page, totalPages: pagination.totalPages, total: pagination.total })}
             </div>
             <div className="row">
               <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void dispatch(fetchTransactions({ page: pagination.page - 1 }))}>
-                Prev
+                {t.common.prev}
               </button>
               <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void dispatch(fetchTransactions({ page: pagination.page + 1 }))}>
-                Next
+                {t.common.next}
               </button>
             </div>
           </div>
@@ -249,7 +252,7 @@ export default function TransactionsPage(): JSX.Element {
 
       <div className="card">
         <div className="cardBody" style={{ textAlign: 'center', padding: '28px 24px' }}>
-          <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>Coming soon</div>
+          <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>{t.common.comingSoon}</div>
         </div>
       </div>
 
@@ -257,4 +260,3 @@ export default function TransactionsPage(): JSX.Element {
     </>
   );
 }
-

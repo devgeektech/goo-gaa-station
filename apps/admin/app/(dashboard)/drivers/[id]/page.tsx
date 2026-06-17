@@ -10,13 +10,13 @@ import { DriverMap } from '@/components/drivers/DriverMap';
 import { DriverKycCard } from '@/components/drivers/DriverKycCard';
 import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
 import { formatDateTime, formatMoney, formatVehicleType } from '@/lib/utils/format';
-import { accountStatusBadge, approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
-import { formatDriverRating } from '@/lib/utils/driverRating';
+import { useDriverStatusBadges } from '@/lib/i18n/useStatusBadges';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
-/** Uploads are served at `{origin}/uploads/...`, not under `/api/v1`. */
 function publicFileBase(): string {
   const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
   return base.replace(/\/api\/v1\/?$/, '');
@@ -26,7 +26,15 @@ function imgSrc(url: string | null | undefined) {
   return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
+function driverRatingSubtitle(t: ReturnType<typeof useTranslations>, rating?: number | null, ratingCount?: number): string {
+  const count = ratingCount ?? 0;
+  if (count <= 0 || rating == null) return t.status.noRatings;
+  return count === 1 ? t.drivers.deliveryRatingOne : formatT(t.drivers.deliveryRatingsCount, { n: count });
+}
+
 export default function DriverDetailPage() {
+  const t = useTranslations();
+  const { approvalStatusBadge, accountStatusBadge, onlineStatusBadge } = useDriverStatusBadges();
   const toast = useToast();
   const params = useParams();
   const id = typeof params?.id === 'string' ? params.id : '';
@@ -102,21 +110,26 @@ export default function DriverDetailPage() {
       : null;
   const isOnline = driver?.isOnline === true;
 
+  const ratingValue =
+    driver?.ratingCount && driver.ratingCount > 0 && driver.rating != null
+      ? Number(driver.rating).toFixed(1)
+      : '—';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row" style={{ alignItems: 'center', gap: 12 }}>
-        <Link href="/drivers" className="btn" aria-label="Back to drivers">
+        <Link href="/drivers" className="btn" aria-label={t.common.backToDrivers}>
           <ArrowLeft size={18} aria-hidden />
         </Link>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>Driver detail</h1>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{t.drivers.detailTitle}</h1>
       </div>
 
       {!id ? (
-        <div className="muted">Invalid driver ID.</div>
+        <div className="muted">{t.drivers.invalidId}</div>
       ) : loading && !driver ? (
         <Skeleton height={320} />
       ) : !driver ? (
-        <div className="muted">Driver not found.</div>
+        <div className="muted">{t.drivers.notFound}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div className="card">
@@ -140,33 +153,26 @@ export default function DriverDetailPage() {
           <div className="grid2">
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Rating</div>
-                {(() => {
-                  const { value, subtitle } = formatDriverRating(driver.rating, driver.ratingCount);
-                  return (
-                    <>
-                      <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{value}</div>
-                      <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>{subtitle}</div>
-                    </>
-                  );
-                })()}
+                <div className="muted">{t.drivers.rating}</div>
+                <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{ratingValue}</div>
+                <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>{driverRatingSubtitle(t, driver.rating, driver.ratingCount)}</div>
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Total deliveries</div>
+                <div className="muted">{t.drivers.totalDeliveries}</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{driver.totalDeliveries ?? 0}</div>
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Total earnings</div>
+                <div className="muted">{t.drivers.totalEarnings}</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{formatMoney(driver.totalEarnings ?? 0)}</div>
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Vehicle</div>
+                <div className="muted">{t.drivers.vehicle}</div>
                 <div style={{ marginTop: 8 }}>{formatVehicleType(driver.vehicleType)} {driver.vehiclePlate ? `(${driver.vehiclePlate})` : ''}</div>
               </div>
             </div>
@@ -174,12 +180,11 @@ export default function DriverDetailPage() {
 
           <div className="card">
             <div className="cardBody">
-              <div className="muted" style={{ marginBottom: 8 }}>Live location</div>
+              <div className="muted" style={{ marginBottom: 8 }}>{t.drivers.liveLocation}</div>
               {location ? (
                 <>
-                  <div className="muted" style={{ fontSize: 13 }}>Online: {isOnline ? 'Yes' : 'No'}</div>
-                  {/* <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div> */}
-                  {location.lastLocationAt ? <div className="muted" style={{ fontSize: 12 }}>Updated {formatDateTime(location.lastLocationAt)}</div> : null}
+                  <div className="muted" style={{ fontSize: 13 }}>{isOnline ? t.common.onlineYes : t.common.onlineNo}</div>
+                  {location.lastLocationAt ? <div className="muted" style={{ fontSize: 12 }}>{formatT(t.common.updated, { date: formatDateTime(location.lastLocationAt) })}</div> : null}
                   <div style={{ marginTop: 12 }}>
                     <DriverMap coordinates={coordsTuple} driverName={driver.name} height={320} />
                   </div>
@@ -193,7 +198,7 @@ export default function DriverDetailPage() {
           {driver.blockReason && driver.status === 'blocked' ? (
             <div className="card" style={{ boxShadow: 'none', borderColor: 'var(--danger)' }}>
               <div className="cardBody">
-                <div className="muted">Block reason</div>
+                <div className="muted">{t.drivers.blockReason}</div>
                 <div style={{ marginTop: 6 }}>{driver.blockReason}</div>
               </div>
             </div>
@@ -208,10 +213,10 @@ export default function DriverDetailPage() {
                     setApproveLoading(true);
                     try {
                       await approveDriver(driver._id);
-                      toast.push({ title: 'Driver approved', variant: 'success' });
+                      toast.push({ title: t.drivers.approveSuccess, variant: 'success' });
                       refreshDriver();
                     } catch (e: unknown) {
-                      toast.push({ title: 'Approve failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+                      toast.push({ title: t.drivers.approveFailed, description: e instanceof Error ? e.message : t.common.error, variant: 'danger' });
                     } finally {
                       setApproveLoading(false);
                     }
@@ -223,23 +228,23 @@ export default function DriverDetailPage() {
 
           <div className="card">
             <div className="cardBody">
-              <div style={{ fontWeight: 800 }}>Order history</div>
-              <div className="muted" style={{ fontSize: 14 }}>Total {ordersPagination.total}</div>
+              <div style={{ fontWeight: 800 }}>{t.drivers.orderHistory}</div>
+              <div className="muted" style={{ fontSize: 14 }}>{formatT(t.common.totalCount, { total: ordersPagination.total })}</div>
               <div className="divider" />
               {ordersLoading && orders.length === 0 ? (
                 <Skeleton height={120} />
               ) : orders.length === 0 ? (
-                <div className="muted">No orders yet.</div>
+                <div className="muted">{t.empty.ordersYet}</div>
               ) : (
                 <>
                   <div className="tableWrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Order#</th>
-                          <th>Date</th>
-                          <th>Total</th>
-                          <th>Status</th>
+                          <th>{t.orders.orderNumber}</th>
+                          <th>{t.common.date}</th>
+                          <th>{t.common.total}</th>
+                          <th>{t.common.status}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -255,10 +260,10 @@ export default function DriverDetailPage() {
                     </table>
                   </div>
                   <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
-                    <span className="muted">Page {ordersPagination.page} / {ordersPagination.totalPages}</span>
+                    <span className="muted">{formatT(t.common.pageOfShort, { page: ordersPagination.page, totalPages: ordersPagination.totalPages })}</span>
                     <div className="row">
-                      <button className="btn" disabled={!ordersPagination.hasPrev || ordersLoading} onClick={() => fetchOrders(ordersPagination.page - 1)}>Prev</button>
-                      <button className="btn" disabled={!ordersPagination.hasNext || ordersLoading} onClick={() => fetchOrders(ordersPagination.page + 1)}>Next</button>
+                      <button className="btn" disabled={!ordersPagination.hasPrev || ordersLoading} onClick={() => fetchOrders(ordersPagination.page - 1)}>{t.common.prev}</button>
+                      <button className="btn" disabled={!ordersPagination.hasNext || ordersLoading} onClick={() => fetchOrders(ordersPagination.page + 1)}>{t.common.next}</button>
                     </div>
                   </div>
                 </>
@@ -278,11 +283,11 @@ export default function DriverDetailPage() {
           setRejectLoading(true);
           try {
             await rejectDriver(driver._id, reason);
-            toast.push({ title: 'Driver rejected', variant: 'success' });
+            toast.push({ title: t.drivers.rejectSuccess, variant: 'success' });
             setRejectOpen(false);
             refreshDriver();
           } catch (e: unknown) {
-            toast.push({ title: 'Reject failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+            toast.push({ title: t.drivers.rejectFailed, description: e instanceof Error ? e.message : t.common.error, variant: 'danger' });
           } finally {
             setRejectLoading(false);
           }

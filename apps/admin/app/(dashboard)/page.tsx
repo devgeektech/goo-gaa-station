@@ -7,11 +7,14 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchOrderStats, fetchOrders } from '@/store/slices/ordersSlice';
 import { formatMoney, formatDateTime } from '@/lib/utils/format';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 export default function DashboardHome() {
   const dispatch = useAppDispatch();
   const { stats, items, loading, error } = useAppSelector((s) => s.orders);
   const [mounted, setMounted] = useState(false);
+  const t = useTranslations();
 
   useEffect(() => {
     setMounted(true);
@@ -38,31 +41,31 @@ export default function DashboardHome() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 className="pageTitle">Dashboard</h1>
-          <div className="pageSubtitle">Live overview of orders and revenue.</div>
+          <h1 className="pageTitle">{t.dashboard.title}</h1>
+          <div className="pageSubtitle">{t.dashboard.subtitle}</div>
         </div>
         <div className="row">
-          <Link className="btn btnPrimary" href="/orders">View orders</Link>
-          <Link className="btn" href="/transactions">View transactions</Link>
+          <Link className="btn btnPrimary" href="/orders">{t.dashboard.viewOrders}</Link>
+          <Link className="btn" href="/transactions">{t.dashboard.viewTransactions}</Link>
         </div>
       </div>
 
       {error ? (
         <div className="card" style={{ padding: 20, borderLeft: '4px solid var(--danger)' }}>
-          <div style={{ fontWeight: 700, color: 'var(--text)' }}>Failed to load dashboard</div>
+          <div style={{ fontWeight: 700, color: 'var(--text)' }}>{t.dashboard.loadFailed}</div>
           <div className="muted" style={{ marginTop: 4 }}>{error}</div>
           {(typeof error === 'string' && (error.toLowerCase().includes('unauthorized') || error.includes('401'))) ? (
-            <a href="/login" className="btn btnPrimary" style={{ marginTop: 12, display: 'inline-block' }}>Sign in</a>
+            <a href="/login" className="btn btnPrimary" style={{ marginTop: 12, display: 'inline-block' }}>{t.common.signIn}</a>
           ) : null}
         </div>
       ) : null}
 
       {stats?.pendingDriverApprovals && stats.pendingDriverApprovals > 0 ? (
         <div className="card" style={{ padding: 20, borderLeft: '4px solid var(--warning)' }}>
-          <div style={{ fontWeight: 700, color: 'var(--text)' }}>Pending driver approvals</div>
+          <div style={{ fontWeight: 700, color: 'var(--text)' }}>{t.dashboard.pendingDrivers}</div>
           <div className="muted" style={{ marginTop: 4 }}>
-            {stats.pendingDriverApprovals} driver(s) need review.{' '}
-            <Link href="/drivers" style={{ color: 'var(--primary)', fontWeight: 600 }}>Go to drivers</Link>
+            {formatT(t.dashboard.pendingDriversBody, { n: stats.pendingDriverApprovals })}{' '}
+            <Link href="/drivers" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t.dashboard.goToDrivers}</Link>
           </div>
         </div>
       ) : null}
@@ -70,19 +73,19 @@ export default function DashboardHome() {
       <div className="grid4">
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Total orders</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.totalOrders}</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>{kpiLoading ? <Skeleton height={32} width={80} /> : stats?.totalOrders}</div>
           </div>
         </div>
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Orders today</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.ordersToday}</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>{kpiLoading ? <Skeleton height={32} width={60} /> : stats?.ordersToday}</div>
           </div>
         </div>
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Commission rate</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.commissionRate}</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>
               {kpiLoading ? <Skeleton height={32} width={60} /> : `${stats?.commissionPercent ?? 2}%`}
             </div>
@@ -90,7 +93,7 @@ export default function DashboardHome() {
         </div>
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Active drivers</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.activeDrivers}</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>{kpiLoading ? <Skeleton height={32} width={60} /> : stats?.activeDrivers ?? 0}</div>
           </div>
         </div>
@@ -99,8 +102,8 @@ export default function DashboardHome() {
       <div className="grid3">
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Admin revenue</div>
-            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Commission on net order (delivered)</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.adminRevenue}</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{t.dashboard.adminRevenueHint}</div>
             <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--primary)', marginTop: 6 }}>
               {kpiLoading ? <Skeleton height={32} width={100} /> : formatMoney(stats?.adminRevenue ?? stats?.totalRevenue ?? 0)}
             </div>
@@ -108,8 +111,8 @@ export default function DashboardHome() {
         </div>
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Vendor revenue</div>
-            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Order − driver fee − commission</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.vendorRevenue}</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{t.dashboard.vendorRevenueHint}</div>
             <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>
               {kpiLoading ? <Skeleton height={32} width={100} /> : formatMoney(stats?.vendorRevenue ?? 0)}
             </div>
@@ -117,8 +120,8 @@ export default function DashboardHome() {
         </div>
         <div className="card">
           <div className="cardBody">
-            <div className="muted" style={{ fontSize: 13 }}>Driver delivery fees</div>
-            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Delivery fee totals</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.driverFees}</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{t.dashboard.driverFeesHint}</div>
             <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>
               {kpiLoading ? <Skeleton height={32} width={100} /> : formatMoney(stats?.driverRevenue ?? 0)}
             </div>
@@ -130,8 +133,8 @@ export default function DashboardHome() {
         <div className="card">
           <div className="cardHeader">
             <div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>Admin revenue (last 7 days)</div>
-              <div className="muted" style={{ fontSize: 13 }}>Delivered · commission on net order</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>{t.dashboard.chartTitle}</div>
+              <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.chartSubtitle}</div>
             </div>
           </div>
           <div className="cardBody" style={{ height: 280, minHeight: 280 }}>
@@ -157,10 +160,10 @@ export default function DashboardHome() {
         <div className="card">
           <div className="cardHeader">
             <div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>Recent orders</div>
-              <div className="muted" style={{ fontSize: 13 }}>Last 10 created</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>{t.dashboard.recentOrders}</div>
+              <div className="muted" style={{ fontSize: 13 }}>{t.dashboard.recentOrdersSub}</div>
             </div>
-            <Link href="/orders" className="btn btnPrimary">Open</Link>
+            <Link href="/orders" className="btn btnPrimary">{t.common.open}</Link>
           </div>
           <div className="cardBody">
             {recentLoading ? (
@@ -180,7 +183,7 @@ export default function DashboardHome() {
                     </div>
                   </Link>
                 ))}
-                {items.length === 0 ? <div className="muted" style={{ padding: 20, textAlign: 'center' }}>No orders yet.</div> : null}
+                {items.length === 0 ? <div className="muted" style={{ padding: 20, textAlign: 'center' }}>{t.empty.ordersYet}</div> : null}
               </div>
             )}
           </div>

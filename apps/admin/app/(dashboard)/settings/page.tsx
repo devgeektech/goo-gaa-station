@@ -5,6 +5,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage } from '@/lib/api/client';
 import { getAppSettings, updateAppSettings } from '@/lib/api/appSettings.api';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 
 const COMMON_CURRENCIES = ['USD', 'EUR', 'GBP', 'SOS', 'ETB', 'KES', 'AED', 'SAR'] as const;
 
@@ -21,6 +22,7 @@ const COMMON_TIMEZONES = [
 ] as const;
 
 export default function GeneralSettingsPage() {
+  const t = useTranslations();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,19 +39,19 @@ export default function GeneralSettingsPage() {
         setDefaultTimezone((d?.defaultTimezone ?? 'UTC').toString());
         setServiceZonesText(Array.isArray(d?.serviceZones) ? d.serviceZones.join('\n') : '');
       })
-      .catch((e) => toast.push({ title: 'Failed to load settings', description: getErrorMessage(e), variant: 'danger' }))
+      .catch((e) => toast.push({ title: t.settings.loadFailed, description: getErrorMessage(e), variant: 'danger' }))
       .finally(() => setLoading(false));
-  }, [toast]);
+  }, [toast, t.settings.loadFailed]);
 
   const onSave = async () => {
     const code = defaultCurrency.trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(code)) {
-      toast.push({ title: 'Currency must be a 3-letter ISO code (e.g. USD)', variant: 'warning' });
+      toast.push({ title: t.settings.validationCurrency, variant: 'warning' });
       return;
     }
     const tz = defaultTimezone.trim();
     if (!tz) {
-      toast.push({ title: 'Timezone is required', variant: 'warning' });
+      toast.push({ title: t.settings.validationTimezone, variant: 'warning' });
       return;
     }
     const zones = serviceZonesText
@@ -57,7 +59,7 @@ export default function GeneralSettingsPage() {
       .map((z) => z.trim())
       .filter(Boolean);
     if (zones.length > 80) {
-      toast.push({ title: 'At most 80 service zones', variant: 'warning' });
+      toast.push({ title: t.settings.maxZones, variant: 'warning' });
       return;
     }
     setSaving(true);
@@ -67,9 +69,9 @@ export default function GeneralSettingsPage() {
         defaultTimezone: tz,
         serviceZones: zones,
       });
-      toast.push({ title: 'General settings saved', variant: 'success' });
+      toast.push({ title: t.settings.generalSaved, variant: 'success' });
     } catch (e) {
-      toast.push({ title: 'Save failed', description: getErrorMessage(e), variant: 'danger' });
+      toast.push({ title: t.common.saveFailed, description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setSaving(false);
     }
@@ -79,11 +81,11 @@ export default function GeneralSettingsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>General settings</h1>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>{t.settings.title}</h1>
           <div className="muted" style={{ marginTop: 6 }}>
-            Basic platform configuration for MVP (currency, timezone, service zones). Delivery fee and commission remain on{' '}
+            {t.settings.subtitleDetailed}{' '}
             <a href="/fees" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-              Fees &amp; Commission
+              {t.settings.feesLink}
             </a>
             .
           </div>
@@ -94,14 +96,14 @@ export default function GeneralSettingsPage() {
       <div className="card">
         <div className="cardBody" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 640 }}>
           <div className="field">
-            <div className="label">Default currency (ISO 4217)</div>
+            <div className="label">{t.settings.currency}</div>
             <input
               className="input"
               list="admin-common-currencies"
               value={defaultCurrency}
               onChange={(e) => setDefaultCurrency(e.target.value.toUpperCase())}
               maxLength={3}
-              placeholder="USD"
+              placeholder={t.settings.currencyPlaceholder}
               disabled={loading || saving}
               autoCapitalize="characters"
             />
@@ -111,18 +113,18 @@ export default function GeneralSettingsPage() {
               ))}
             </datalist>
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-              Used for labels and future pricing rules; does not change existing order totals.
+              {t.settings.currencyHintDetailed}
             </div>
           </div>
 
           <div className="field">
-            <div className="label">Default timezone (IANA)</div>
+            <div className="label">{t.settings.timezone}</div>
             <input
               className="input"
               list="admin-common-timezones"
               value={defaultTimezone}
               onChange={(e) => setDefaultTimezone(e.target.value)}
-              placeholder="UTC"
+              placeholder={t.settings.timezonePlaceholder}
               disabled={loading || saving}
             />
             <datalist id="admin-common-timezones">
@@ -131,29 +133,29 @@ export default function GeneralSettingsPage() {
               ))}
             </datalist>
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-              Platform-wide reference; vendor-specific hours still use each vendor&apos;s timezone where configured.
+              {t.settings.timezoneHintDetailed}
             </div>
           </div>
 
           <div className="field">
-            <div className="label">Service zones</div>
+            <div className="label">{t.settings.serviceZones}</div>
             <textarea
               className="input"
               value={serviceZonesText}
               onChange={(e) => setServiceZonesText(e.target.value)}
-              placeholder={'City center\nNorth district\nAirport area'}
+              placeholder={t.settings.serviceZonesPlaceholderDetailed}
               rows={6}
               disabled={loading || saving}
               style={{ minHeight: 120, resize: 'vertical' }}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-              One zone per line (MVP reference for ops and future delivery rules). Max 80 zones, 120 characters each.
+              {t.settings.serviceZonesHintDetailed}
             </div>
           </div>
 
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <button className="btn btnPrimary" onClick={() => void onSave()} disabled={loading || saving}>
-              {saving ? 'Saving…' : 'Save general settings'}
+              {saving ? t.common.saving : t.settings.saveButton}
             </button>
           </div>
         </div>

@@ -5,10 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 import { apiClient, getErrorMessage } from '@/lib/api/client';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { useLocale } from '@/lib/i18n/LocaleContext';
+import type { Locale } from '@/lib/i18n/translations';
 
 export default function LoginPage() {
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
+  const { locale, setLocale } = useLocale();
+  const t = useTranslations();
   const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,25 +39,37 @@ export default function LoginPage() {
 
   return (
     <div className="loginPage">
-      <button
-        type="button"
-        className="loginThemeToggle"
-        aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-      >
-        {mounted && resolvedTheme === 'dark' ? <Sun size={20} aria-hidden /> : <Moon size={20} aria-hidden />}
-      </button>
+      <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
+        <select
+          className="select"
+          value={locale}
+          onChange={(e) => setLocale(e.target.value as Locale)}
+          style={{ minWidth: 72, fontSize: 14 }}
+          aria-label={t.shell.language}
+        >
+          <option value="en">EN</option>
+          <option value="so">SO</option>
+        </select>
+        <button
+          type="button"
+          className="loginThemeToggle"
+          aria-label={resolvedTheme === 'dark' ? t.theme.switchToLight : t.theme.switchToDark}
+          onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+        >
+          {mounted && resolvedTheme === 'dark' ? <Sun size={20} aria-hidden /> : <Moon size={20} aria-hidden />}
+        </button>
+      </div>
       <div className="card loginCard">
         <div style={{ marginBottom: 8 }}>
-          <h1 className="loginTitle">Goo-Gaa Station Admin</h1>
+          <h1 className="loginTitle">{t.login.title}</h1>
           <p className="muted" style={{ marginTop: 8, fontSize: 14 }}>
-            Sign in with your admin account
+            {t.auth.signInTitle}
           </p>
         </div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="field">
             <label className="label" htmlFor="email">
-              Email
+              {t.auth.email}
             </label>
             <input
               id="email"
@@ -60,14 +77,14 @@ export default function LoginPage() {
               className="input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@deliveryapp.com"
+              placeholder={t.auth.emailPlaceholder}
               required
               autoComplete="email"
             />
           </div>
           <div className="field">
             <label className="label" htmlFor="password">
-              Password
+              {t.auth.password}
             </label>
             <input
               id="password"
@@ -94,12 +111,9 @@ export default function LoginPage() {
             </div>
           ) : null}
           <button type="submit" className="btn btnPrimary" disabled={loading} style={{ padding: 12 }}>
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? t.auth.signingIn : t.auth.signIn}
           </button>
         </form>
-        {/* <Link href="/" className="btn" style={{ marginTop: 16, display: 'inline-block' }}>
-          Back to dashboard
-        </Link> */}
       </div>
     </div>
   );

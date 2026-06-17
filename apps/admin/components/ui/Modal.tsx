@@ -2,6 +2,7 @@
 
 import type { PropsWithChildren, ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 
 export function Modal({
   open,
@@ -13,6 +14,7 @@ export function Modal({
   title: ReactNode;
   onClose: () => void;
 }>) {
+  const t = useTranslations();
   if (!open) return null;
   return (
     <div
@@ -26,7 +28,7 @@ export function Modal({
       <div className="modal">
         <div className="modalHeader">
           <div className="modalTitle">{title}</div>
-          <button type="button" className="btn" onClick={onClose} aria-label="Close modal">
+          <button type="button" className="btn" onClick={onClose} aria-label={t.modal.close}>
             <X size={18} aria-hidden />
           </button>
         </div>
@@ -35,4 +37,3 @@ export function Modal({
     </div>
   );
 }
-

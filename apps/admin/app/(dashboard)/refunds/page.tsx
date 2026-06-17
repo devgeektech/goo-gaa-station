@@ -8,6 +8,8 @@ import { txnStatusBadge } from '@/components/transactions/transactionBadges';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 type RefundFilters = {
   status: string;
@@ -26,6 +28,7 @@ type RefundPagination = {
 };
 
 export default function RefundsPage(): JSX.Element {
+  const t = useTranslations();
   const toast = useToast();
   const [filters, setFilters] = useState<RefundFilters>({ status: '', dateFrom: '', dateTo: '', search: '' });
   const [items, setItems] = useState<TransactionListItem[]>([]);
@@ -70,8 +73,8 @@ export default function RefundsPage(): JSX.Element {
       });
     } catch (e: unknown) {
       toast.push({
-        title: 'Failed to load refunds',
-        description: e instanceof Error ? e.message : 'Error',
+        title: t.refunds.loadFailed,
+        description: e instanceof Error ? e.message : t.common.error,
         variant: 'danger',
       });
     } finally {
@@ -86,14 +89,14 @@ export default function RefundsPage(): JSX.Element {
   async function handleRecordRefund(): Promise<void> {
     const txId = transactionId.trim();
     if (!txId) {
-      toast.push({ title: 'Transaction ID is required', variant: 'danger' });
+      toast.push({ title: t.refunds.txnIdRequired, variant: 'danger' });
       return;
     }
 
     if (recordType === 'partial') {
       toast.push({
-        title: 'Partial refund not supported yet',
-        description: 'Current API supports full refunds only. Use Full refund for now.',
+        title: t.refunds.partialNotSupported,
+        description: t.refunds.fullRefundOnly,
         variant: 'danger',
       });
       return;
@@ -102,15 +105,15 @@ export default function RefundsPage(): JSX.Element {
     setRecording(true);
     try {
       await refundTransaction(txId, reason.trim() || undefined);
-      toast.push({ title: 'Refund recorded', variant: 'success' });
+      toast.push({ title: t.refunds.recordSuccess, variant: 'success' });
       setTransactionId('');
       setAmount('');
       setReason('');
       await load(1);
     } catch (e: unknown) {
       toast.push({
-        title: 'Refund failed',
-        description: e instanceof Error ? e.message : 'Error',
+        title: t.refunds.recordFailed,
+        description: e instanceof Error ? e.message : t.common.error,
         variant: 'danger',
       });
     } finally {
@@ -122,11 +125,11 @@ export default function RefundsPage(): JSX.Element {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Refunds</h1>
-          <div className="muted" style={{ marginTop: 4 }}>List of refunded orders with filters and refund recording.</div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>{t.refunds.title}</h1>
+          <div className="muted" style={{ marginTop: 4 }}>{t.refunds.subtitleList}</div>
         </div>
         <button className="btn" onClick={() => void load(pagination.page)} disabled={loading}>
-          <RefreshCcw size={18} /> Refresh
+          <RefreshCcw size={18} /> {t.common.refresh}
         </button>
       </div>
 
@@ -134,34 +137,34 @@ export default function RefundsPage(): JSX.Element {
         <div className="cardBody">
           <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
-              <div className="label">Search (WifiPay ref)</div>
+              <div className="label">{t.transactions.searchPlaceholder}</div>
               <input
                 className="input"
                 value={filters.search}
                 onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-                placeholder="wifipayRef…"
+                placeholder={t.transactions.searchWifipayPlaceholder}
               />
             </div>
             <div className="field">
-              <div className="label">Status</div>
+              <div className="label">{t.common.status}</div>
               <select className="select" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-                <option value="">All</option>
-                <option value="pending">Pending</option>
-                <option value="success">Success</option>
-                <option value="failed">Failed</option>
+                <option value="">{t.common.all}</option>
+                <option value="pending">{t.status.payment.pending}</option>
+                <option value="success">{t.status.txn.success}</option>
+                <option value="failed">{t.status.payment.failed}</option>
               </select>
             </div>
             <div className="field">
-              <div className="label">Date from</div>
+              <div className="label">{t.orders.dateFrom}</div>
               <input className="input" type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} />
             </div>
             <div className="field">
-              <div className="label">Date to</div>
+              <div className="label">{t.orders.dateTo}</div>
               <input className="input" type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} />
             </div>
             <div className="field">
               <div className="label"> </div>
-              <button className="btn btnPrimary" onClick={() => void load(1)}>Apply</button>
+              <button className="btn btnPrimary" onClick={() => void load(1)}>{t.common.apply}</button>
             </div>
           </div>
         </div>
@@ -170,7 +173,7 @@ export default function RefundsPage(): JSX.Element {
       <div className="adminRefundsGrid">
         <div className="card adminRefundsListCard">
           <div className="cardBody">
-            <h3 style={{ marginTop: 0 }}>Refund list</h3>
+            <h3 style={{ marginTop: 0 }}>{t.refunds.listTab}</h3>
             {loading && items.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <Skeleton height={18} />
@@ -178,34 +181,34 @@ export default function RefundsPage(): JSX.Element {
                 <Skeleton height={18} />
               </div>
             ) : items.length === 0 ? (
-              <EmptyState icon={<Receipt size={40} />} heading="No refunds found" subtext="Try adjusting filters." />
+              <EmptyState icon={<Receipt size={40} />} heading={t.empty.refunds} />
             ) : (
               <>
                 <div className="tableWrap">
                   <table>
                     <thead>
                       <tr>
-                        <th>Refund Txn</th>
-                        <th>Order#</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Transaction ID</th>
-                        <th>Date</th>
+                        <th>{t.refunds.refundTxn}</th>
+                        <th>{t.orders.orderNumber}</th>
+                        <th>{t.common.amount}</th>
+                        <th>{t.common.status}</th>
+                        <th>{t.refunds.transactionId}</th>
+                        <th>{t.common.date}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((t) => {
-                        const orderNumber = typeof t.orderId === 'string' ? t.orderId : t.orderId?.orderNumber ?? '—';
+                      {items.map((txn) => {
+                        const orderNumber = typeof txn.orderId === 'string' ? txn.orderId : txn.orderId?.orderNumber ?? '—';
                         return (
-                          <tr key={t._id}>
-                            <td style={{ fontWeight: 700 }}>{truncateId(t._id)}</td>
+                          <tr key={txn._id}>
+                            <td style={{ fontWeight: 700 }}>{truncateId(txn._id)}</td>
                             <td>{orderNumber}</td>
-                            <td style={{ fontWeight: 700 }}>{formatMoney(t.amount, t.currency)}</td>
-                            <td>{txnStatusBadge(t.status)}</td>
+                            <td style={{ fontWeight: 700 }}>{formatMoney(txn.amount, txn.currency)}</td>
+                            <td>{txnStatusBadge(txn.status)}</td>
                             <td className="muted" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {t.wifipayRef ?? '—'}
+                              {txn.wifipayRef ?? '—'}
                             </td>
-                            <td className="muted">{formatDateTime(t.createdAt)}</td>
+                            <td className="muted">{formatDateTime(txn.createdAt)}</td>
                           </tr>
                         );
                       })}
@@ -213,10 +216,10 @@ export default function RefundsPage(): JSX.Element {
                   </table>
                 </div>
                 <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                  <div className="muted">Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}</div>
+                  <div className="muted">{formatT(t.common.pageOf, { page: pagination.page, totalPages: pagination.totalPages, total: pagination.total })}</div>
                   <div className="row">
-                    <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void load(pagination.page - 1)}>Prev</button>
-                    <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void load(pagination.page + 1)}>Next</button>
+                    <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void load(pagination.page - 1)}>{t.common.prev}</button>
+                    <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void load(pagination.page + 1)}>{t.common.next}</button>
                   </div>
                 </div>
               </>
@@ -226,16 +229,16 @@ export default function RefundsPage(): JSX.Element {
 
         <div className="card adminRefundsRecordCard">
           <div className="cardBody">
-            <h3 style={{ marginTop: 0 }}>Record refund</h3>
+            <h3 style={{ marginTop: 0 }}>{t.refunds.recordTab}</h3>
             <div className="field">
-              <div className="label">Refund type</div>
+              <div className="label">{t.refunds.refundType}</div>
               <select className="select" value={recordType} onChange={(e) => setRecordType(e.target.value as 'full' | 'partial')}>
-                <option value="full">Full</option>
-                <option value="partial">Partial</option>
+                <option value="full">{t.status.refundType.full}</option>
+                <option value="partial">{t.status.refundType.partial}</option>
               </select>
             </div>
             <div className="field">
-              <div className="label">Amount</div>
+              <div className="label">{t.refunds.amount}</div>
               <input
                 className="input"
                 type="number"
@@ -243,34 +246,34 @@ export default function RefundsPage(): JSX.Element {
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={recordAmountDisabled ? 'Full amount from transaction' : 'Enter partial amount'}
+                placeholder={recordAmountDisabled ? t.refunds.fullAmountPlaceholder : t.refunds.partialAmountPlaceholder}
                 disabled={recordAmountDisabled}
               />
             </div>
             <div className="field">
-              <div className="label">Reason</div>
+              <div className="label">{t.refunds.reason}</div>
               <textarea
                 className="input"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Reason for refund"
+                placeholder={t.refunds.reasonPlaceholder}
                 rows={3}
               />
             </div>
             <div className="field">
-              <div className="label">Transaction ID</div>
+              <div className="label">{t.refunds.transactionId}</div>
               <input
                 className="input"
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
-                placeholder="Original payment transaction ID"
+                placeholder={t.refunds.txnIdPlaceholder}
               />
             </div>
             <button className="btn btnPrimary" onClick={() => void handleRecordRefund()} disabled={recording}>
-              <RotateCcw size={16} /> {recording ? 'Recording…' : 'Record refund'}
+              <RotateCcw size={16} /> {recording ? t.common.recording : t.orders.recordRefund}
             </button>
             <p className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-              Transaction ID is required. Current backend supports full refund processing by transaction ID.
+              {t.refunds.recordNote}
             </p>
           </div>
         </div>
@@ -278,4 +281,3 @@ export default function RefundsPage(): JSX.Element {
     </div>
   );
 }
-

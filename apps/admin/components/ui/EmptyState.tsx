@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 
 type Props = {
   icon?: ReactNode;
@@ -9,7 +10,9 @@ type Props = {
   action?: ReactNode;
 };
 
-export function EmptyState({ icon, heading, subtext = 'Try adjusting filters.', action }: Props) {
+export function EmptyState({ icon, heading, subtext, action }: Props) {
+  const t = useTranslations();
+  const resolvedSubtext = subtext ?? t.common.tryFilters;
   return (
     <div
       className="card"
@@ -24,7 +27,7 @@ export function EmptyState({ icon, heading, subtext = 'Try adjusting filters.', 
       ) : null}
       <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>{heading}</h3>
       <p className="muted" style={{ marginBottom: action ? 16 : 0 }}>
-        {subtext}
+        {resolvedSubtext}
       </p>
       {action ? <div>{action}</div> : null}
     </div>

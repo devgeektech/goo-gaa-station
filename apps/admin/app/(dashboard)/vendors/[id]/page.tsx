@@ -13,6 +13,9 @@ import { useToast } from '@/components/ui/Toast';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
 import { useGetVendorProductsQuery } from '@/store/api';
 import type { VendorProductItem } from '@/store/api';
+import { useVendorStatusBadges } from '@/lib/i18n/useStatusBadges';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 function publicFileBase(): string {
   const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
@@ -23,43 +26,12 @@ function imgSrc(url: string | null | undefined) {
   return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
-const DAY_LABELS: Record<string, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
-const ONBOARDING_STEP_LABELS = ['Phone Verified', 'Business Info', 'Address', 'KYC Documents', 'Submitted'] as const;
-
-function approvalStatusBadge(status: string | null | undefined): { label: string; style: React.CSSProperties } {
-  switch (status) {
-    case 'pending':
-      return { label: 'Pending Review', style: { background: 'rgba(249, 115, 22, 0.2)', color: '#ea580c' } };
-    case 'approved':
-      return { label: 'Approved', style: { background: 'var(--success-light)', color: 'var(--success)' } };
-    case 'rejected':
-      return { label: 'Rejected', style: { background: 'var(--danger-light)', color: 'var(--danger)' } };
-    case 'none':
-    default:
-      return { label: 'Incomplete', style: { background: 'var(--border-light)', color: 'var(--text-secondary)' } };
-  }
-}
-
-function getOnboardingBadge(vendor: VendorDetail): { label: string; style: React.CSSProperties } {
-  const step = vendor.onboardingStep ?? 0;
-  const status = vendor.approvalStatus ?? null;
-  if (step >= 0 && step <= 5) return { label: 'Incomplete', style: { background: 'var(--warning-light)', color: 'var(--warning)' } };
-  if (step === 6 && status === 'pending') return { label: 'Pending Review', style: { background: 'rgba(249, 115, 22, 0.15)', color: '#ea580c' } };
-  if (status === 'approved') return { label: 'Approved', style: { background: 'var(--success-light)', color: 'var(--success)' } };
-  if (status === 'rejected') return { label: 'Rejected', style: { background: 'var(--danger-light)', color: 'var(--danger)' } };
-  return { label: 'Incomplete', style: { background: 'var(--warning-light)', color: 'var(--warning)' } };
-}
+const ONBOARDING_STEP_KEYS = ['stepPhone', 'stepBusiness', 'stepAddress', 'stepKyc', 'stepSubmitted'] as const;
 
 function isPdfUrl(url: string): boolean {
   return url.toLowerCase().endsWith('.pdf');
-}
-
-function formatValue(value: string | number | boolean | null | undefined): string {
-  if (value === null || value === undefined || value === '') return '—';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  return String(value);
 }
 
 function DetailField({ label, value }: { label: string; value: ReactNode }) {
@@ -90,6 +62,7 @@ function formatFullAddress(address: VendorDetail['address']): string {
 type StockTab = 'all' | 'in' | 'out';
 
 function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string }) {
+  const t = useTranslations();
   const [stockFilter, setStockFilter] = useState<StockTab>('all');
   const [pagesRequested, setPagesRequested] = useState(1);
   const limit = 20;
@@ -120,7 +93,7 @@ function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string
   return (
     <div className="card">
       <div className="cardBody">
-        <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Products ({totalCount})</h2>
+        <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>{formatT(t.vendors.productsTitle, { n: totalCount })}</h2>
         <div className="row" style={{ gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           {(['all', 'in', 'out'] as const).map((tab) => (
             <button
@@ -133,25 +106,25 @@ function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string
               }}
               onClick={() => setStockFilter(tab)}
             >
-              {tab === 'all' ? 'All' : tab === 'in' ? 'In Stock' : 'Out of Stock'}
+              {tab === 'all' ? t.common.all : tab === 'in' ? t.vendors.inStock : t.vendors.outOfStock}
             </button>
           ))}
         </div>
         {loading && filtered.length === 0 ? (
-          <div className="muted">Loading products…</div>
+          <div className="muted">{t.vendors.loadingProducts}</div>
         ) : filtered.length === 0 ? (
-          <div className="muted">No products</div>
+          <div className="muted">{t.empty.products}</div>
         ) : (
           <>
             <div className="adminVendorProductsScroll">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Product</th>
-                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Category</th>
-                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Price</th>
-                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Status</th>
-                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Created</th>
+                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.vendors.productCol}</th>
+                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.vendors.categoryCol}</th>
+                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.vendors.priceCol}</th>
+                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.common.status}</th>
+                  <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.vendors.createdCol}</th>
                 </tr>
               </thead>
               <tbody>
@@ -183,7 +156,7 @@ function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string
                           color: p.isAvailable ? 'var(--success)' : 'var(--danger)',
                         }}
                       >
-                        {p.isAvailable ? 'In Stock' : 'Out of Stock'}
+                        {p.isAvailable ? t.vendors.inStock : t.vendors.outOfStock}
                       </span>
                     </td>
                     <td style={{ padding: '10px 0', verticalAlign: 'middle', color: 'var(--text-secondary)', fontSize: 13 }}>
@@ -202,7 +175,7 @@ function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string
                 onClick={() => setPagesRequested((p) => Math.min(p + 1, 5))}
                 disabled={pagesRequested >= 5 || q2.isLoading || q3.isLoading || q4.isLoading || q5.isLoading}
               >
-                {q2.isLoading || q3.isLoading || q4.isLoading || q5.isLoading ? 'Loading…' : 'Load more'}
+                {q2.isLoading || q3.isLoading || q4.isLoading || q5.isLoading ? t.common.loading : t.common.loadMore}
               </button>
             )}
           </>
@@ -213,6 +186,17 @@ function ProductsCard({ vendorId, imgBase }: { vendorId: string; imgBase: string
 }
 
 export default function VendorDetailPage() {
+  const t = useTranslations();
+  const { approvalStatusBadge: vendorApprovalStatusBadge } = useVendorStatusBadges();
+  const DAY_LABELS: Record<string, string> = {
+    mon: t.vendors.dayMonday,
+    tue: t.vendors.dayTuesday,
+    wed: t.vendors.dayWednesday,
+    thu: t.vendors.dayThursday,
+    fri: t.vendors.dayFriday,
+    sat: t.vendors.daySaturday,
+    sun: t.vendors.daySunday,
+  };
   const params = useParams();
   const toast = useToast();
   const id = typeof params?.id === 'string' ? params.id : '';
@@ -257,7 +241,7 @@ export default function VendorDetailPage() {
   if (!id) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div className="muted">Invalid vendor ID.</div>
+        <div className="muted">{t.vendors.invalidId}</div>
       </div>
     );
   }
@@ -274,16 +258,15 @@ export default function VendorDetailPage() {
   if (!vendor) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div className="muted">Vendor not found.</div>
+        <div className="muted">{t.vendors.notFound}</div>
       </div>
     );
   }
 
   const items = menuItems.length > 0 ? menuItems : (vendor.menuItems ?? []);
-  const onboardingBadge = getOnboardingBadge(vendor);
   const step = vendor.onboardingStep ?? 0;
   const approvalStatus = vendor.approvalStatus ?? null;
-  const vendorApprovalBadge = approvalStatusBadge(approvalStatus);
+  const vendorApprovalBadge = vendorApprovalStatusBadge(approvalStatus);
   const canApproveReject = approvalStatus === 'pending' && step === 6;
   const reviewerName = vendor.reviewedBy && typeof vendor.reviewedBy === 'object' && 'name' in vendor.reviewedBy
     ? (vendor.reviewedBy as { name?: string }).name
@@ -300,10 +283,10 @@ export default function VendorDetailPage() {
     setActionLoading(true);
     try {
       await approveVendor(id);
-      toast.push({ title: 'Vendor approved', variant: 'success' });
+      toast.push({ title: t.vendors.approveSuccess, variant: 'success' });
       loadVendor();
     } catch (e: unknown) {
-      toast.push({ title: 'Approve failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: t.vendors.approveFailed, description: e instanceof Error ? e.message : t.common.error, variant: 'danger' });
     } finally {
       setActionLoading(false);
     }
@@ -312,19 +295,19 @@ export default function VendorDetailPage() {
   const handleRejectSubmit = async () => {
     const trimmed = rejectReason.trim();
     if (trimmed.length < 10) {
-      toast.push({ title: 'Reason must be at least 10 characters', variant: 'danger' });
+      toast.push({ title: t.vendors.rejectReasonMin, variant: 'danger' });
       return;
     }
     if (!id) return;
     setActionLoading(true);
     try {
       await rejectVendor(id, trimmed);
-      toast.push({ title: 'Vendor rejected', variant: 'success' });
+      toast.push({ title: t.vendors.rejectSuccess, variant: 'success' });
       setRejectModalOpen(false);
       setRejectReason('');
       loadVendor();
     } catch (e: unknown) {
-      toast.push({ title: 'Reject failed', description: e instanceof Error ? e.message : 'Error', variant: 'danger' });
+      toast.push({ title: t.vendors.rejectFailed, description: e instanceof Error ? e.message : t.common.error, variant: 'danger' });
     } finally {
       setActionLoading(false);
     }
@@ -333,10 +316,10 @@ export default function VendorDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row" style={{ alignItems: 'center', gap: 12 }}>
-        <Link href="/vendors" className="btn" aria-label="Back to vendors">
+        <Link href="/vendors" className="btn" aria-label={t.common.backToVendors}>
           <ArrowLeft size={18} aria-hidden />
         </Link>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>Vendor detail</h1>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{t.vendors.detailTitle}</h1>
       </div>
 
       <div className="card">
@@ -367,7 +350,7 @@ export default function VendorDetailPage() {
       {vendor.blockReason && vendor.status === 'blocked' ? (
         <div className="card" style={{ boxShadow: 'none', borderColor: 'var(--danger)' }}>
           <div className="cardBody">
-            <div className="muted">Block reason</div>
+            <div className="muted">{t.drivers.blockReason}</div>
             <div style={{ marginTop: 6 }}>{vendor.blockReason}</div>
           </div>
         </div>
@@ -376,20 +359,21 @@ export default function VendorDetailPage() {
  {/* CARD 1 — Onboarding Progress */}
  <div className="card">
         <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Onboarding Progress</h2>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>{t.vendors.onboarding}</h2>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            {ONBOARDING_STEP_LABELS.map((label, i) => {
+            {ONBOARDING_STEP_KEYS.map((key, i) => {
+              const label = t.vendors[key];
               const stepNum = i + 1;
               const done = step >= stepNum;
               return (
-                <div key={label} className="row" style={{ alignItems: 'center', gap: 4 }}>
+                <div key={key} className="row" style={{ alignItems: 'center', gap: 4 }}>
                   {done ? (
                     <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0 }} aria-hidden />
                   ) : (
                     <Circle size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} aria-hidden />
                   )}
                   <span style={{ fontSize: 14, color: done ? 'var(--text)' : 'var(--text-secondary)' }}>{label}</span>
-                  {i < ONBOARDING_STEP_LABELS.length - 1 && (
+                  {i < ONBOARDING_STEP_KEYS.length - 1 && (
                     <span style={{ marginLeft: 4, color: 'var(--border)', fontSize: 12 }}>•</span>
                   )}
                 </div>
@@ -406,7 +390,7 @@ export default function VendorDetailPage() {
 
       <div className="card">
         <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Business details</h2>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>{t.vendors.businessDetails}</h2>
           <div
             style={{
               display: 'grid',
@@ -414,20 +398,19 @@ export default function VendorDetailPage() {
               gap: 20,
             }}
           >
-            <DetailField label="Phone Number" value={vendor.phone} />
-            <DetailField label="Created at" value={formatDateTime(vendor.createdAt)} />
+            <DetailField label={t.vendors.phoneNumber} value={vendor.phone} />
+            <DetailField label={t.vendors.createdAt} value={formatDateTime(vendor.createdAt)} />
             <DetailField
-              label="Approval status"
+              label={t.vendors.approvalStatus}
               value={
                 <span className="badge" style={vendorApprovalBadge.style}>
                   {vendorApprovalBadge.label}
                 </span>
               }
             />
-            <DetailField label="Address" value={formatFullAddress(vendor.address)} />
-            {/* <DetailField label="Timezone" value={formatValue(vendor.timezone)} /> */}
-            <DetailField label="Latitude" value={hasCoords ? lat!.toFixed(6) : '—'} />
-            <DetailField label="Longitude" value={hasCoords ? lng!.toFixed(6) : '—'} />
+            <DetailField label={t.vendors.address} value={formatFullAddress(vendor.address)} />
+            <DetailField label={t.vendors.latitude} value={hasCoords ? lat!.toFixed(6) : '—'} />
+            <DetailField label={t.vendors.longitude} value={hasCoords ? lng!.toFixed(6) : '—'} />
 
 
 
@@ -442,19 +425,19 @@ export default function VendorDetailPage() {
               style={{ marginBottom: 16, marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <MapPin size={16} aria-hidden />
-              Open in Google Maps
+              {t.vendors.openMaps}
             </a>
           ) : null}
           <DriverMap coordinates={mapCoords} driverName={vendor.name} height={280} />
           
 
-          <h2 style={{ margin: '16px 0 16px 0', fontSize: 18, fontWeight: 700 }}>Operating Hours</h2>
+          <h2 style={{ margin: '16px 0 16px 0', fontSize: 18, fontWeight: 700 }}>{t.vendors.operatingHours}</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Day</th>
-                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Status</th>
-                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>Hours</th>
+                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.vendors.hoursDay}</th>
+                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.vendors.hoursStatus}</th>
+                <th style={{ textAlign: 'left', padding: '10px 0', fontWeight: 600 }}>{t.vendors.hoursCol}</th>
               </tr>
             </thead>
             <tbody>
@@ -467,7 +450,7 @@ export default function VendorDetailPage() {
                     <td style={{ padding: '10px 0' }}>{DAY_LABELS[day] ?? day}</td>
                     <td style={{ padding: '10px 0' }}>
                       <span className="badge" style={{ background: isOpen ? 'var(--success-light)' : 'var(--border-light)', color: isOpen ? 'var(--success)' : 'var(--text-secondary)' }}>
-                        {isOpen ? 'Open' : 'Closed'}
+                        {isOpen ? t.status.vendorOpen.open : t.status.vendorOpen.closed}
                       </span>
                     </td>
                     <td style={{ padding: '10px 0', color: 'var(--text-secondary)' }}>{range}</td>
@@ -481,17 +464,17 @@ export default function VendorDetailPage() {
 
       <div className="card">
         <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Wallet</h2>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>{t.vendors.wallet}</h2>
           <div className="grid3">
             <div className="card" style={{ boxShadow: 'none', margin: 0, minWidth: 0 }}>
               <div className="cardBody">
-                <div className="muted" style={{ fontSize: 13 }}>Delivered orders</div>
+                <div className="muted" style={{ fontSize: 13 }}>{t.vendors.deliveredOrders}</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{vendor.deliveredOrderCount ?? 0}</div>
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none', margin: 0, minWidth: 0 }}>
               <div className="cardBody">
-                <div className="muted" style={{ fontSize: 13 }}>Rating</div>
+                <div className="muted" style={{ fontSize: 13 }}>{t.vendors.rating}</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>
                   {vendor.averageRating != null && vendor.averageRating > 0
                     ? Number(vendor.averageRating).toFixed(1)
@@ -499,17 +482,17 @@ export default function VendorDetailPage() {
                 </div>
                 {(vendor.totalRatings ?? 0) > 0 ? (
                   <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
-                    {vendor.totalRatings} {vendor.totalRatings === 1 ? 'review' : 'reviews'}
+                    {vendor.totalRatings} {vendor.totalRatings === 1 ? t.vendors.reviews : t.vendors.reviewsPlural}
                   </div>
                 ) : null}
               </div>
             </div>
             <div className="card" style={{ boxShadow: 'none', margin: 0, minWidth: 0 }}>
               <div className="cardBody">
-                <div className="muted" style={{ fontSize: 13 }}>Total earnings</div>
+                <div className="muted" style={{ fontSize: 13 }}>{t.vendors.totalEarnings}</div>
                 <div style={{ marginTop: 8, fontWeight: 800, fontSize: 24 }}>{formatMoney(vendor.revenue ?? 0)}</div>
                 <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
-                  Order total − driver fee − commission
+                  {t.dashboard.vendorRevenueHint}
                 </div>
               </div>
             </div>
@@ -523,7 +506,7 @@ export default function VendorDetailPage() {
       {canApproveReject && (
         <div className="card">
           <div className="cardBody">
-            <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Approval Action</h2>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>{t.vendors.approvalAction}</h2>
             <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
               <button
                 type="button"
@@ -532,7 +515,7 @@ export default function VendorDetailPage() {
                 disabled={actionLoading}
                 style={{ background: 'var(--success)' }}
               >
-                Approve
+                {t.vendors.approve}
               </button>
               <button
                 type="button"
@@ -541,7 +524,7 @@ export default function VendorDetailPage() {
                 disabled={actionLoading}
                 style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}
               >
-                Reject
+                {t.vendors.reject}
               </button>
             </div>
           </div>
@@ -577,17 +560,17 @@ export default function VendorDetailPage() {
 
       <div className="card">
         <div className="cardBody">
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>KYC Documents</h2>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>{t.vendors.kycDocuments}</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               {[
-                { key: 'businessRegistration' as const, label: 'Business Registration', urls: vendor.kycDocuments?.businessRegistration ? [vendor.kycDocuments.businessRegistration] : [] },
-                { key: 'identityDocument' as const, label: 'Identity Document', urls: (() => {
-                  const id = vendor.kycDocuments?.identityDocument;
-                  if (Array.isArray(id)) return id.filter(Boolean) as string[];
-                  return id ? [id] : [];
+                { key: 'businessRegistration' as const, label: t.vendors.businessRegistration, urls: vendor.kycDocuments?.businessRegistration ? [vendor.kycDocuments.businessRegistration] : [] },
+                { key: 'identityDocument' as const, label: t.vendors.identityDocument, urls: (() => {
+                  const idDoc = vendor.kycDocuments?.identityDocument;
+                  if (Array.isArray(idDoc)) return idDoc.filter(Boolean) as string[];
+                  return idDoc ? [idDoc] : [];
                 })() },
-                { key: 'healthSafetyLicense' as const, label: 'Health & Safety License', urls: vendor.kycDocuments?.healthSafetyLicense ? [vendor.kycDocuments.healthSafetyLicense] : [] },
+                { key: 'healthSafetyLicense' as const, label: t.vendors.healthLicense, urls: vendor.kycDocuments?.healthSafetyLicense ? [vendor.kycDocuments.healthSafetyLicense] : [] },
               ].flatMap(({ key, label, urls }) =>
                 urls.length > 0
                   ? urls.map((url, i) => {
@@ -599,10 +582,10 @@ export default function VendorDetailPage() {
                             <span className="row" style={{ alignItems: 'center', gap: 8 }}>
                               {isPdfUrl(url) ? <FileText size={18} style={{ color: 'var(--text-secondary)' }} aria-hidden /> : <ImageIcon size={18} style={{ color: 'var(--text-secondary)' }} aria-hidden />}
                               <a href={fullUrl!} target="_blank" rel="noopener noreferrer" className="btn" style={{ padding: '6px 10px', fontSize: 13 }}>
-                                <ExternalLink size={14} style={{ marginRight: 6 }} aria-hidden /> View
+                                <ExternalLink size={14} style={{ marginRight: 6 }} aria-hidden /> {t.common.viewImage}
                               </a>
                               <a href={fullUrl!} download className="btn" style={{ padding: '6px 10px', fontSize: 13 }}>
-                                <Download size={14} style={{ marginRight: 6 }} aria-hidden /> Download
+                                <Download size={14} style={{ marginRight: 6 }} aria-hidden /> {t.common.download}
                               </a>
                             </span>
                           </td>
@@ -613,7 +596,7 @@ export default function VendorDetailPage() {
                       <tr key={key} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '12px 0', verticalAlign: 'middle' }}>{label}</td>
                         <td style={{ padding: '12px 0', verticalAlign: 'middle' }}>
-                          <span className="muted">Not uploaded</span>
+                          <span className="muted">{t.common.notUploaded}</span>
                         </td>
                       </tr>,
                     ]
@@ -633,18 +616,18 @@ export default function VendorDetailPage() {
         >
           <div className="card" style={{ maxWidth: 440 }} onMouseDown={(e) => e.stopPropagation()}>
             <div className="cardBody">
-              <h2 style={{ margin: '0 0 12px 0', fontSize: 18 }}>Reject vendor</h2>
-              <p className="muted" style={{ marginBottom: 12 }}>Provide a reason (min 10 characters). The vendor will be notified.</p>
+              <h2 style={{ margin: '0 0 12px 0', fontSize: 18 }}>{t.vendors.rejectTitle}</h2>
+              <p className="muted" style={{ marginBottom: 12 }}>{t.vendors.rejectNotifyDesc}</p>
               <textarea
                 className="textarea"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Reason for rejection..."
+                placeholder={t.vendors.rejectReasonPlaceholder}
                 rows={4}
                 style={{ width: '100%', marginBottom: 16 }}
               />
               <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-                <button type="button" className="btn" onClick={() => { setRejectModalOpen(false); setRejectReason(''); }}>Cancel</button>
+                <button type="button" className="btn" onClick={() => { setRejectModalOpen(false); setRejectReason(''); }}>{t.common.cancel}</button>
                 <button
                   type="button"
                   className="btn"
@@ -652,7 +635,7 @@ export default function VendorDetailPage() {
                   onClick={handleRejectSubmit}
                   disabled={actionLoading || rejectReason.trim().length < 10}
                 >
-                  {actionLoading ? 'Rejecting…' : 'Reject'}
+                  {actionLoading ? t.common.rejecting : t.vendors.reject}
                 </button>
               </div>
             </div>

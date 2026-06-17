@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, Pencil, Ban, Trash2, RefreshCcw, Store, Plus } from 'lucide-react';
@@ -16,34 +16,9 @@ import { useToast } from '@/components/ui/Toast';
 import { useVendorPending } from '@/lib/context/VendorPendingContext';
 import { getErrorMessage } from '@/lib/api/client';
 import { formatMoney } from '@/lib/utils/format';
-import { vendorAvailabilityBadge } from '@/lib/utils/vendorStatus';
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'blocked', label: 'Blocked' },
-];
-
-const APPROVAL_TABS = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-] as const;
-
-function approvalStatusBadge(status: string | null | undefined): { label: string; style: React.CSSProperties } {
-  switch (status) {
-    case 'pending':
-      return { label: 'Pending Review', style: { background: 'rgba(249, 115, 22, 0.2)', color: '#ea580c' } };
-    case 'approved':
-      return { label: 'Approved', style: { background: 'var(--success-light)', color: 'var(--success)' } };
-    case 'rejected':
-      return { label: 'Rejected', style: { background: 'var(--danger-light)', color: 'var(--danger)' } };
-    case 'none':
-    default:
-      return { label: 'Incomplete', style: { background: 'var(--border-light)', color: 'var(--text-secondary)' } };
-  }
-}
+import { useVendorStatusBadges } from '@/lib/i18n/useStatusBadges';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 function publicFileBase(): string {
   const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
@@ -55,6 +30,27 @@ function imgSrc(url: string | null | undefined) {
 }
 
 export default function VendorsPage() {
+  const t = useTranslations();
+  const { approvalStatusBadge, availabilityBadge } = useVendorStatusBadges();
+  const STATUS_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t.common.all },
+      { value: 'active', label: t.status.account.active },
+      { value: 'blocked', label: t.status.account.blocked },
+    ],
+    [t]
+  );
+  const APPROVAL_TABS = useMemo(
+    () =>
+      [
+        { value: '', label: t.common.all },
+        { value: 'pending', label: t.status.approval.pending },
+        { value: 'approved', label: t.status.approval.approved },
+        { value: 'rejected', label: t.status.approval.rejected },
+      ] as const,
+    [t]
+  );
+
   const router = useRouter();
   const toast = useToast();
   const { setPendingCount } = useVendorPending();
@@ -94,7 +90,7 @@ export default function VendorsPage() {
         });
         if (typeof res.pendingCount === 'number') setPendingCount(res.pendingCount);
       })
-      .catch((e) => toast.push({ title: 'Failed to load vendors', description: getErrorMessage(e), variant: 'danger' }))
+      .catch((e) => toast.push({ title: t.vendors.loadFailed, description: getErrorMessage(e), variant: 'danger' }))
       .finally(() => setLoading(false));
   };
 
@@ -109,11 +105,11 @@ export default function VendorsPage() {
     try {
       const { createVendor } = await import('@/lib/api/vendors.api');
       await createVendor(formData);
-      toast.push({ title: 'Vendor created', variant: 'success' });
+      toast.push({ title: t.vendors.createSuccess, variant: 'success' });
       setAddOpen(false);
       load(1);
     } catch (e: unknown) {
-      toast.push({ title: 'Create failed', description: getErrorMessage(e), variant: 'danger' });
+      toast.push({ title: t.common.createFailed, description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setCreateLoading(false);
     }
@@ -125,11 +121,11 @@ export default function VendorsPage() {
     try {
       const { updateVendor } = await import('@/lib/api/vendors.api');
       await updateVendor(selectedVendor._id, formData);
-      toast.push({ title: 'Vendor updated', variant: 'success' });
+      toast.push({ title: t.vendors.updateSuccess, variant: 'success' });
       setEditOpen(false);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Update failed', description: getErrorMessage(e), variant: 'danger' });
+      toast.push({ title: t.common.updateFailed, description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setUpdateLoading(false);
     }
@@ -140,12 +136,12 @@ export default function VendorsPage() {
     setStatusLoading(true);
     try {
       await blockVendor(actionVendorId, reason || undefined);
-      toast.push({ title: 'Vendor status updated', variant: 'success' });
+      toast.push({ title: t.vendors.statusSuccess, variant: 'success' });
       setBlockDialogOpen(false);
       setActionVendorId(null);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Update failed', description: getErrorMessage(e), variant: 'danger' });
+      toast.push({ title: t.common.updateFailed, description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setStatusLoading(false);
     }
@@ -156,13 +152,13 @@ export default function VendorsPage() {
     setDeleteLoading(true);
     try {
       await deleteVendor(actionVendorId);
-      toast.push({ title: 'Vendor deleted', variant: 'success' });
+      toast.push({ title: t.vendors.deleteSuccess, variant: 'success' });
       setDeleteDialogOpen(false);
       setActionVendorId(null);
       setEditOpen(false);
       load(pagination.page);
     } catch (e: unknown) {
-      toast.push({ title: 'Delete failed', description: getErrorMessage(e), variant: 'danger' });
+      toast.push({ title: t.common.deleteFailed, description: getErrorMessage(e), variant: 'danger' });
     } finally {
       setDeleteLoading(false);
     }
@@ -177,20 +173,16 @@ export default function VendorsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Vendors</h1>
-          <div className="muted" style={{ marginTop: 4 }}>Search, filter, and manage vendors.</div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>{t.vendors.title}</h1>
+          <div className="muted" style={{ marginTop: 4 }}>{t.vendors.subtitle}</div>
         </div>
         <div className="row">
-          <button className="btn" onClick={() => load(pagination.page)} disabled={loading} aria-label="Refresh">
-            <RefreshCcw size={18} aria-hidden /> Refresh
+          <button className="btn" onClick={() => load(pagination.page)} disabled={loading} aria-label={t.common.refresh}>
+            <RefreshCcw size={18} aria-hidden /> {t.common.refresh}
           </button>
-          {/* <button className="btn btnPrimary" onClick={() => setAddOpen(true)} aria-label="Add vendor">
-            <Plus size={18} aria-hidden /> Add Vendor
-          </button> */}
         </div>
       </div>
 
-      {/* Approval filter tabs */}
       <div className="card">
         <div className="cardBody" style={{ paddingTop: 12, paddingBottom: 12 }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -217,16 +209,16 @@ export default function VendorsPage() {
         <div className="cardBody">
           <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
-              <div className="label">Search (name, email, phone)</div>
+              <div className="label">{t.vendors.searchLabel}</div>
               <input
                 className="input"
                 value={filters.search}
                 onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-                placeholder="Search..."
+                placeholder={t.vendors.searchPlaceholderShort}
               />
             </div>
             <div className="field">
-              <div className="label">Account Status</div>
+              <div className="label">{t.vendors.accountStatus}</div>
               <select
                 className="select"
                 value={filters.status}
@@ -238,7 +230,7 @@ export default function VendorsPage() {
               </select>
             </div>
             <div className="field">
-              <button className="btn btnPrimary" onClick={() => load(1)}>Apply</button>
+              <button className="btn btnPrimary" onClick={() => load(1)}>{t.common.apply}</button>
             </div>
           </div>
         </div>
@@ -251,15 +243,14 @@ export default function VendorsPage() {
               <table className="adminListTable">
                 <thead>
                   <tr>
-                    <th>Logo</th>
-                    <th>Name</th>
-                    <th>Approval</th>
-                    <th>Availability</th>
-                    {/* <th>Account status</th> */}
-                    <th>Rating</th>
-                    <th>Revenue</th>
-                    <th>Orders</th>
-                    <th>Actions</th>
+                    <th>{t.vendors.logo}</th>
+                    <th>{t.common.name}</th>
+                    <th>{t.vendors.approval}</th>
+                    <th>{t.vendors.availability}</th>
+                    <th>{t.vendors.rating}</th>
+                    <th>{t.vendors.revenue}</th>
+                    <th>{t.vendors.orders}</th>
+                    <th>{t.common.actions}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -270,27 +261,26 @@ export default function VendorsPage() {
               </table>
             </div>
           ) : items.length === 0 ? (
-            <EmptyState icon={<Store size={48} />} heading="No vendors found" subtext="Try adjusting search or status filter." />
+            <EmptyState icon={<Store size={48} />} heading={t.empty.vendors} subtext={t.empty.vendorsSub} />
           ) : (
             <div className="tableWrap">
             <table className="adminListTable">
               <thead>
                 <tr>
-                  <th>Logo</th>
-                  <th>Name</th>
-                  <th>Approval</th>
-                  <th>Availability</th>
-                  {/* <th>Account status</th> */}
-                  <th>Rating</th>
-                  <th>Revenue</th>
-                  <th>Orders</th>
-                  <th>Actions</th>
+                  <th>{t.vendors.logo}</th>
+                  <th>{t.common.name}</th>
+                  <th>{t.vendors.approval}</th>
+                  <th>{t.vendors.availability}</th>
+                  <th>{t.vendors.rating}</th>
+                  <th>{t.vendors.revenue}</th>
+                  <th>{t.vendors.orders}</th>
+                  <th>{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody>
                   {items.map((v) => {
                     const ab = approvalStatusBadge(v.approvalStatus ?? null);
-                    const avail = vendorAvailabilityBadge(v);
+                    const avail = availabilityBadge(v);
                     return (
                     <tr key={v._id} className="clickableRow" onClick={() => router.push(`/vendors/${v._id}`)}>
                       <td>
@@ -309,20 +299,17 @@ export default function VendorsPage() {
                       <td title={avail.hint}>
                         <span className="badge" style={{ background: avail.background }}>{avail.label}</span>
                       </td>
-                      {/* <td>
-                        <span className="badge" style={{ background: v.status === 'blocked' ? 'var(--danger-light)' : 'var(--success-light)' }}>{v.status}</span>
-                      </td> */}
                       <td className="muted">—</td>
                       <td style={{ fontWeight: 700 }}>{formatMoney(v.revenue ?? 0)}</td>
                       <td className="muted">—</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="row adminTableActions" style={{ gap: 6 }}>
-                          <Link href={`/vendors/${v._id}`} className="btn" aria-label="View"><Eye size={16} /></Link>
-                          <button className="btn" onClick={() => openEdit(v)} aria-label="Edit"><Pencil size={16} /></button>
+                          <Link href={`/vendors/${v._id}`} className="btn" aria-label={t.common.view}><Eye size={16} /></Link>
+                          <button className="btn" onClick={() => openEdit(v)} aria-label={t.common.edit}><Pencil size={16} /></button>
                           {v.status !== 'deleted' && (
-                            <button className="btn" onClick={() => { setActionVendorId(v._id); setBlockDialogOpen(true); }} aria-label={v.status === 'blocked' ? 'Unblock' : 'Block'}><Ban size={16} /></button>
+                            <button className="btn" onClick={() => { setActionVendorId(v._id); setBlockDialogOpen(true); }} aria-label={v.status === 'blocked' ? t.customers.unblock : t.customers.block}><Ban size={16} /></button>
                           )}
-                          <button className="btn" onClick={() => { setActionVendorId(v._id); setDeleteDialogOpen(true); }} aria-label="Delete" disabled={v.status === 'deleted'}><Trash2 size={16} /></button>
+                          <button className="btn" onClick={() => { setActionVendorId(v._id); setDeleteDialogOpen(true); }} aria-label={t.common.delete} disabled={v.status === 'deleted'}><Trash2 size={16} /></button>
                         </div>
                       </td>
                     </tr>
@@ -333,10 +320,10 @@ export default function VendorsPage() {
           )}
           {items.length > 0 ? (
           <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
-            <div className="muted">Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}</div>
+            <div className="muted">{formatT(t.common.pageOf, { page: pagination.page, totalPages: pagination.totalPages, total: pagination.total })}</div>
             <div className="row">
-              <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => load(pagination.page - 1)}>Prev</button>
-              <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => load(pagination.page + 1)}>Next</button>
+              <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => load(pagination.page - 1)}>{t.common.prev}</button>
+              <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => load(pagination.page + 1)}>{t.common.next}</button>
             </div>
           </div>
           ) : null}

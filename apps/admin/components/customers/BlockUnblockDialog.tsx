@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 
 export function BlockUnblockDialog({
   open,
@@ -20,9 +21,22 @@ export function BlockUnblockDialog({
   onConfirm: (reason: string) => void;
   loading: boolean;
 }) {
+  const t = useTranslations();
   const [reason, setReason] = useState('');
   const isBlocking = currentStatus !== 'blocked';
-  const label = type === 'customer' ? 'Customer' : type === 'driver' ? 'Driver' : 'Vendor';
+
+  const title =
+    type === 'customer'
+      ? isBlocking
+        ? t.customers.blockTitle
+        : t.customers.unblockTitle
+      : type === 'driver'
+        ? isBlocking
+          ? t.customers.blockDriver
+          : t.customers.unblockDriver
+        : isBlocking
+          ? t.customers.blockVendor
+          : t.customers.unblockVendor;
 
   const handleConfirm = () => {
     if (isBlocking && !reason.trim()) return;
@@ -30,25 +44,21 @@ export function BlockUnblockDialog({
   };
 
   return (
-    <Modal
-      open={open}
-      title={isBlocking ? `Block ${label}` : `Unblock ${label}`}
-      onClose={onClose}
-    >
+    <Modal open={open} title={title} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {!isBlocking && currentReason ? (
           <div className="muted" style={{ fontSize: 13 }}>
-            Current reason: {currentReason}
+            {t.customers.currentReason} {currentReason}
           </div>
         ) : null}
         {isBlocking ? (
           <div className="field">
-            <label className="label">Reason * (required when blocking)</label>
+            <label className="label">{t.customers.blockReasonRequired}</label>
             <textarea
               className="textarea"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Enter reason for blocking..."
+              placeholder={t.customers.blockPlaceholder}
               required
               rows={3}
             />
@@ -56,7 +66,7 @@ export function BlockUnblockDialog({
         ) : null}
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </button>
           <button
             type="button"
@@ -64,7 +74,7 @@ export function BlockUnblockDialog({
             onClick={handleConfirm}
             disabled={loading || (isBlocking && !reason.trim())}
           >
-            {loading ? 'Updating…' : isBlocking ? 'Block' : 'Unblock'}
+            {loading ? t.customers.updating : isBlocking ? t.customers.block : t.customers.unblock}
           </button>
         </div>
       </div>

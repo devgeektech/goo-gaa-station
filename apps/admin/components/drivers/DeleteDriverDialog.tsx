@@ -1,6 +1,8 @@
 'use client';
 
 import { Modal } from '@/components/ui/Modal';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 export function DeleteDriverDialog({
   open,
@@ -15,18 +17,18 @@ export function DeleteDriverDialog({
   onConfirm: () => void;
   loading: boolean;
 }) {
+  const t = useTranslations();
   return (
-    <Modal open={open} title="Delete Driver" onClose={onClose}>
+    <Modal open={open} title={t.drivers.deleteTitle} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p className="muted">
-          Permanently delete this driver from the database. They can sign up again with the same phone as a new account.
-          Past orders may still reference the old driver id for history.
-          {driverName ? ` Delete ${driverName}?` : ''}
+          {t.drivers.deleteDescLong}
+          {driverName ? ` ${formatT(t.drivers.deleteDriverConfirm, { name: driverName })}` : ''}
         </p>
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t.common.cancel}</button>
           <button type="button" className="btn btnDanger" onClick={onConfirm} disabled={loading}>
-            {loading ? 'Deleting…' : 'Delete'}
+            {loading ? t.common.deleting : t.common.delete}
           </button>
         </div>
       </div>

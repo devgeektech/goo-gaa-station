@@ -9,6 +9,8 @@ import { toCsv, downloadCsv } from '@/lib/utils/csv';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 type PaginationState = {
   total: number;
@@ -27,6 +29,8 @@ const initialPagination: PaginationState = {
   hasNext: false,
   hasPrev: false,
 };
+
+const ORDER_STATUS_VALUES = ['placed', 'confirmed', 'preparing', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] as const;
 
 function toNumber(value: unknown, fallback = 0): number {
   const num = Number(value);
@@ -48,6 +52,7 @@ function revenueFromOrder(order: OrderListItem) {
 }
 
 export default function FinancePage() {
+  const t = useTranslations();
   const toast = useToast();
   const [items, setItems] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,8 +89,8 @@ export default function FinancePage() {
       });
     } catch (e) {
       toast.push({
-        title: 'Failed to load finance ledger',
-        description: e instanceof Error ? e.message : 'Unknown error',
+        title: t.finance.loadFailed,
+        description: e instanceof Error ? e.message : t.common.unknownError,
         variant: 'danger',
       });
     } finally {
@@ -145,11 +150,11 @@ export default function FinancePage() {
       });
       const csv = toCsv(rows as unknown as Record<string, unknown>[]);
       downloadCsv(`finance-ledger-${new Date().toISOString().slice(0, 10)}.csv`, csv);
-      toast.push({ title: 'CSV exported', description: `${rows.length} row(s)`, variant: 'success' });
+      toast.push({ title: t.common.exportSuccess, description: formatT(t.transactions.rowsExported, { n: rows.length }), variant: 'success' });
     } catch (e) {
       toast.push({
-        title: 'Export failed',
-        description: e instanceof Error ? e.message : 'Unknown error',
+        title: t.common.exportFailed,
+        description: e instanceof Error ? e.message : t.common.unknownError,
         variant: 'danger',
       });
     } finally {
@@ -176,78 +181,72 @@ export default function FinancePage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 className="pageTitle">Finance & Ledger</h1>
-          <div className="pageSubtitle">
-            Admin = commission on net order · Vendor = order − driver fee − commission · Driver = delivery fees (delivered, not refunded).
-          </div>
+          <h1 className="pageTitle">{t.finance.title}</h1>
+          <div className="pageSubtitle">{t.finance.subtitleDetailed}</div>
         </div>
         <div className="row">
           <button className="btn" onClick={() => void load(pagination.page)} disabled={loading}>
-            <RefreshCcw size={18} aria-hidden /> Refresh
+            <RefreshCcw size={18} aria-hidden /> {t.common.refresh}
           </button>
           <button
             className="btn btnPrimary"
             onClick={() => void exportCsvLedger()}
             disabled={exporting || loading}
-            aria-label="Export finance ledger to CSV"
+            aria-label={t.common.exportCsv}
           >
-            <Download size={18} aria-hidden /> {exporting ? 'Exporting…' : 'Export CSV'}
+            <Download size={18} aria-hidden /> {exporting ? t.common.exporting : t.common.exportCsv}
           </button>
         </div>
       </div>
 
       <div className="grid4">
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Order amount (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.orderAmount)}</div></div></div>
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Admin revenue (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.adminRevenue)}</div></div></div>
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Vendor revenue (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.vendorRevenue)}</div></div></div>
-        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>Driver fees (page)</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.driverRevenue)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>{t.finance.orderAmountPage}</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.orderAmount)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>{t.finance.adminRevenuePage}</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.adminRevenue)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>{t.finance.vendorRevenuePage}</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.vendorRevenue)}</div></div></div>
+        <div className="card"><div className="cardBody"><div className="muted" style={{ fontSize: 13 }}>{t.finance.driverFeesPage}</div><div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{formatMoney(totals.driverRevenue)}</div></div></div>
       </div>
 
       <div className="card">
         <div className="cardBody">
           <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 240 }}>
-              <div className="label">Search (order number)</div>
+              <div className="label">{t.finance.searchLabel}</div>
               <input
                 className="input"
                 value={filters.search}
                 onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-                placeholder="ORD-..."
+                placeholder={t.orders.searchOrderPlaceholder}
               />
             </div>
             <div className="field">
-              <div className="label">Status</div>
+              <div className="label">{t.common.status}</div>
               <select className="select" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-                <option value="">All</option>
-                <option value="placed">Placed</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="preparing">Preparing</option>
-                <option value="picked_up">Picked up</option>
-                <option value="on_the_way">On the way</option>
-                <option value="delivered">Delivered</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="">{t.common.all}</option>
+                {ORDER_STATUS_VALUES.map((value) => (
+                  <option key={value} value={value}>{t.status.order[value]}</option>
+                ))}
               </select>
             </div>
             <div className="field">
-              <div className="label">Date from</div>
+              <div className="label">{t.finance.dateFrom}</div>
               <input className="input" type="date" value={filters.dateFrom} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))} />
             </div>
             <div className="field">
-              <div className="label">Date to</div>
+              <div className="label">{t.finance.dateTo}</div>
               <input className="input" type="date" value={filters.dateTo} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))} />
             </div>
             <div className="field" style={{ minWidth: 160 }}>
-              <div className="label">Vendor ID</div>
+              <div className="label">{t.finance.vendorId}</div>
               <input
                 className="input"
                 value={filters.vendorId}
                 onChange={(e) => setFilters((f) => ({ ...f, vendorId: e.target.value }))}
-                placeholder="Optional"
+                placeholder={t.finance.vendorIdOptional}
               />
             </div>
             <div className="field">
               <div className="label"> </div>
-              <button className="btn btnPrimary" onClick={() => void load(1)}>Apply</button>
+              <button className="btn btnPrimary" onClick={() => void load(1)}>{t.common.apply}</button>
             </div>
           </div>
         </div>
@@ -260,20 +259,19 @@ export default function FinancePage() {
               {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={46} />)}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState icon={<Wallet size={44} />} heading="No ledger entries found" subtext="Try adjusting date range or filters." />
+            <EmptyState icon={<Wallet size={44} />} heading={t.empty.ledger} subtext={t.empty.ledgerSub} />
           ) : (
             <div className="tableWrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Order#</th>
-                    <th>Vendor</th>
-                    <th>Order amt</th>
-                    <th>Driver fee</th>
-                    <th>Admin commission</th>
-                    <th>Vendor</th>
-                    {/* <th>Driver</th> */}
-                    <th>Date</th>
+                    <th>{t.orders.orderNumber}</th>
+                    <th>{t.finance.vendor}</th>
+                    <th>{t.finance.orderAmt}</th>
+                    <th>{t.finance.driverFee}</th>
+                    <th>{t.finance.adminCommission}</th>
+                    <th>{t.finance.vendor}</th>
+                    <th>{t.common.date}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -290,7 +288,6 @@ export default function FinancePage() {
                         <td>{formatMoney(r.driverFee)}</td>
                         <td>{formatMoney(r.commission)}</td>
                         <td>{formatMoney(r.vendorRevenue)}</td>
-                        {/* <td>{formatMoney(r.driverRevenue)}</td> */}
                         <td className="muted">{formatDateTime(order.createdAt)}</td>
                       </tr>
                     );
@@ -303,11 +300,11 @@ export default function FinancePage() {
           {items.length > 0 ? (
             <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
               <div className="muted">
-                Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
+                {formatT(t.common.pageOf, { page: pagination.page, totalPages: pagination.totalPages, total: pagination.total })}
               </div>
               <div className="row">
-                <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void load(pagination.page - 1)}>Prev</button>
-                <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void load(pagination.page + 1)}>Next</button>
+                <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void load(pagination.page - 1)}>{t.common.prev}</button>
+                <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void load(pagination.page + 1)}>{t.common.next}</button>
               </div>
             </div>
           ) : null}

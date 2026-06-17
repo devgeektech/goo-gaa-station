@@ -6,6 +6,8 @@ import { Copy } from 'lucide-react';
 import type { OrderListItem, OrderBroadcastDriverRef } from '@/lib/api/orders.api';
 import { getDriver } from '@/lib/api/drivers.api';
 import { formatDateTime, copyToClipboard } from '@/lib/utils/format';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 export type NormalizedBroadcastDriver = {
   id: string;
@@ -61,9 +63,9 @@ export function normalizeBroadcastDrivers(order: OrderListItem): NormalizedBroad
   return out;
 }
 
-function boolLabel(v: boolean | null): string {
-  if (v === true) return 'Yes';
-  if (v === false) return 'No';
+function boolLabel(v: boolean | null, t: ReturnType<typeof useTranslations>): string {
+  if (v === true) return t.common.yes;
+  if (v === false) return t.common.no;
   return '—';
 }
 
@@ -96,6 +98,7 @@ export function OrderDriversNotified({
   assignedDriverId?: string | null;
   onCopy?: (text: string, label: string) => void;
 }) {
+  const t = useTranslations();
   const initialRows = useMemo(() => normalizeBroadcastDrivers(order), [order]);
   const [drivers, setDrivers] = useState<NormalizedBroadcastDriver[]>(initialRows);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -141,13 +144,13 @@ export function OrderDriversNotified({
 
   async function copyId(id: string) {
     const ok = await copyToClipboard(id);
-    onCopy?.(id, ok ? 'Copied driver ID' : 'Copy failed');
+    onCopy?.(id, ok ? t.orders.copiedDriverId : t.common.copyFailed);
   }
 
   return (
     <div className="card" style={{ boxShadow: 'none' }}>
       <div className="cardBody">
-        <div style={{ fontWeight: 800 }}>Drivers notified</div>
+        <div style={{ fontWeight: 800 }}>{t.orders.driversNotified}</div>
         {/* <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
           Drivers who received broadcast after vendor accept (socket, push, in-app). Use for delivery testing.
         </div> */}
@@ -170,24 +173,24 @@ export function OrderDriversNotified({
         <div className="divider" />
         {drivers.length === 0 ? (
           <div className="muted" style={{ fontSize: 13 }}>
-            No drivers were broadcasted yet. This list fills when the vendor accepts and nearby drivers are found.
+            {t.orders.driversBroadcastEmpty}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             {loadingDetails ? (
               <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
-                Loading driver details…
+                {t.orders.loadingDrivers}
               </div>
             ) : null}
             <table style={{ fontSize: 13, minWidth: 520, width: '100%' }}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Vehicle</th>
-                  <th>Online</th>
-                  <th>Available</th>
-                  <th>Driver ID</th>
+                  <th>{t.common.name}</th>
+                  <th>{t.common.phone}</th>
+                  <th>{t.orders.vehicle}</th>
+                  <th>{t.orders.onlineCol}</th>
+                  <th>{t.orders.availableCol}</th>
+                  <th>{t.orders.driverId}</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,21 +211,21 @@ export function OrderDriversNotified({
                         )}
                         {isAssigned ? (
                           <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
-                            (assigned)
+                            {t.common.assigned}
                           </span>
                         ) : null}
                       </td>
                       <td>{d.phone}</td>
                       <td>{d.vehicle}</td>
-                      <td>{boolLabel(d.isOnline)}</td>
-                      <td>{boolLabel(d.isAvailable)}</td>
+                      <td>{boolLabel(d.isOnline, t)}</td>
+                      <td>{boolLabel(d.isAvailable, t)}</td>
                       <td>
                         <button
                           type="button"
                           className="btn"
                           style={{ padding: '4px 8px', fontSize: 11 }}
                           onClick={() => void copyId(d.id)}
-                          title="Copy full driver ID"
+                          title={t.orders.copyDriverIdTitle}
                         >
                           <Copy size={12} /> {d.id.slice(-8)}
                         </button>

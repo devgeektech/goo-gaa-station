@@ -12,6 +12,10 @@ import { adminAssignDriver, adminCancelOrder, adminUpdateOrderStatus, fetchOrder
 import { searchDrivers, type DriverListItem } from '@/lib/api/drivers.api';
 import { OrderDriversNotified } from '@/components/orders/OrderDriversNotified';
 import { OrderAddressesSection } from '@/components/orders/OrderAddressesSection';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
+
+const ORDER_STATUS_VALUES = ['placed', 'confirmed', 'preparing', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] as const;
 
 function asObj<T extends object>(v: unknown): T | null {
   if (!v || typeof v !== 'object') return null;
@@ -33,6 +37,7 @@ export function OrderDetailModal({
   orderId: string | null;
   onClose: () => void;
 }) {
+  const t = useTranslations();
   const dispatch = useAppDispatch();
   const toast = useToast();
   const selected = useAppSelector((s) => s.orders.selectedOrder);
@@ -85,7 +90,7 @@ export function OrderDetailModal({
   async function copyPhone(phone?: string) {
     if (!phone) return;
     const ok = await copyToClipboard(phone);
-    toast.push({ title: ok ? 'Copied' : 'Copy failed', description: phone, variant: ok ? 'success' : 'danger' });
+    toast.push({ title: ok ? t.common.copied : t.common.copyFailed, description: phone, variant: ok ? 'success' : 'danger' });
   }
 
   async function runDriverSearch(q: string) {
@@ -112,9 +117,9 @@ export function OrderDetailModal({
     const driverId = selectedDriver._id;
     const action = await dispatch(adminAssignDriver({ id, driverId }));
     if (adminAssignDriver.fulfilled.match(action)) {
-      toast.push({ title: 'Driver assigned', description: `${selectedDriver.name ?? driverId}`, variant: 'success' });
+      toast.push({ title: t.orders.driverAssigned, description: `${selectedDriver.name ?? driverId}`, variant: 'success' });
     } else {
-      toast.push({ title: 'Assign failed', description: String(action.payload ?? action.error.message), variant: 'danger' });
+      toast.push({ title: t.orders.assignFailed, description: String(action.payload ?? action.error.message), variant: 'danger' });
     }
   }
 
@@ -122,24 +127,24 @@ export function OrderDetailModal({
     if (!order) return;
     const action = await dispatch(adminUpdateOrderStatus({ id: order._id, status: nextStatus, note: statusNote || undefined }));
     if (adminUpdateOrderStatus.fulfilled.match(action)) {
-      toast.push({ title: 'Status updated', description: nextStatus, variant: 'success' });
+      toast.push({ title: t.orders.statusUpdated, description: nextStatus, variant: 'success' });
       setStatusNote('');
     } else {
-      toast.push({ title: 'Update failed', description: String(action.payload ?? action.error.message), variant: 'danger' });
+      toast.push({ title: t.orders.updateFailed, description: String(action.payload ?? action.error.message), variant: 'danger' });
     }
   }
 
   async function onCancelOrder() {
     if (!order) return;
     if (!cancelReason.trim()) {
-      toast.push({ title: 'Reason required', description: 'Please enter a cancellation reason.', variant: 'danger' });
+      toast.push({ title: t.orders.reasonRequired, description: t.orders.cancelReasonHint, variant: 'danger' });
       return;
     }
     const action = await dispatch(adminCancelOrder({ id: order._id, reason: cancelReason.trim() }));
     if (adminCancelOrder.fulfilled.match(action)) {
-      toast.push({ title: 'Order cancelled', variant: 'success' });
+      toast.push({ title: t.orders.orderCancelled, variant: 'success' });
     } else {
-      toast.push({ title: 'Cancel failed', description: String(action.payload ?? action.error.message), variant: 'danger' });
+      toast.push({ title: t.orders.cancelFailed, description: String(action.payload ?? action.error.message), variant: 'danger' });
     }
   }
 
@@ -148,7 +153,7 @@ export function OrderDetailModal({
   return (
     <Modal
       open={open}
-      title={order ? `Order ${order.orderNumber}` : 'Order details'}
+      title={order ? formatT(t.orders.orderTitle, { number: order.orderNumber }) : t.orders.modalTitle}
       onClose={onClose}
     >
       {localLoading && !order ? (
@@ -158,32 +163,32 @@ export function OrderDetailModal({
           <Skeleton height={120} />
         </div>
       ) : !order ? (
-        <div className="muted">No order selected.</div>
+        <div className="muted">{t.orders.noOrderSelected}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="grid3">
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Order info</div>
+                <div className="muted">{t.orders.orderInfo}</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>{order.orderNumber}</div>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  Created {formatDateTime(order.createdAt)}
+                  {formatT(t.common.createdLabel, { date: formatDateTime(order.createdAt) })}
                 </div>
                 <div className="divider" />
-                <div className="muted">Total</div>
+                <div className="muted">{t.common.total}</div>
                 <div style={{ fontWeight: 800, fontSize: 18 }}>{formatMoney(order.total)}</div>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  Payment: {order.paymentStatus} ({order.paymentMethod ?? '—'})
+                  {formatT(t.common.paymentLabel, { status: order.paymentStatus, method: order.paymentMethod ?? '—' })}
                 </div>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  WifiPay ref: {order.wifipayRef ?? '—'}
+                  {t.orders.wifipayRef}: {order.wifipayRef ?? '—'}
                 </div>
               </div>
             </div>
 
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Customer</div>
+                <div className="muted">{t.orders.customerSection}</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>{customer?.name ?? getId(order.customerId) ?? '—'}</div>
                 <div className="row" style={{ marginTop: 6 }}>
                   <button className="btn" onClick={() => void copyPhone(customer?.phone)}>
@@ -195,9 +200,9 @@ export function OrderDetailModal({
 
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div className="muted">Driver</div>
+                <div className="muted">{t.orders.driverSection}</div>
                 <div style={{ fontWeight: 800, marginTop: 6 }}>
-                  {driver?.name ?? (order.driverId ? getId(order.driverId) : 'Unassigned') ?? 'Unassigned'}
+                  {driver?.name ?? (order.driverId ? getId(order.driverId) : t.common.unassigned) ?? t.common.unassigned}
                 </div>
                 {driver?.phone ? (
                   <div className="row" style={{ marginTop: 6 }}>
@@ -208,7 +213,7 @@ export function OrderDetailModal({
                 ) : null}
                 {driver?.vehicleType || driver?.vehiclePlate ? (
                   <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                    Vehicle: {driver?.vehicleType ?? '—'} {driver?.vehiclePlate ? `(${driver.vehiclePlate})` : ''}
+                    {t.orders.vehicle}: {driver?.vehicleType ?? '—'} {driver?.vehiclePlate ? `(${driver.vehiclePlate})` : ''}
                   </div>
                 ) : null}
               </div>
@@ -222,7 +227,7 @@ export function OrderDetailModal({
               toast.push({
                 title: label,
                 description: text,
-                variant: label.startsWith('Copied') ? 'success' : 'danger',
+                variant: label === t.common.copied || label === t.orders.copiedDriverId ? 'success' : 'danger',
               });
             }}
           />
@@ -230,7 +235,7 @@ export function OrderDetailModal({
           <div className="grid2">
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div style={{ fontWeight: 800 }}>Items</div>
+                <div style={{ fontWeight: 800 }}>{t.orders.itemsSection}</div>
                 <div className="divider" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {order.items.map((i, idx) => (
@@ -240,7 +245,7 @@ export function OrderDetailModal({
                           {i.name} <span className="muted">×{i.qty}</span>
                         </div>
                         <div className="muted" style={{ fontSize: 12 }}>
-                          Unit {formatMoney(i.unitPrice)} • Subtotal {formatMoney(i.subtotal)}
+                          {formatT(t.common.unitSubtotal, { unit: formatMoney(i.unitPrice), subtotal: formatMoney(i.subtotal) })}
                         </div>
                       </div>
                       <div style={{ fontWeight: 800 }}>{formatMoney(i.subtotal)}</div>
@@ -248,20 +253,20 @@ export function OrderDetailModal({
                   ))}
                   <div className="divider" />
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div className="muted">Items subtotal</div>
+                    <div className="muted">{t.orders.itemsSubtotal}</div>
                     <div style={{ fontWeight: 800 }}>{formatMoney(itemsSubtotal)}</div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div className="muted">Delivery fee</div>
+                    <div className="muted">{t.orders.deliveryFee}</div>
                     <div style={{ fontWeight: 800 }}>{formatMoney(order.deliveryFee ?? 0)}</div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div className="muted">Discount</div>
+                    <div className="muted">{t.orders.discount}</div>
                     <div style={{ fontWeight: 800 }}>{formatMoney(order.discount ?? 0)}</div>
                   </div>
                   <div className="divider" />
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div style={{ fontWeight: 800 }}>Total</div>
+                    <div style={{ fontWeight: 800 }}>{t.common.total}</div>
                     <div style={{ fontWeight: 900 }}>{formatMoney(order.total)}</div>
                   </div>
                 </div>
@@ -270,7 +275,7 @@ export function OrderDetailModal({
 
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div style={{ fontWeight: 800 }}>Addresses</div>
+                <div style={{ fontWeight: 800 }}>{t.orders.addressesSection}</div>
                 <div className="divider" />
                 <OrderAddressesSection
                   order={order}
@@ -285,8 +290,8 @@ export function OrderDetailModal({
             <div className="cardBody">
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <div>
-                  <div style={{ fontWeight: 800 }}>Status timeline</div>
-                  <div className="muted">History of changes (admin overrides marked)</div>
+                  <div style={{ fontWeight: 800 }}>{t.orders.statusTimeline}</div>
+                  <div className="muted">{t.orders.historyTitle}</div>
                 </div>
                 <button
                   className="btn"
@@ -296,12 +301,12 @@ export function OrderDetailModal({
                     void dispatch(fetchOrderById(orderId)).finally(() => setLocalLoading(false));
                   }}
                 >
-                  <RefreshCcw size={16} /> Refresh
+                  <RefreshCcw size={16} /> {t.common.refresh}
                 </button>
               </div>
               <div className="divider" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {statusHistory.length === 0 ? <div className="muted">No history.</div> : null}
+                {statusHistory.length === 0 ? <div className="muted">{t.orders.noHistory}</div> : null}
                 {statusHistory.map((s, idx) => (
                   <div key={`${s.timestamp}-${idx}`} style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12 }}>
                     <div className="muted">{formatDateTime(s.timestamp)}</div>
@@ -310,7 +315,7 @@ export function OrderDetailModal({
                         <span className="badge" style={{ background: 'var(--bg)' }}>
                           {s.status}
                         </span>
-                        {s.isAdminOverride ? <span className="badge" style={{ background: 'var(--primary-light)' }}>Override</span> : null}
+                        {s.isAdminOverride ? <span className="badge" style={{ background: 'var(--primary-light)' }}>{t.orders.override}</span> : null}
                         <span className="muted" style={{ fontSize: 12 }}>
                           {s.changedByModel ? `by ${s.changedByModel}` : ''}
                         </span>
@@ -327,65 +332,61 @@ export function OrderDetailModal({
           {!isFinal ? (
             <div className="card" style={{ boxShadow: 'none' }}>
               <div className="cardBody">
-                <div style={{ fontWeight: 900 }}>Admin actions</div>
+                <div style={{ fontWeight: 900 }}>{t.orders.adminActions}</div>
                 <div className="divider" />
                 <div className="grid3">
                   <div>
                     <div className="muted" style={{ marginBottom: 6 }}>
-                      Change status
+                      {t.orders.changeStatus}
                     </div>
                     <select className="select" value={nextStatus} onChange={(e) => setNextStatus(e.target.value as OrderStatus)}>
-                      <option value="placed">placed</option>
-                      <option value="confirmed">confirmed</option>
-                      <option value="preparing">preparing</option>
-                      <option value="picked_up">picked_up</option>
-                      <option value="on_the_way">on_the_way</option>
-                      <option value="delivered">delivered</option>
-                      <option value="cancelled">cancelled</option>
+                      {ORDER_STATUS_VALUES.map((value) => (
+                        <option key={value} value={value}>{t.status.order[value]}</option>
+                      ))}
                     </select>
                     <textarea
                       className="textarea"
-                      placeholder="Note (optional)"
+                      placeholder={t.common.noteOptional}
                       value={statusNote}
                       onChange={(e) => setStatusNote(e.target.value)}
                       style={{ marginTop: 8 }}
                     />
                     <button className="btn btnPrimary" style={{ marginTop: 10 }} onClick={() => void onChangeStatus()}>
-                      Confirm status change
+                      {t.orders.confirmStatusChange}
                     </button>
                   </div>
 
                   <div>
                     <div className="muted" style={{ marginBottom: 6 }}>
-                      Cancel order
+                      {t.orders.cancelOrder}
                     </div>
                     <textarea
                       className="textarea"
-                      placeholder="Reason (required)"
+                      placeholder={t.common.reasonRequired}
                       value={cancelReason}
                       onChange={(e) => setCancelReason(e.target.value)}
                     />
                     <button className="btn btnDanger" style={{ marginTop: 10 }} onClick={() => void onCancelOrder()}>
-                      Cancel order
+                      {t.orders.cancelOrder}
                     </button>
                   </div>
 
                   <div>
                     <div className="muted" style={{ marginBottom: 6 }}>
-                      Assign driver
+                      {t.orders.assignDriver}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input
                         className="input"
                         value={driverQuery}
                         onChange={(e) => setDriverQuery(e.target.value)}
-                        placeholder="Search drivers (name/phone)"
+                        placeholder={t.orders.searchDriversModal}
                       />
                       <button
                         className="btn"
                         onClick={() => void runDriverSearch(driverQuery)}
                         disabled={driverLoading}
-                        aria-label="Search drivers"
+                        aria-label={t.orders.searchDrivers}
                       >
                         <Search size={16} />
                       </button>
@@ -395,7 +396,7 @@ export function OrderDetailModal({
                         <Skeleton height={42} />
                       ) : driverResults.length === 0 ? (
                         <div className="muted" style={{ fontSize: 13 }}>
-                          No approved active drivers found. Click Search to load or refine your search.
+                          {t.orders.noDriversSearchHint}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflow: 'auto' }}>
@@ -420,7 +421,7 @@ export function OrderDetailModal({
                       )}
                     </div>
                     <button className="btn btnPrimary" style={{ marginTop: 10 }} onClick={() => void onAssignDriver()} disabled={!selectedDriver}>
-                      Assign selected driver
+                      {t.orders.assignSelectedDriver}
                     </button>
                   </div>
                 </div>
@@ -428,7 +429,7 @@ export function OrderDetailModal({
             </div>
           ) : (
             <div className="muted" style={{ fontSize: 13 }}>
-              Admin actions are disabled for delivered/cancelled orders.
+              {t.orders.actionsDisabled}
             </div>
           )}
         </div>

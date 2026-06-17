@@ -1,4 +1,7 @@
-/** Vendor is online for orders: global isOpen + within today's operating hours. */
+/**
+ * Legacy non-React helper — prefer `useVendorStatusBadges()` from `@/lib/i18n/useStatusBadges`.
+ * Kept for any non-component callers; labels are English-only.
+ */
 export function vendorAvailabilityBadge(vendor: {
   isAvailableNow?: boolean;
   isOpen?: boolean;

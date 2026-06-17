@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -23,30 +23,6 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useTranslations } from '@/lib/i18n/useTranslations';
-import { translations } from '@/lib/i18n/translations';
-
-const CAT_LABELS = {
-  title: 'Categories',
-  addNew: 'Add Category',
-  noCategories: 'No categories yet',
-  deleteBlocked: 'This category is used by vendors',
-  filterAll: 'All',
-  filterFood: 'Food',
-  filterGrocery: 'Grocery',
-  filterPharmacy: 'Pharmacy',
-  filterFashion: 'Fashion',
-  reorderSaved: 'Order saved',
-  toggleOn: 'Active',
-  toggleOff: 'Inactive',
-};
-
-const FILTERS = [
-  { value: 'all', labelKey: 'categories.filterAll' as const },
-  { value: 'food', labelKey: 'categories.filterFood' as const },
-  { value: 'grocery', labelKey: 'categories.filterGrocery' as const },
-  { value: 'pharmacy', labelKey: 'categories.filterPharmacy' as const },
-  { value: 'fashion', labelKey: 'categories.filterFashion' as const },
-];
 
 function SortableCategoryCard({
   category,
@@ -73,6 +49,18 @@ function SortableCategoryCard({
 }
 
 export default function CategoriesPage() {
+  const t = useTranslations();
+  const FILTERS = useMemo(
+    () => [
+      { value: 'all', label: t.categories.filterAll },
+      { value: 'food', label: t.categories.filterFood },
+      { value: 'grocery', label: t.categories.filterGrocery },
+      { value: 'pharmacy', label: t.categories.filterPharmacy },
+      { value: 'fashion', label: t.categories.filterFashion },
+    ],
+    [t]
+  );
+
   const [filter, setFilter] = useState<string>('all');
   const [localOrder, setLocalOrder] = useState<CategoryItem[] | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -84,8 +72,6 @@ export default function CategoriesPage() {
   const { data: categories = [], isLoading, isError } = useGetCategoriesQuery();
   const [reorderCategories] = useReorderCategoriesMutation();
   const toast = useToast();
-  const t = useTranslations();
-  const cat = t?.categories ?? translations?.en?.categories ?? CAT_LABELS;
 
   const displayList = localOrder ?? categories;
   const filtered =
@@ -113,14 +99,14 @@ export default function CategoriesPage() {
         .unwrap()
         .then(() => {
           setLocalOrder(null);
-          toast.push({ title: cat.reorderSaved, variant: 'success' });
+          toast.push({ title: t.categories.reorderSaved, variant: 'success' });
         })
         .catch(() => {
           setLocalOrder(null);
-          toast.push({ title: 'Failed to save order', variant: 'danger' });
+          toast.push({ title: t.categories.reorderFailed, variant: 'danger' });
         });
     },
-    [localOrder, categories, reorderCategories, toast, cat]
+    [localOrder, categories, reorderCategories, toast, t.categories]
   );
 
   const handleEdit = (c: CategoryItem) => {
@@ -137,12 +123,12 @@ export default function CategoriesPage() {
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>
-            {cat.title}
+            {t.categories.title}
           </h1>
-          <div className="muted" style={{ marginTop: 4 }}>Manage categories for the app.</div>
+          <div className="muted" style={{ marginTop: 4 }}>{t.categories.subtitle}</div>
         </div>
-        <button className="btn btnPrimary" onClick={() => setAddOpen(true)} aria-label={cat.addNew}>
-          <Plus size={18} aria-hidden /> {cat.addNew}
+        <button className="btn btnPrimary" onClick={() => setAddOpen(true)} aria-label={t.categories.addNew}>
+          <Plus size={18} aria-hidden /> {t.categories.addNew}
         </button>
       </div>
 
@@ -154,7 +140,7 @@ export default function CategoriesPage() {
             className={filter === f.value ? 'btn btnPrimary' : 'btn'}
             onClick={() => setFilter(f.value)}
           >
-            {(cat as Record<string, string>)[f.labelKey.replace('categories.', '')] ?? f.value}
+            {f.label}
           </button>
         ))}
       </div>
@@ -180,15 +166,15 @@ export default function CategoriesPage() {
               ))}
             </div>
           ) : isError ? (
-            <div className="muted" style={{ color: 'var(--danger)' }}>Failed to load categories.</div>
+            <div className="muted" style={{ color: 'var(--danger)' }}>{t.categories.loadFailed}</div>
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={<LayoutGrid size={48} />}
-              heading={cat.noCategories}
-              subtext={filter === 'all' ? '' : (t?.common?.tryFilters ?? 'Try adjusting filters.')}
+              heading={t.categories.noCategories}
+              subtext={filter === 'all' ? '' : t.common.tryFilters}
               action={
                 <button className="btn btnPrimary" onClick={() => setAddOpen(true)}>
-                  {cat.addNew}
+                  {t.categories.addNew}
                 </button>
               }
             />

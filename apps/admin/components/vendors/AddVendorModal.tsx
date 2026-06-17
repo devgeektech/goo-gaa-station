@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { isVendorImageWithinLimit, VENDOR_IMAGE_SIZE_LABEL } from '@/lib/constants/uploads';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 export type AddVendorForm = {
   name: string;
@@ -33,6 +35,7 @@ export function AddVendorModal({
   onSubmit: (formData: FormData) => void;
   loading: boolean;
 }) {
+  const t = useTranslations();
   const [form, setForm] = useState<AddVendorForm>(initialForm);
   const [fileError, setFileError] = useState<string | null>(null);
 
@@ -50,7 +53,7 @@ export function AddVendorModal({
     e.preventDefault();
     if (!form.name.trim()) return;
     if (form.logo && !isVendorImageWithinLimit(form.logo)) {
-      setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+      setFileError(formatT(t.vendors.logoMaxError, { max: VENDOR_IMAGE_SIZE_LABEL }));
       return;
     }
     const fd = new FormData();
@@ -64,72 +67,72 @@ export function AddVendorModal({
   };
 
   return (
-    <Modal open={open} title="Add Vendor" onClose={handleClose}>
+    <Modal open={open} title={t.vendors.addTitle} onClose={handleClose}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {fileError ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{fileError}</div> : null}
         <div className="field">
-          <label className="label" htmlFor="add-vendor-name">Name *</label>
+          <label className="label" htmlFor="add-vendor-name">{t.vendors.fieldName} *</label>
           <input
             id="add-vendor-name"
             className="input"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="Vendor name"
+            placeholder={t.vendors.namePlaceholder}
             required
           />
         </div>
         <div className="field">
-          <label className="label" htmlFor="add-vendor-slug">Slug (optional)</label>
+          <label className="label" htmlFor="add-vendor-slug">{t.vendors.fieldSlugOptional}</label>
           <input
             id="add-vendor-slug"
             className="input"
             value={form.slug}
             onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-            placeholder="url-slug"
+            placeholder={t.vendors.slugPlaceholder}
           />
         </div>
         <div className="field">
-          <label className="label" htmlFor="add-vendor-desc">Description</label>
+          <label className="label" htmlFor="add-vendor-desc">{t.vendors.fieldDescription}</label>
           <textarea
             id="add-vendor-desc"
             className="textarea"
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Short description"
+            placeholder={t.vendors.descPlaceholder}
             rows={2}
           />
         </div>
         <div className="field">
-          <label className="label" htmlFor="add-vendor-email">Email</label>
+          <label className="label" htmlFor="add-vendor-email">{t.vendors.fieldEmail}</label>
           <input
             id="add-vendor-email"
             type="email"
             className="input"
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            placeholder="vendor@example.com"
+            placeholder={t.vendors.emailPlaceholder}
           />
         </div>
         <div className="field">
-          <label className="label" htmlFor="add-vendor-phone">Phone</label>
+          <label className="label" htmlFor="add-vendor-phone">{t.vendors.fieldPhone}</label>
           <input
             id="add-vendor-phone"
             type="tel"
             className="input"
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+49..."
+            placeholder={t.vendors.phonePlaceholder}
           />
         </div>
         <div className="field">
-          <label className="label">Logo (optional, max {VENDOR_IMAGE_SIZE_LABEL})</label>
+          <label className="label">{formatT(t.vendors.logoOptionalMax, { max: VENDOR_IMAGE_SIZE_LABEL })}</label>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null;
               if (file && !isVendorImageWithinLimit(file)) {
-                setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+                setFileError(formatT(t.vendors.logoMaxError, { max: VENDOR_IMAGE_SIZE_LABEL }));
                 setForm((f) => ({ ...f, logo: null }));
                 e.target.value = '';
                 return;
@@ -140,9 +143,9 @@ export function AddVendorModal({
           />
         </div>
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" className="btn" onClick={handleClose}>Cancel</button>
+          <button type="button" className="btn" onClick={handleClose}>{t.common.cancel}</button>
           <button type="submit" className="btn btnPrimary" disabled={loading || !form.name.trim()}>
-            {loading ? 'Creating…' : 'Create'}
+            {loading ? t.common.creating : t.common.create}
           </button>
         </div>
       </form>

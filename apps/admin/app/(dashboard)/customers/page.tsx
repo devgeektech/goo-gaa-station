@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, Pencil, Ban, Trash2, RefreshCcw, UserPlus } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -20,18 +20,13 @@ import { AddCustomerModal } from '@/components/customers/AddCustomerModal';
 import { EditCustomerDrawer } from '@/components/customers/EditCustomerDrawer';
 import { BlockUnblockDialog } from '@/components/customers/BlockUnblockDialog';
 import { DeleteCustomerDialog } from '@/components/customers/DeleteCustomerDialog';
-import { capitalizeFirst } from '@/lib/utils/format';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Switch } from '@/components/ui/Switch';
 import { useToast } from '@/components/ui/Toast';
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'deleted', label: 'Deleted' },
-];
+import { useDriverStatusBadges } from '@/lib/i18n/useStatusBadges';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 function publicFileBase(): string {
   const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
@@ -44,6 +39,18 @@ function imgSrc(url: string | null | undefined) {
 }
 
 export default function CustomersPage() {
+  const t = useTranslations();
+  const { accountStatusBadge } = useDriverStatusBadges();
+  const STATUS_OPTIONS = useMemo(
+    () => [
+      { value: '', label: t.common.all },
+      { value: 'active', label: t.status.account.active },
+      { value: 'blocked', label: t.status.account.blocked },
+      { value: 'deleted', label: t.status.account.deleted },
+    ],
+    [t]
+  );
+
   const router = useRouter();
   const dispatch = useAppDispatch();
   const toast = useToast();
@@ -87,7 +94,7 @@ export default function CustomersPage() {
       fd.append(
         'address',
         JSON.stringify({
-          label: form.addressLabel.trim() || 'Home',
+          label: form.addressLabel.trim() || t.common.home,
           street: form.addressStreet.trim(),
           city: form.addressCity.trim(),
           country: form.addressCountry.trim(),
@@ -98,11 +105,11 @@ export default function CustomersPage() {
     const action = await dispatch(createCustomer(fd));
     setCreateLoading(false);
     if (createCustomer.fulfilled.match(action)) {
-      toast.push({ title: 'Customer created', variant: 'success' });
+      toast.push({ title: t.customers.createSuccess, variant: 'success' });
       setAddOpen(false);
       void dispatch(fetchCustomers({ page: 1 }));
     } else {
-      toast.push({ title: 'Create failed', description: String(action.payload ?? ''), variant: 'danger' });
+      toast.push({ title: t.common.createFailed, description: String(action.payload ?? ''), variant: 'danger' });
     }
   };
 
@@ -118,11 +125,11 @@ export default function CustomersPage() {
     const action = await dispatch(updateCustomer({ id: selectedCustomer._id, formData: fd }));
     setUpdateLoading(false);
     if (updateCustomer.fulfilled.match(action)) {
-      toast.push({ title: 'Customer updated', variant: 'success' });
+      toast.push({ title: t.customers.updateSuccess, variant: 'success' });
       setEditOpen(false);
       void dispatch(fetchCustomers(undefined));
     } else {
-      toast.push({ title: 'Update failed', description: String(action.payload ?? ''), variant: 'danger' });
+      toast.push({ title: t.common.updateFailed, description: String(action.payload ?? ''), variant: 'danger' });
     }
   };
 
@@ -139,12 +146,12 @@ export default function CustomersPage() {
     const action = await dispatch(updateCustomerStatus({ id: actionCustomerId, status: newStatus, reason: reason || undefined }));
     setStatusLoading(false);
     if (updateCustomerStatus.fulfilled.match(action)) {
-      toast.push({ title: newStatus === 'blocked' ? 'Customer blocked' : 'Customer unblocked', variant: 'success' });
+      toast.push({ title: newStatus === 'blocked' ? t.customers.blockSuccess : t.customers.unblockSuccess, variant: 'success' });
       setBlockDialogOpen(false);
       setActionCustomerId(null);
       void dispatch(fetchCustomers(undefined));
     } else {
-      toast.push({ title: 'Update failed', description: String(action.payload ?? ''), variant: 'danger' });
+      toast.push({ title: t.common.updateFailed, description: String(action.payload ?? ''), variant: 'danger' });
     }
   };
 
@@ -159,12 +166,12 @@ export default function CustomersPage() {
     const action = await dispatch(deleteCustomer(actionCustomerId));
     setDeleteLoading(false);
     if (deleteCustomer.fulfilled.match(action)) {
-      toast.push({ title: 'Customer deleted', variant: 'success' });
+      toast.push({ title: t.customers.deleteSuccess, variant: 'success' });
       setDeleteDialogOpen(false);
       setActionCustomerId(null);
       void dispatch(fetchCustomers(undefined));
     } else {
-      toast.push({ title: 'Delete failed', description: String(action.payload ?? ''), variant: 'danger' });
+      toast.push({ title: t.common.deleteFailed, description: String(action.payload ?? ''), variant: 'danger' });
     }
   };
 
@@ -173,24 +180,17 @@ export default function CustomersPage() {
     setEditOpen(true);
   };
 
-  useEffect(() => {
-    if (editOpen && selectedCustomer) {
-      // already have selectedCustomer from openEdit
-    }
-  }, [editOpen, selectedCustomer]);
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Customers</h1>
-          <div className="muted" style={{ marginTop: 4 }}>Search, filter, and manage customers.</div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>{t.customers.title}</h1>
+          <div className="muted" style={{ marginTop: 4 }}>{t.customers.subtitle}</div>
         </div>
         <div className="row">
-          <button className="btn" onClick={() => void dispatch(fetchCustomers(undefined))} disabled={loading} aria-label="Refresh">
-            <RefreshCcw size={18} aria-hidden /> Refresh
+          <button className="btn" onClick={() => void dispatch(fetchCustomers(undefined))} disabled={loading} aria-label={t.common.refresh}>
+            <RefreshCcw size={18} aria-hidden /> {t.common.refresh}
           </button>
-         
         </div>
       </div>
 
@@ -198,16 +198,16 @@ export default function CustomersPage() {
         <div className="cardBody">
           <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
-              <div className="label">Search (name, phone, email)</div>
+              <div className="label">{t.customers.searchLabel}</div>
               <input
                 className="input"
                 value={filters.search}
                 onChange={(e) => dispatch(setFilters({ search: e.target.value }))}
-                placeholder="Search..."
+                placeholder={t.customers.searchPlaceholder}
               />
             </div>
             <div className="field">
-              <div className="label">Status</div>
+              <div className="label">{t.common.status}</div>
               <select
                 className="select"
                 value={filters.status}
@@ -219,18 +219,18 @@ export default function CustomersPage() {
               </select>
             </div>
             <div className="field">
-              <div className="label">Show deleted</div>
+              <div className="label">{t.customers.showDeleted}</div>
               <div className="adminFilterSwitchControl">
                 <Switch
                   checked={filters.showDeleted}
                   onChange={(e) => dispatch(setShowDeleted(e.target.checked))}
-                  label={filters.showDeleted ? 'On' : 'Off'}
-                  aria-label="Show deleted customers"
+                  label={filters.showDeleted ? t.common.on : t.common.off}
+                  aria-label={t.customers.showDeletedAria}
                 />
               </div>
             </div>
             <div className="field">
-              <button className="btn btnPrimary" onClick={() => applyFilters()}>Apply</button>
+              <button className="btn btnPrimary" onClick={() => applyFilters()}>{t.common.apply}</button>
             </div>
           </div>
           {error ? (
@@ -246,14 +246,14 @@ export default function CustomersPage() {
               <table className="adminListTable adminCustomersTable">
                 <thead>
                   <tr>
-                    <th>Avatar</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Status</th>
-                    <th>Orders</th>
-                    <th>Points</th>
-                    <th>Actions</th>
+                    <th>{t.customers.avatar}</th>
+                    <th>{t.common.name}</th>
+                    <th>{t.common.email}</th>
+                    <th>{t.common.phone}</th>
+                    <th>{t.common.status}</th>
+                    <th>{t.customers.ordersCol}</th>
+                    <th>{t.customers.points}</th>
+                    <th>{t.common.actions}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -266,25 +266,26 @@ export default function CustomersPage() {
               </table>
             </div>
           ) : items.length === 0 ? (
-            <EmptyState icon={<UserPlus size={48} />} heading="No customers found" subtext="Try adjusting search or filters." />
+            <EmptyState icon={<UserPlus size={48} />} heading={t.empty.customers} subtext={t.common.tryFilters} />
           ) : (
             <div className="tableWrap">
             <table className="adminListTable adminCustomersTable">
               <thead>
                 <tr>
-                  <th>Avatar</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Status</th>
-                  <th>Orders</th>
-                  <th>Points</th>
-                  <th>Actions</th>
+                  <th>{t.customers.avatar}</th>
+                  <th>{t.common.name}</th>
+                  <th>{t.common.email}</th>
+                  <th>{t.common.phone}</th>
+                  <th>{t.common.status}</th>
+                  <th>{t.customers.ordersCol}</th>
+                  <th>{t.customers.points}</th>
+                  <th>{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody>
-                {  
-                  items.map((c) => (
+                  {items.map((c) => {
+                    const badge = accountStatusBadge(c.status);
+                    return (
                     <tr key={c._id} className="clickableRow" onClick={() => goToDetail(c._id)}>
                       <td>
                         <div className="adminTableCellCenter">
@@ -295,40 +296,33 @@ export default function CustomersPage() {
                       <td className="muted">{c.email ?? '—'}</td>
                       <td>{c.phone}</td>
                       <td>
-                        <span
-                          className="badge"
-                          style={{
-                            background: c.status === 'blocked' ? 'var(--danger-light)' : c.status === 'deleted' ? 'var(--warning-light)' : 'var(--success-light)',
-                          }}
-                        >
-                          {capitalizeFirst(c.status)}
+                        <span className="badge" style={{ background: badge.background }}>
+                          {badge.label}
                         </span>
                       </td>
                       <td>{c.totalOrders ?? c.orderCount ?? 0}</td>
                       <td>{c.points ?? 0}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="row adminTableActions" style={{ gap: 6 }}>
-                          <button className="btn" onClick={() => goToDetail(c._id)} aria-label="View"><Eye size={16} /></button>
-                          {/* <button className="btn" onClick={() => openEdit(c._id)} aria-label="Edit"><Pencil size={16} /></button> */}
+                          <button className="btn" onClick={() => goToDetail(c._id)} aria-label={t.common.view}><Eye size={16} /></button>
                           {c.status !== 'deleted' && (
-                            <button className="btn" onClick={() => openBlockDialog(c._id)} aria-label={c.status === 'blocked' ? 'Unblock' : 'Block'}><Ban size={16} /></button>
+                            <button className="btn" onClick={() => openBlockDialog(c._id)} aria-label={c.status === 'blocked' ? t.customers.unblock : t.customers.block}><Ban size={16} /></button>
                           )}
-                          <button className="btn" onClick={() => openDeleteDialog(c._id)} aria-label="Delete" disabled={c.status === 'deleted'}><Trash2 size={16} /></button>
+                          <button className="btn" onClick={() => openDeleteDialog(c._id)} aria-label={t.common.delete} disabled={c.status === 'deleted'}><Trash2 size={16} /></button>
                         </div>
                       </td>
                     </tr>
-                  ))
-                }
+                  ); })}
               </tbody>
             </table>
             </div>
           )}
           {items.length > 0 ? (
           <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
-            <div className="muted">Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}</div>
+            <div className="muted">{formatT(t.common.pageOf, { page: pagination.page, totalPages: pagination.totalPages, total: pagination.total })}</div>
             <div className="row">
-              <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void dispatch(fetchCustomers({ page: pagination.page - 1 }))}>Prev</button>
-              <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void dispatch(fetchCustomers({ page: pagination.page + 1 }))}>Next</button>
+              <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void dispatch(fetchCustomers({ page: pagination.page - 1 }))}>{t.common.prev}</button>
+              <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void dispatch(fetchCustomers({ page: pagination.page + 1 }))}>{t.common.next}</button>
             </div>
           </div>
           ) : null}

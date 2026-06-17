@@ -1,12 +1,35 @@
 'use client';
 
 import { useMemo } from 'react';
-import { translations, type Locale } from './translations';
+import { useLocale } from './LocaleContext';
+import { translationsEn, type Translations } from './translations/en';
+import type { Locale } from './translations/index';
 
-const DEFAULT_LOCALE: Locale = 'en';
+export type { Locale, Translations };
 
-/** Simple hook to get translations. Locale can come from cookie/header/param; here we default to EN. */
-export function useTranslations(locale?: Locale) {
-  const lang = (locale ?? DEFAULT_LOCALE) in translations ? (locale as Locale) : DEFAULT_LOCALE;
-  return useMemo(() => translations[lang], [lang]);
+/** Returns merged translations for the active locale (SO falls back to EN for missing keys). */
+export function useTranslations(): typeof translationsEn {
+  const { t } = useLocale();
+  return t;
+}
+
+/** Access locale + setter without full translations object. */
+export function useTranslationsLocale() {
+  return useLocale();
+}
+
+/** For non-React code: get static EN labels. */
+export function getEnglishTranslations(): typeof translationsEn {
+  return translationsEn;
+}
+
+/** Memoized label map helper for status enums. */
+export function useOrderStatusLabels() {
+  const t = useTranslations();
+  return useMemo(() => t.status.order, [t]);
+}
+
+export function usePaymentStatusLabels() {
+  const t = useTranslations();
+  return useMemo(() => t.status.payment, [t]);
 }

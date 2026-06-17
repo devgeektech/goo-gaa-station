@@ -1,6 +1,8 @@
 'use client';
 
 import { Modal } from '@/components/ui/Modal';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 export function DeleteCustomerDialog({
   open,
@@ -15,19 +17,21 @@ export function DeleteCustomerDialog({
   onConfirm: () => void;
   loading: boolean;
 }) {
+  const t = useTranslations();
+
   return (
-    <Modal open={open} title="Delete Customer" onClose={onClose}>
+    <Modal open={open} title={t.customers.deleteTitle} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p className="muted">
-          Soft delete. The customer will be hidden from the default list. You can toggle &quot;Show deleted&quot; to see them again.
-          {customerName ? ` Delete ${customerName}?` : ''}
+          {t.customers.deleteDescSoft}
+          {customerName ? ` ${formatT(t.customers.deleteConfirmName, { name: customerName })}` : ''}
         </p>
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="btn" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </button>
           <button type="button" className="btn btnDanger" onClick={onConfirm} disabled={loading}>
-            {loading ? 'Deleting…' : 'Delete'}
+            {loading ? t.common.deleting : t.common.delete}
           </button>
         </div>
       </div>

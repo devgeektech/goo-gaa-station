@@ -1,13 +1,8 @@
 'use client';
 
 import { GripVertical, Pencil, Trash2 } from 'lucide-react';
-// import { useToggleCategoryActiveMutation } from '@/store/api';
 import { useTranslations } from '@/lib/i18n/useTranslations';
-import { translations } from '@/lib/i18n/translations';
 import type { CategoryItem } from '@/store/api';
-
-const CAT_LABELS = { toggleOn: 'Active', toggleOff: 'Inactive' };
-// import { Switch } from '@/components/ui/Switch';
 
 const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
 
@@ -34,9 +29,7 @@ type Props = {
 };
 
 export function CategoryCard({ category, onEdit, onDelete, dragHandleProps, isDragging }: Props) {
-  // const [toggleActive, { isLoading: toggling }] = useToggleCategoryActiveMutation();
   const t = useTranslations();
-  const cat = t?.categories ?? translations?.en?.categories ?? CAT_LABELS;
   const style = TYPE_STYLES[category.type] ?? TYPE_STYLES.food;
   const letter = FALLBACK_LETTER[category.type] ?? '?';
   const iconUrl = category.icon ? (category.icon.startsWith('http') ? category.icon : `${IMG_BASE}${category.icon}`) : null;
@@ -51,7 +44,7 @@ export function CategoryCard({ category, onEdit, onDelete, dragHandleProps, isDr
       }}
     >
       <div style={{ position: 'absolute', top: 12, left: 12 }} {...dragHandleProps}>
-        <button type="button" className="btn" style={{ padding: 6 }} aria-label="Drag to reorder">
+        <button type="button" className="btn" style={{ padding: 6 }} aria-label={t.categories.dragReorder}>
           <GripVertical size={18} aria-hidden />
         </button>
       </div>
@@ -85,25 +78,11 @@ export function CategoryCard({ category, onEdit, onDelete, dragHandleProps, isDr
         >
           {category.type}
         </span>
-        {/* Active/inactive toggle — hidden for now
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {toggling ? (
-            <span className="muted" style={{ fontSize: 12 }}>Updating…</span>
-          ) : (
-            <Switch
-              checked={category.isActive}
-              onChange={() => toggleActive(category._id)}
-              aria-label={category.isActive ? 'Active' : 'Inactive'}
-            />
-          )}
-          <span className="muted" style={{ fontSize: 12 }}>{category.isActive ? cat.toggleOn : cat.toggleOff}</span>
-        </div>
-        */}
         <div className="row" style={{ justifyContent: 'center', gap: 8 }}>
-          <button type="button" className="btn" onClick={() => onEdit(category)} aria-label="Edit category">
+          <button type="button" className="btn" onClick={() => onEdit(category)} aria-label={t.categories.editCategory}>
             <Pencil size={16} aria-hidden />
           </button>
-          <button type="button" className="btn btnDanger" onClick={() => onDelete(category)} aria-label="Delete category">
+          <button type="button" className="btn btnDanger" onClick={() => onDelete(category)} aria-label={t.categories.deleteCategory}>
             <Trash2 size={16} aria-hidden />
           </button>
         </div>

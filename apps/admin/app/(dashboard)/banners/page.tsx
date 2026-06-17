@@ -14,6 +14,9 @@ import {
   type BannerItem,
 } from '@/store/api';
 import { apiErrorToast, getErrorMessage } from '@/lib/api/client';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
+import type { translationsEn } from '@/lib/i18n/translations/en';
 
 type BannerFormState = {
   heading: string;
@@ -40,14 +43,16 @@ const BANNER_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 const BANNER_IMAGE_MAX_MB = 10;
 const BANNER_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
 
-function validateBannerImageFile(file: File | null): string | null {
+type T = typeof translationsEn;
+
+function validateBannerImageFile(file: File | null, t: T): string | null {
   if (!file) return null;
   if (file.size > BANNER_IMAGE_MAX_BYTES) {
-    return `Image is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is ${BANNER_IMAGE_MAX_MB} MB.`;
+    return formatT(t.banners.imageTooLargeMb, { size: (file.size / (1024 * 1024)).toFixed(1), max: BANNER_IMAGE_MAX_MB });
   }
   const allowed = ['image/jpeg', 'image/png', 'image/webp'];
   if (file.type && !allowed.includes(file.type)) {
-    return 'Image must be JPG, PNG, or WebP.';
+    return t.banners.imageFormat;
   }
   return null;
 }
@@ -62,21 +67,22 @@ function imageSrc(url: string | null | undefined): string | null {
   return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
 }
 
-function validateForm(form: BannerFormState, occupiedPositions: Set<number>, editId?: string): string | null {
-  if (!form.heading.trim() || !form.text.trim() || !form.buttonText.trim()) return 'Heading, text and button text are required.';
+function validateForm(form: BannerFormState, occupiedPositions: Set<number>, t: T, editId?: string): string | null {
+  if (!form.heading.trim() || !form.text.trim() || !form.buttonText.trim()) return t.banners.validationRequired;
   const pos = Number(form.position);
-  if (!Number.isInteger(pos) || pos < 1) return 'Position must be a positive integer.';
-  if (!editId && occupiedPositions.has(pos)) return 'This position is already in use by another banner.';
+  if (!Number.isInteger(pos) || pos < 1) return t.banners.validationPosition;
+  if (!editId && occupiedPositions.has(pos)) return t.banners.validationPositionTaken;
   try {
     const parsed = new URL(form.buttonUrl.trim());
-    if (!['http:', 'https:'].includes(parsed.protocol)) return 'Button URL must start with http or https.';
+    if (!['http:', 'https:'].includes(parsed.protocol)) return t.banners.validationUrlProtocol;
   } catch {
-    return 'Please enter a valid button URL.';
+    return t.banners.validationUrlInvalid;
   }
   return null;
 }
 
 export default function BannersPage() {
+  const t = useTranslations();
   const toast = useToast();
   const pushApiError = (err: unknown, fallback: string) => {
     const { title, description } = apiErrorToast(err, fallback, { uploadMaxMb: BANNER_IMAGE_MAX_MB });
@@ -128,40 +134,40 @@ export default function BannersPage() {
   };
 
   const handleCreate = async () => {
-    const err = validateForm(form, occupiedPositions);
+    const err = validateForm(form, occupiedPositions, t);
     if (err) {
       toast.push({ title: err, variant: 'warning' });
       return;
     }
     if (!form.imageFile) {
-      toast.push({ title: 'Please add a banner image.', variant: 'warning' });
+      toast.push({ title: t.banners.addImagePrompt, variant: 'warning' });
       return;
     }
-    const imageErr = validateBannerImageFile(form.imageFile);
+    const imageErr = validateBannerImageFile(form.imageFile, t);
     if (imageErr) {
       toast.push({ title: imageErr, variant: 'warning' });
       return;
     }
     try {
       await createBanner(makeFormData(form)).unwrap();
-      toast.push({ title: 'Banner created', variant: 'success' });
+      toast.push({ title: t.banners.createSuccess, variant: 'success' });
       setCreateOpen(false);
       setForm(EMPTY_FORM);
     } catch (e) {
-      pushApiError(e, 'Create failed');
+      pushApiError(e, t.common.createFailed);
     }
   };
 
   const handleUpdate = async () => {
     if (!editing) return;
     const positionsExcludingCurrent = new Set(Array.from(occupiedPositions).filter((p) => p !== editing.position));
-    const err = validateForm(form, positionsExcludingCurrent, editing._id);
+    const err = validateForm(form, positionsExcludingCurrent, t, editing._id);
     if (err) {
       toast.push({ title: err, variant: 'warning' });
       return;
     }
     if (form.imageFile) {
-      const imageErr = validateBannerImageFile(form.imageFile);
+      const imageErr = validateBannerImageFile(form.imageFile, t);
       if (imageErr) {
         toast.push({ title: imageErr, variant: 'warning' });
         return;
@@ -169,32 +175,32 @@ export default function BannersPage() {
     }
     try {
       await updateBanner({ id: editing._id, body: makeFormData(form) }).unwrap();
-      toast.push({ title: 'Banner updated', variant: 'success' });
+      toast.push({ title: t.banners.updateSuccess, variant: 'success' });
       setEditOpen(false);
       setEditing(null);
       setForm(EMPTY_FORM);
     } catch (e) {
-      pushApiError(e, 'Update failed');
+      pushApiError(e, t.common.updateFailed);
     }
   };
 
   const onToggle = async (banner: BannerItem) => {
     try {
       await toggleActive(banner._id).unwrap();
-      toast.push({ title: `Banner ${banner.isActive ? 'disabled' : 'enabled'}`, variant: 'success' });
+      toast.push({ title: banner.isActive ? t.banners.toggleDisabled : t.banners.toggleEnabled, variant: 'success' });
     } catch (e) {
-      pushApiError(e, 'Toggle failed');
+      pushApiError(e, t.banners.toggleFailed);
     }
   };
 
   const onDelete = async (banner: BannerItem) => {
-    const ok = window.confirm(`Delete banner "${banner.heading}"?`);
+    const ok = window.confirm(formatT(t.banners.deleteConfirm, { heading: banner.heading }));
     if (!ok) return;
     try {
       await deleteBanner(banner._id).unwrap();
-      toast.push({ title: 'Banner deleted', variant: 'success' });
+      toast.push({ title: t.banners.deleteSuccess, variant: 'success' });
     } catch (e) {
-      pushApiError(e, 'Delete failed');
+      pushApiError(e, t.common.deleteFailed);
     }
   };
 
@@ -202,35 +208,35 @@ export default function BannersPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Banners</h1>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>{t.banners.title}</h1>
           <div className="muted" style={{ marginTop: 6 }}>
-            Manage app carousel banners with unique positions and active toggle.
+            {t.banners.subtitleCarousel}
           </div>
         </div>
         <button className="btn btnPrimary" onClick={openCreate}>
-          <Plus size={18} aria-hidden /> Add Banner
+          <Plus size={18} aria-hidden /> {t.banners.addBanner}
         </button>
       </div>
 
       <div className="card">
         <div className="cardBody">
           {isLoading ? (
-            <div className="muted">Loading banners…</div>
+            <div className="muted">{t.banners.loading}</div>
           ) : isError ? (
             <div style={{ color: 'var(--danger)' }}>{getErrorMessage(loadError)}</div>
           ) : banners.length === 0 ? (
-            <div className="muted">No banners yet.</div>
+            <div className="muted">{t.empty.banners}</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Position</th>
-                    <th>Image</th>
-                    <th>Heading</th>
-                    <th>Button</th>
-                    <th>Status</th>
-                    <th style={{ width: 170 }}>Actions</th>
+                    <th>{t.banners.position}</th>
+                    <th>{t.banners.image}</th>
+                    <th>{t.banners.heading}</th>
+                    <th>{t.banners.button}</th>
+                    <th>{t.common.status}</th>
+                    <th style={{ width: 170 }}>{t.common.actions}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -242,7 +248,7 @@ export default function BannersPage() {
                           <img src={imageSrc(b.image)!} alt={b.heading} style={{ width: 120, height: 56, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />
                         ) : (
                           <div className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <ImageIcon size={16} /> No image
+                            <ImageIcon size={16} /> {t.common.noImage}
                           </div>
                         )}
                       </td>
@@ -259,15 +265,15 @@ export default function BannersPage() {
                         </a>
                       </td>
                       <td>
-                        <Switch checked={b.isActive} onChange={() => void onToggle(b)} disabled={toggling} label={b.isActive ? 'Active' : 'Inactive'} />
+                        <Switch checked={b.isActive} onChange={() => void onToggle(b)} disabled={toggling} label={b.isActive ? t.status.banner.active : t.status.banner.inactive} />
                       </td>
                       <td>
                         <div className="row" style={{ gap: 8 }}>
                           <button className="btn" onClick={() => openEdit(b)}>
-                            <Pencil size={16} /> Edit
+                            <Pencil size={16} /> {t.common.edit}
                           </button>
                           <button className="btn" onClick={() => void onDelete(b)} disabled={deleting}>
-                            <Trash2 size={16} /> Delete
+                            <Trash2 size={16} /> {t.common.delete}
                           </button>
                         </div>
                       </td>
@@ -280,22 +286,22 @@ export default function BannersPage() {
         </div>
       </div>
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Banner">
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t.banners.createTitle}>
         <BannerForm form={form} setForm={setForm} />
         <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
-          <button className="btn" onClick={() => setCreateOpen(false)}>Cancel</button>
+          <button className="btn" onClick={() => setCreateOpen(false)}>{t.common.cancel}</button>
           <button className="btn btnPrimary" onClick={() => void handleCreate()} disabled={creating}>
-            {creating ? 'Creating…' : 'Create'}
+            {creating ? t.common.creating : t.common.create}
           </button>
         </div>
       </Modal>
 
-      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Banner">
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title={t.banners.editTitle}>
         <BannerForm form={form} setForm={setForm} existingImage={editing?.image ?? null} />
         <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
-          <button className="btn" onClick={() => setEditOpen(false)}>Cancel</button>
+          <button className="btn" onClick={() => setEditOpen(false)}>{t.common.cancel}</button>
           <button className="btn btnPrimary" onClick={() => void handleUpdate()} disabled={updating}>
-            {updating ? 'Saving…' : 'Save'}
+            {updating ? t.common.saving : t.common.save}
           </button>
         </div>
       </Modal>
@@ -312,62 +318,63 @@ function BannerForm({
   setForm: React.Dispatch<React.SetStateAction<BannerFormState>>;
   existingImage?: string | null;
 }) {
+  const t = useTranslations();
   const [imageError, setImageError] = useState<string | null>(null);
   const preview = form.imageFile ? URL.createObjectURL(form.imageFile) : imageSrc(existingImage ?? null);
 
   const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setForm((f) => ({ ...f, imageFile: file }));
-    setImageError(file ? validateBannerImageFile(file) : null);
+    setImageError(file ? validateBannerImageFile(file, t) : null);
   };
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div className="field">
-        <div className="label">Image</div>
+        <div className="label">{t.banners.fieldImage}</div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-          JPG, PNG, or WebP. Maximum size: {BANNER_IMAGE_MAX_MB} MB.
+          {formatT(t.banners.imageMaxHint, { max: BANNER_IMAGE_MAX_MB })}
         </div>
         <input className="input" type="file" accept={BANNER_IMAGE_ACCEPT} onChange={onImageChange} />
         {imageError ? (
           <div style={{ marginTop: 6, fontSize: 13, color: 'var(--danger)' }}>{imageError}</div>
         ) : null}
         {preview ? (
-          <img src={preview} alt="Banner preview" style={{ marginTop: 8, width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+          <img src={preview} alt={t.banners.bannerPreview} style={{ marginTop: 8, width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
         ) : null}
       </div>
 
       <div className="field">
-        <div className="label">Heading</div>
+        <div className="label">{t.banners.fieldHeading}</div>
         <input className="input" value={form.heading} onChange={(e) => setForm((f) => ({ ...f, heading: e.target.value }))} />
       </div>
 
       <div className="field">
-        <div className="label">Text</div>
+        <div className="label">{t.banners.fieldText}</div>
         <textarea className="input" rows={3} value={form.text} onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))} />
       </div>
 
       <div className="field">
-        <div className="label">Button Text</div>
+        <div className="label">{t.banners.fieldButtonText}</div>
         <input className="input" value={form.buttonText} onChange={(e) => setForm((f) => ({ ...f, buttonText: e.target.value }))} />
       </div>
 
       <div className="field">
-        <div className="label">Button URL</div>
-        <input className="input" value={form.buttonUrl} onChange={(e) => setForm((f) => ({ ...f, buttonUrl: e.target.value }))} placeholder="https://example.com/promo" />
-        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Must start with https:// or http://</div>
+        <div className="label">{t.banners.fieldButtonUrl}</div>
+        <input className="input" value={form.buttonUrl} onChange={(e) => setForm((f) => ({ ...f, buttonUrl: e.target.value }))} placeholder={t.banners.buttonUrlPlaceholder} />
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{t.banners.buttonUrlHint}</div>
       </div>
 
       <div className="field">
-        <div className="label">Position</div>
+        <div className="label">{t.banners.fieldPosition}</div>
         <input className="input" value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} inputMode="numeric" />
-        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Must be unique (e.g. 1, 2, 3). Each banner needs its own position.</div>
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{t.banners.positionHint}</div>
       </div>
 
       <Switch
         checked={form.isActive}
         onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-        label={form.isActive ? 'Active' : 'Inactive'}
+        label={form.isActive ? t.status.banner.active : t.status.banner.inactive}
       />
     </div>
   );

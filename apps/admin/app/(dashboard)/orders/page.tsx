@@ -7,7 +7,7 @@ import { Eye, RefreshCcw, Package, ShieldAlert } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchOrders, setFilters, setStatusMulti, adminUpdateOrderStatus } from '@/store/slices/ordersSlice';
 import type { OrderStatus, PaymentStatus } from '@/lib/api/orders.api';
-import { paymentBadge, statusBadge } from '@/components/orders/orderBadges';
+import { OrderStatusBadge, PaymentStatusBadge } from '@/components/orders/orderBadges';
 import { formatDateTime, formatMoney } from '@/lib/utils/format';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -16,25 +16,14 @@ import { searchDrivers } from '@/lib/api/drivers.api';
 import { listVendors } from '@/lib/api/vendors.api';
 import { useToast } from '@/components/ui/Toast';
 import { Modal } from '@/components/ui/Modal';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
-const ALL_STATUSES: Array<{ value: OrderStatus; label: string }> = [
-  { value: 'placed', label: 'Placed' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'preparing', label: 'Preparing' },
-  { value: 'picked_up', label: 'Picked up' },
-  { value: 'on_the_way', label: 'On the way' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-const ALL_PAYMENT: Array<{ value: PaymentStatus; label: string }> = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'refunded', label: 'Refunded' },
-];
+const ORDER_STATUS_VALUES = ['placed', 'confirmed', 'preparing', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] as const;
+const PAYMENT_STATUS_VALUES = ['pending', 'paid', 'failed', 'refunded'] as const;
 
 export default function OrdersPage() {
+  const t = useTranslations();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const toast = useToast();
@@ -51,6 +40,15 @@ export default function OrdersPage() {
   const [overrideStatus, setOverrideStatus] = useState<OrderStatus>('confirmed');
   const [overrideNote, setOverrideNote] = useState('');
   const [overrideSaving, setOverrideSaving] = useState(false);
+
+  const ALL_STATUSES = useMemo(
+    () => ORDER_STATUS_VALUES.map((value) => ({ value, label: t.status.order[value] })),
+    [t]
+  );
+  const ALL_PAYMENT = useMemo(
+    () => PAYMENT_STATUS_VALUES.map((value) => ({ value, label: t.status.payment[value] })),
+    [t]
+  );
 
   useEffect(() => {
     void dispatch(fetchOrders({ page: 1, limit: 20 }));
@@ -116,10 +114,10 @@ export default function OrdersPage() {
   }, [statusDropdownOpen]);
 
   const selectedStatusesLabel = useMemo(() => {
-    if (filters.status.length === 0) return 'All';
-    if (filters.status.length === 1) return filters.status[0];
-    return `${filters.status.length} selected`;
-  }, [filters.status]);
+    if (filters.status.length === 0) return t.common.all;
+    if (filters.status.length === 1) return t.status.order[filters.status[0] as keyof typeof t.status.order] ?? filters.status[0];
+    return formatT(t.common.selected, { n: filters.status.length });
+  }, [filters.status, t]);
 
   async function applyFilters() {
     void dispatch(fetchOrders({ page: 1 }));
@@ -144,14 +142,14 @@ export default function OrdersPage() {
     );
     setOverrideSaving(false);
     if (adminUpdateOrderStatus.fulfilled.match(action)) {
-      toast.push({ title: 'Status override applied', description: overrideStatus, variant: 'success' });
+      toast.push({ title: t.orders.overrideSuccess, description: t.status.order[overrideStatus], variant: 'success' });
       setOverrideOpen(false);
       setOverrideOrderId(null);
       setOverrideNote('');
     } else {
       toast.push({
-        title: 'Override failed',
-        description: String(action.payload ?? action.error?.message ?? 'Unknown error'),
+        title: t.orders.overrideFailed,
+        description: String(action.payload ?? action.error?.message ?? t.common.unknownError),
         variant: 'danger',
       });
     }
@@ -161,12 +159,12 @@ export default function OrdersPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Orders</h1>
-          <div className="muted" style={{ marginTop: 4 }}>Manage orders, status, drivers, cancellations.</div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>{t.orders.title}</h1>
+          <div className="muted" style={{ marginTop: 4 }}>{t.orders.subtitle}</div>
         </div>
         <div className="row">
-          <button className="btn" onClick={() => void dispatch(fetchOrders(undefined))} disabled={loading} aria-label="Refresh orders list">
-            <RefreshCcw size={18} aria-hidden /> Refresh
+          <button className="btn" onClick={() => void dispatch(fetchOrders(undefined))} disabled={loading} aria-label={t.common.refresh}>
+            <RefreshCcw size={18} aria-hidden /> {t.common.refresh}
           </button>
         </div>
       </div>
@@ -175,17 +173,17 @@ export default function OrdersPage() {
         <div className="cardBody">
           <div className="toolbar adminToolbarResponsive">
             <div className="field" style={{ minWidth: 260 }}>
-              <div className="label">Search (order number)</div>
+              <div className="label">{t.orders.searchLabel}</div>
               <input
                 className="input"
                 value={filters.search}
                 onChange={(e) => dispatch(setFilters({ search: e.target.value }))}
-                placeholder="ORD-2026…"
+                placeholder={t.orders.searchOrderPlaceholder}
               />
             </div>
 
             <div className="field" style={{ minWidth: 220, position: 'relative' }} ref={statusDropdownRef}>
-              <div className="label">Status (multi-select)</div>
+              <div className="label">{t.orders.statusMultiSelect}</div>
               <button className="btn" type="button" onClick={(e) => { e.stopPropagation(); setStatusDropdownOpen((v) => !v); }}>
                 {selectedStatusesLabel}
               </button>
@@ -222,7 +220,7 @@ export default function OrdersPage() {
                     })}
                     <div className="divider" />
                     <button className="btn" type="button" onClick={() => dispatch(setStatusMulti([]))}>
-                      Clear
+                      {t.common.clear}
                     </button>
                   </div>
                 </div>
@@ -230,13 +228,13 @@ export default function OrdersPage() {
             </div>
 
             <div className="field">
-              <div className="label">Payment status</div>
+              <div className="label">{t.orders.paymentFilter}</div>
               <select
                 className="select"
                 value={filters.paymentStatus}
                 onChange={(e) => dispatch(setFilters({ paymentStatus: e.target.value }))}
               >
-                <option value="">All</option>
+                <option value="">{t.common.all}</option>
                 {ALL_PAYMENT.map((p) => (
                   <option key={p.value} value={p.value}>
                     {p.label}
@@ -246,22 +244,22 @@ export default function OrdersPage() {
             </div>
 
             <div className="field">
-              <div className="label">Date from</div>
+              <div className="label">{t.orders.dateFrom}</div>
               <input className="input" type="date" value={filters.dateFrom} onChange={(e) => dispatch(setFilters({ dateFrom: e.target.value }))} />
             </div>
             <div className="field">
-              <div className="label">Date to</div>
+              <div className="label">{t.orders.dateTo}</div>
               <input className="input" type="date" value={filters.dateTo} onChange={(e) => dispatch(setFilters({ dateTo: e.target.value }))} />
             </div>
             <div className="field" style={{ minWidth: 200 }}>
-              <div className="label">Customer</div>
+              <div className="label">{t.orders.customer}</div>
               <select
                 className="select"
                 value={filters.customerId}
                 disabled={filterOptionsLoading}
                 onChange={(e) => dispatch(setFilters({ customerId: e.target.value }))}
               >
-                <option value="">All</option>
+                <option value="">{t.common.all}</option>
                 {customerOptions.map((c) => (
                   <option key={c._id} value={c._id}>
                     {c.label}
@@ -270,14 +268,14 @@ export default function OrdersPage() {
               </select>
             </div>
             <div className="field" style={{ minWidth: 200 }}>
-              <div className="label">Driver</div>
+              <div className="label">{t.orders.driver}</div>
               <select
                 className="select"
                 value={filters.driverId}
                 disabled={filterOptionsLoading}
                 onChange={(e) => dispatch(setFilters({ driverId: e.target.value }))}
               >
-                <option value="">All</option>
+                <option value="">{t.common.all}</option>
                 {driverOptions.map((d) => (
                   <option key={d._id} value={d._id}>
                     {d.label}
@@ -286,14 +284,14 @@ export default function OrdersPage() {
               </select>
             </div>
             <div className="field" style={{ minWidth: 200 }}>
-              <div className="label">Vendor</div>
+              <div className="label">{t.orders.vendor}</div>
               <select
                 className="select"
                 value={filters.vendorId}
                 disabled={filterOptionsLoading}
                 onChange={(e) => dispatch(setFilters({ vendorId: e.target.value }))}
               >
-                <option value="">All</option>
+                <option value="">{t.common.all}</option>
                 {vendorOptions.map((v) => (
                   <option key={v._id} value={v._id}>
                     {v.label}
@@ -305,14 +303,14 @@ export default function OrdersPage() {
             <div className="field" style={{ minWidth: 120 }}>
               <div className="label"> </div>
               <button className="btn btnPrimary" onClick={() => void applyFilters()}>
-                Apply
+                {t.common.apply}
               </button>
             </div>
           </div>
 
           {error ? (
             <div style={{ marginTop: 12 }} className="muted">
-              <span style={{ color: 'var(--danger)', fontWeight: 700 }}>Error:</span> {error}
+              <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{t.common.error}:</span> {error}
             </div>
           ) : null}
         </div>
@@ -325,14 +323,14 @@ export default function OrdersPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Order#</th>
-                    <th>Customer</th>
-                    <th>Driver</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Payment</th>
-                    <th>Status</th>
-                    <th>Date</th>
+                    <th>{t.orders.orderNumber}</th>
+                    <th>{t.orders.customer}</th>
+                    <th>{t.orders.driver}</th>
+                    <th>{t.orders.items}</th>
+                    <th>{t.common.total}</th>
+                    <th>{t.orders.payment}</th>
+                    <th>{t.common.status}</th>
+                    <th>{t.common.date}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -346,20 +344,20 @@ export default function OrdersPage() {
               </table>
             </div>
           ) : items.length === 0 ? (
-            <EmptyState icon={<Package size={48} />} heading="No orders found" subtext="Try adjusting filters or date range." />
+            <EmptyState icon={<Package size={48} />} heading={t.empty.orders} subtext={t.empty.ordersSub} />
           ) : (
             <div className="tableWrap">
             <table>
               <thead>
                 <tr>
-                  <th>Order#</th>
-                  <th>Customer</th>
-                  <th>Driver</th>
-                  <th>Items</th>
-                  <th>Total</th>
-                  <th>Payment</th>
-                  <th>Status</th>
-                  <th>Date</th>
+                  <th>{t.orders.orderNumber}</th>
+                  <th>{t.orders.customer}</th>
+                  <th>{t.orders.driver}</th>
+                  <th>{t.orders.items}</th>
+                  <th>{t.common.total}</th>
+                  <th>{t.orders.payment}</th>
+                  <th>{t.common.status}</th>
+                  <th>{t.common.date}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -367,7 +365,7 @@ export default function OrdersPage() {
                 {
                   items.map((o) => {
                     const customerName = typeof o.customerId === 'string' ? o.customerId : o.customerId?.name ?? '—';
-                    const driverName = !o.driverId ? 'Unassigned' : typeof o.driverId === 'string' ? o.driverId : o.driverId?.name ?? '—';
+                    const driverName = !o.driverId ? t.common.unassigned : typeof o.driverId === 'string' ? o.driverId : o.driverId?.name ?? '—';
                     return (
                       <tr
                         key={o._id}
@@ -379,12 +377,12 @@ export default function OrdersPage() {
                         <td>{driverName}</td>
                         <td>{o.items?.length ?? 0}</td>
                         <td style={{ fontWeight: 800 }}>{formatMoney(o.total)}</td>
-                        <td>{paymentBadge(o.paymentStatus)}</td>
-                        <td>{statusBadge(o.status)}</td>
+                        <td><PaymentStatusBadge status={o.paymentStatus} /></td>
+                        <td><OrderStatusBadge status={o.status} /></td>
                         <td className="muted">{formatDateTime(o.createdAt)}</td>
                         <td onClick={(e) => e.stopPropagation()}>
                           <div className="row" style={{ gap: 6 }}>
-                            <Link href={`/orders/${o._id}`} className="btn" aria-label="View order details">
+                            <Link href={`/orders/${o._id}`} className="btn" aria-label={t.common.view}>
                               <Eye size={18} aria-hidden />
                             </Link>
                             {/* <button
@@ -410,14 +408,14 @@ export default function OrdersPage() {
           {items.length > 0 ? (
           <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
             <div className="muted">
-              Page {pagination.page} / {pagination.totalPages} • Total {pagination.total}
+              {formatT(t.common.pageOf, { page: pagination.page, totalPages: pagination.totalPages, total: pagination.total })}
             </div>
             <div className="row">
               <button className="btn" disabled={!pagination.hasPrev || loading} onClick={() => void dispatch(fetchOrders({ page: pagination.page - 1 }))}>
-                Prev
+                {t.common.prev}
               </button>
               <button className="btn" disabled={!pagination.hasNext || loading} onClick={() => void dispatch(fetchOrders({ page: pagination.page + 1 }))}>
-                Next
+                {t.common.next}
               </button>
             </div>
           </div>
@@ -427,7 +425,7 @@ export default function OrdersPage() {
 
       <Modal
         open={overrideOpen}
-        title="Status override (admin emergency fix)"
+        title={t.orders.overrideTitle}
         onClose={() => {
           if (overrideSaving) return;
           setOverrideOpen(false);
@@ -436,10 +434,10 @@ export default function OrdersPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="muted" style={{ fontSize: 13 }}>
-            This will force the order status and add an admin override entry in status history.
+            {t.orders.overrideDescModal}
           </div>
           <div className="field">
-            <div className="label">Override status</div>
+            <div className="label">{t.orders.overrideStatus}</div>
             <select className="select" value={overrideStatus} onChange={(e) => setOverrideStatus(e.target.value as OrderStatus)}>
               {ALL_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -449,10 +447,10 @@ export default function OrdersPage() {
             </select>
           </div>
           <div className="field">
-            <div className="label">Note (optional)</div>
+            <div className="label">{t.common.noteOptional}</div>
             <textarea
               className="textarea"
-              placeholder="Explain why this override is needed"
+              placeholder={t.orders.overrideNotePlaceholder}
               value={overrideNote}
               onChange={(e) => setOverrideNote(e.target.value)}
               rows={3}
@@ -467,10 +465,10 @@ export default function OrdersPage() {
               }}
               disabled={overrideSaving}
             >
-              Cancel
+              {t.common.cancel}
             </button>
             <button className="btn btnPrimary" onClick={() => void submitOverride()} disabled={overrideSaving || !overrideOrderId}>
-              {overrideSaving ? 'Applying…' : 'Apply override'}
+              {overrideSaving ? t.common.applying : t.orders.overrideApply}
             </button>
           </div>
         </div>

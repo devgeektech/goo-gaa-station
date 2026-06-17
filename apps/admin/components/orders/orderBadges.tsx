@@ -1,16 +1,8 @@
 'use client';
 
 import type { OrderStatus, PaymentStatus } from '@/lib/api/orders.api';
-
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  placed: 'Placed',
-  confirmed: 'Confirmed',
-  preparing: 'Preparing',
-  picked_up: 'Picked up',
-  on_the_way: 'On the way',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-};
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   placed: '#dbeafe',
@@ -22,22 +14,6 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   cancelled: '#fee2e2',
 };
 
-export function statusBadge(status: OrderStatus) {
-  const label = STATUS_LABELS[status];
-  return (
-    <span className="badge" style={{ background: STATUS_COLORS[status], color: '#0f172a', border: 'none' }} role="status" aria-label={`Order status: ${label}`}>
-      {label}
-    </span>
-  );
-}
-
-const PAYMENT_LABELS: Record<PaymentStatus, string> = {
-  pending: 'Pending',
-  paid: 'Paid',
-  failed: 'Failed',
-  refunded: 'Refunded',
-};
-
 const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   pending: '#fef3c7',
   paid: '#dcfce7',
@@ -45,11 +21,32 @@ const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   refunded: '#f3e8ff',
 };
 
-export function paymentBadge(status: PaymentStatus) {
-  const label = PAYMENT_LABELS[status];
+export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+  const t = useTranslations();
+  const label = t.status.order[status];
   return (
-    <span className="badge" style={{ background: PAYMENT_COLORS[status], color: '#0f172a', border: 'none' }} role="status" aria-label={`Payment: ${label}`}>
+    <span className="badge" style={{ background: STATUS_COLORS[status], color: '#0f172a', border: 'none' }} role="status" aria-label={formatT(t.status.order.orderStatusAria, { label })}>
       {label}
     </span>
   );
+}
+
+export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  const t = useTranslations();
+  const label = t.status.payment[status];
+  return (
+    <span className="badge" style={{ background: PAYMENT_COLORS[status], color: '#0f172a', border: 'none' }} role="status" aria-label={formatT(t.status.payment.paymentAria, { label })}>
+      {label}
+    </span>
+  );
+}
+
+/** @deprecated Use <OrderStatusBadge status={...} /> */
+export function statusBadge(status: OrderStatus) {
+  return <OrderStatusBadge status={status} />;
+}
+
+/** @deprecated Use <PaymentStatusBadge status={...} /> */
+export function paymentBadge(status: PaymentStatus) {
+  return <PaymentStatusBadge status={status} />;
 }

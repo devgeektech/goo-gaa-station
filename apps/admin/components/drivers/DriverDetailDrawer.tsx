@@ -7,13 +7,13 @@ import type { DriverDetail, DriverOrderItem } from '@/lib/api/drivers.api';
 import { approveDriver, rejectDriver } from '@/lib/api/drivers.api';
 import { DriverKycCard } from '@/components/drivers/DriverKycCard';
 import { RejectDriverModal } from '@/components/drivers/RejectDriverModal';
-import { formatMoney, formatDateTime } from '@/lib/utils/format';
-import { accountStatusBadge, approvalStatusBadge, onlineStatusBadge } from '@/lib/utils/driverStatus';
-import { formatDriverRating } from '@/lib/utils/driverRating';
+import { formatMoney, formatDateTime, formatVehicleType } from '@/lib/utils/format';
+import { useDriverStatusBadges } from '@/lib/i18n/useStatusBadges';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
-/** Uploads are served at `{origin}/uploads/...`, not under `/api/v1`. */
 function publicFileBase(): string {
   const base = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
   return base.replace(/\/api\/v1\/?$/, '');
@@ -22,6 +22,12 @@ function publicFileBase(): string {
 function imgSrc(url: string | null | undefined) {
   if (!url) return null;
   return url.startsWith('http') ? url : `${publicFileBase()}${url}`;
+}
+
+function driverRatingSubtitle(t: ReturnType<typeof useTranslations>, rating?: number | null, ratingCount?: number): string {
+  const count = ratingCount ?? 0;
+  if (count <= 0 || rating == null) return t.status.noRatings;
+  return count === 1 ? t.drivers.deliveryRatingOne : formatT(t.drivers.deliveryRatingsCount, { n: count });
 }
 
 export function DriverDetailDrawer({
@@ -45,9 +51,10 @@ export function DriverDetailDrawer({
   onClose: () => void;
   onFetchLocation: () => void;
   onFetchOrders: (page?: number) => void;
-  /** Refetch driver detail after KYC approve/reject */
   onRefreshDriver?: () => void;
 }) {
+  const t = useTranslations();
+  const { approvalStatusBadge, accountStatusBadge, onlineStatusBadge } = useDriverStatusBadges();
   const toast = useToast();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [approveLoading, setApproveLoading] = useState(false);
@@ -81,6 +88,11 @@ export function DriverDetailDrawer({
   const accountBadge = driver ? accountStatusBadge(driver.status) : null;
   const onlineBadge = onlineStatusBadge(isOnline);
 
+  const ratingValue =
+    driver?.ratingCount && driver.ratingCount > 0 && driver.rating != null
+      ? Number(driver.rating).toFixed(1)
+      : '—';
+
   return (
     <div
       className="modalOverlay"
@@ -104,8 +116,8 @@ export function DriverDetailDrawer({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modalHeader" style={{ borderBottom: '1px solid var(--border)' }}>
-          <div className="modalTitle">Driver Detail</div>
-          <button type="button" className="btn" onClick={onClose} aria-label="Close">
+          <div className="modalTitle">{t.drivers.detailTitle}</div>
+          <button type="button" className="btn" onClick={onClose} aria-label={t.common.close}>
             <X size={18} aria-hidden />
           </button>
         </div>
@@ -118,7 +130,7 @@ export function DriverDetailDrawer({
                 {imgSrc(driver.profileImage) ? (
                   <img src={imgSrc(driver.profileImage)!} alt="" style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover' }} />
                 ) : (
-                  <div style={{ width: 72, height: 72, borderRadius: 12, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No photo</div>
+                  <div style={{ width: 72, height: 72, borderRadius: 12, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>{t.drivers.noPhoto}</div>
                 )}
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 18 }}>{driver.name}</div>
@@ -130,62 +142,53 @@ export function DriverDetailDrawer({
                     <span className="badge" style={{ background: onlineBadge.background }}>{onlineBadge.label}</span>
                   </div>
                   <div style={{ marginTop: 8 }}>
-                    <Link href={`/drivers/${driver._id}`} className="btn" style={{ fontSize: 13 }}>View full page</Link>
+                    <Link href={`/drivers/${driver._id}`} className="btn" style={{ fontSize: 13 }}>{t.drivers.viewFullPage}</Link>
                   </div>
                 </div>
               </div>
-
 
               <div className="grid2">
                 <div className="card" style={{ boxShadow: 'none' }}>
                   <div className="cardBody">
-                    <div className="muted">Vehicle</div>
-                    <div style={{ marginTop: 6 }}>{driver.vehicleType ?? '—'} {driver.vehiclePlate ? `(${driver.vehiclePlate})` : ''}</div>
+                    <div className="muted">{t.drivers.vehicle}</div>
+                    <div style={{ marginTop: 6 }}>{formatVehicleType(driver.vehicleType)} {driver.vehiclePlate ? `(${driver.vehiclePlate})` : ''}</div>
                   </div>
                 </div>
                 <div className="card" style={{ boxShadow: 'none' }}>
                   <div className="cardBody">
-                    <div className="muted">Rating</div>
-                    {(() => {
-                      const { value, subtitle } = formatDriverRating(driver.rating, driver.ratingCount);
-                      return (
-                        <>
-                          <div style={{ marginTop: 6, fontWeight: 800 }}>{value}</div>
-                          <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>{subtitle}</div>
-                        </>
-                      );
-                    })()}
+                    <div className="muted">{t.drivers.rating}</div>
+                    <div style={{ marginTop: 6, fontWeight: 800 }}>{ratingValue}</div>
+                    <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>{driverRatingSubtitle(t, driver.rating, driver.ratingCount)}</div>
                   </div>
                 </div>
               </div>
 
               <div className="card" style={{ boxShadow: 'none' }}>
                 <div className="cardBody">
-                  <div className="muted">Delivery stats</div>
+                  <div className="muted">{t.drivers.deliveryStats}</div>
                   <div className="row" style={{ marginTop: 8, gap: 16 }}>
-                    <div><span style={{ fontWeight: 800 }}>{driver.totalDeliveries ?? 0}</span> <span className="muted">deliveries</span></div>
-                    <div><span style={{ fontWeight: 800 }}>{formatMoney(driver.totalEarnings ?? 0)}</span> <span className="muted">earnings</span></div>
+                    <div><span style={{ fontWeight: 800 }}>{driver.totalDeliveries ?? 0}</span> <span className="muted">{t.drivers.deliveriesShort}</span></div>
+                    <div><span style={{ fontWeight: 800 }}>{formatMoney(driver.totalEarnings ?? 0)}</span> <span className="muted">{t.drivers.earningsShort}</span></div>
                   </div>
                 </div>
               </div>
 
               <div className="card" style={{ boxShadow: 'none' }}>
                 <div className="cardBody">
-                  <div className="muted">Current location</div>
+                  <div className="muted">{t.drivers.liveLocation}</div>
                   <div style={{ marginTop: 8 }}>
-                    <div className="muted" style={{ fontSize: 13 }}>Online: {isOnline ? 'Yes' : 'No'}</div>
-                    {/* <div className="muted" style={{ fontSize: 13 }}>Available for orders: {driver.isAvailable ? 'Yes' : 'No'}</div> */}
+                    <div className="muted" style={{ fontSize: 13 }}>{isOnline ? t.common.onlineYes : t.common.onlineNo}</div>
                     {!location ? <div style={{ marginTop: 8 }}><Skeleton height={24} /></div> : null}
                     {coords && coords.length >= 2 ? (
                       <a href={mapsUrl!} target="_blank" rel="noopener noreferrer" className="btn" style={{ marginTop: 8 }}>
-                        View on map ({coords[1].toFixed(4)}, {coords[0].toFixed(4)})
+                        {formatT(t.drivers.viewOnMap, { lat: coords[1].toFixed(4), lng: coords[0].toFixed(4) })}
                       </a>
                     ) : location ? (
-                      <div className="muted" style={{ marginTop: 8 }}>No location yet</div>
+                      <div className="muted" style={{ marginTop: 8 }}>{t.drivers.noLocationYet}</div>
                     ) : null}
                     {(location?.lastLocationAt ?? driver.lastLocationAt) ? (
                       <div className="muted" style={{ fontSize: 12 }}>
-                        Updated {formatDateTime(String(location?.lastLocationAt ?? driver.lastLocationAt))}
+                        {formatT(t.common.updated, { date: formatDateTime(String(location?.lastLocationAt ?? driver.lastLocationAt)) })}
                       </div>
                     ) : null}
                   </div>
@@ -195,7 +198,7 @@ export function DriverDetailDrawer({
               {driver.blockReason && driver.status === 'blocked' ? (
                 <div className="card" style={{ boxShadow: 'none', borderColor: 'var(--danger)' }}>
                   <div className="cardBody">
-                    <div className="muted">Block reason</div>
+                    <div className="muted">{t.drivers.blockReason}</div>
                     <div style={{ marginTop: 6 }}>{driver.blockReason}</div>
                   </div>
                 </div>
@@ -210,12 +213,12 @@ export function DriverDetailDrawer({
                         setApproveLoading(true);
                         try {
                           await approveDriver(driver._id);
-                          toast.push({ title: 'Driver approved', variant: 'success' });
+                          toast.push({ title: t.drivers.approveSuccess, variant: 'success' });
                           onRefreshDriver?.();
                         } catch (e: unknown) {
                           toast.push({
-                            title: 'Approve failed',
-                            description: e instanceof Error ? e.message : 'Error',
+                            title: t.drivers.approveFailed,
+                            description: e instanceof Error ? e.message : t.common.error,
                             variant: 'danger',
                           });
                         } finally {
@@ -229,23 +232,23 @@ export function DriverDetailDrawer({
 
               <div className="card" style={{ boxShadow: 'none' }}>
                 <div className="cardBody">
-                  <div style={{ fontWeight: 800 }}>Order history</div>
-                  <div className="muted" style={{ fontSize: 13 }}>Total {ordersPagination.total}</div>
+                  <div style={{ fontWeight: 800 }}>{t.drivers.orderHistory}</div>
+                  <div className="muted" style={{ fontSize: 13 }}>{formatT(t.common.totalCount, { total: ordersPagination.total })}</div>
                   <div className="divider" />
                   {ordersLoading && orders.length === 0 ? (
                     <Skeleton height={100} />
                   ) : orders.length === 0 ? (
-                    <div className="muted">No orders yet.</div>
+                    <div className="muted">{t.empty.ordersYet}</div>
                   ) : (
                     <>
                       <div className="tableWrap">
                         <table>
                           <thead>
                             <tr>
-                              <th>Order#</th>
-                              <th>Date</th>
-                              <th>Total</th>
-                              <th>Status</th>
+                              <th>{t.orders.orderNumber}</th>
+                              <th>{t.common.date}</th>
+                              <th>{t.common.total}</th>
+                              <th>{t.common.status}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -261,10 +264,10 @@ export function DriverDetailDrawer({
                         </table>
                       </div>
                       <div className="row adminPaginationRow" style={{ justifyContent: 'space-between', marginTop: 12, alignItems: 'center' }}>
-                        <span className="muted">Page {ordersPagination.page} / {ordersPagination.totalPages}</span>
+                        <span className="muted">{formatT(t.common.pageOfShort, { page: ordersPagination.page, totalPages: ordersPagination.totalPages })}</span>
                         <div className="row">
-                          <button className="btn" disabled={!ordersPagination.hasPrev || ordersLoading} onClick={() => onFetchOrders(ordersPagination.page - 1)}>Prev</button>
-                          <button className="btn" disabled={!ordersPagination.hasNext || ordersLoading} onClick={() => onFetchOrders(ordersPagination.page + 1)}>Next</button>
+                          <button className="btn" disabled={!ordersPagination.hasPrev || ordersLoading} onClick={() => onFetchOrders(ordersPagination.page - 1)}>{t.common.prev}</button>
+                          <button className="btn" disabled={!ordersPagination.hasNext || ordersLoading} onClick={() => onFetchOrders(ordersPagination.page + 1)}>{t.common.next}</button>
                         </div>
                       </div>
                     </>
@@ -286,13 +289,13 @@ export function DriverDetailDrawer({
           setRejectLoading(true);
           try {
             await rejectDriver(driver._id, reason);
-            toast.push({ title: 'Driver rejected', variant: 'success' });
+            toast.push({ title: t.drivers.rejectSuccess, variant: 'success' });
             setRejectOpen(false);
             onRefreshDriver?.();
           } catch (e: unknown) {
             toast.push({
-              title: 'Reject failed',
-              description: e instanceof Error ? e.message : 'Error',
+              title: t.drivers.rejectFailed,
+              description: e instanceof Error ? e.message : t.common.error,
               variant: 'danger',
             });
           } finally {

@@ -1,21 +1,27 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { useCreateCategoryMutation } from '@/store/api';
 import { useToast } from '@/components/ui/Toast';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 
 const MAX_ICON_SIZE = 2 * 1024 * 1024;
-const TYPE_OPTIONS = [
-  { value: 'food', label: 'Food' },
-  { value: 'grocery', label: 'Grocery' },
-  { value: 'pharmacy', label: 'Pharmacy' },
-  { value: 'fashion', label: 'Fashion' },
-];
 
 type Props = { open: boolean; onClose: () => void };
 
 export function AddCategoryModal({ open, onClose }: Props) {
+  const t = useTranslations();
+  const TYPE_OPTIONS = useMemo(
+    () => [
+      { value: 'food', label: t.categories.filterFood },
+      { value: 'grocery', label: t.categories.filterGrocery },
+      { value: 'pharmacy', label: t.categories.filterPharmacy },
+      { value: 'fashion', label: t.categories.filterFashion },
+    ],
+    [t]
+  );
+
   const [createCategory, { isLoading }] = useCreateCategoryMutation();
   const toast = useToast();
   const [name, setName] = useState('');
@@ -38,7 +44,7 @@ export function AddCategoryModal({ open, onClose }: Props) {
     if (file.size > MAX_ICON_SIZE) {
       setIconFile(null);
       setIconPreview(null);
-      setSubmitError('Icon must be at most 2MB');
+      setSubmitError(t.categories.iconMaxSize);
       return;
     }
     setSubmitError('');
@@ -52,7 +58,7 @@ export function AddCategoryModal({ open, onClose }: Props) {
     setSubmitError('');
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setNameError('Name is required');
+      setNameError(t.categories.nameRequired);
       return;
     }
     const formData = new FormData();
@@ -63,7 +69,7 @@ export function AddCategoryModal({ open, onClose }: Props) {
     if (iconFile) formData.append('icon', iconFile);
     try {
       await createCategory(formData).unwrap();
-      toast.push({ title: 'Category created', variant: 'success' });
+      toast.push({ title: t.categories.createSuccess, variant: 'success' });
       setName('');
       setType('food');
       setDescription('');
@@ -74,8 +80,8 @@ export function AddCategoryModal({ open, onClose }: Props) {
       onClose();
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'data' in err
-        ? String((err as { data?: { message?: string } }).data?.message ?? 'Create failed')
-        : err instanceof Error ? err.message : 'Create failed';
+        ? String((err as { data?: { message?: string } }).data?.message ?? t.common.createFailed)
+        : err instanceof Error ? err.message : t.common.createFailed;
       setSubmitError(msg);
     }
   };
@@ -86,20 +92,20 @@ export function AddCategoryModal({ open, onClose }: Props) {
   };
 
   return (
-    <Modal open={open} title="Add Category" onClose={handleClose}>
+    <Modal open={open} title={t.categories.addTitle} onClose={handleClose}>
       <form onSubmit={handleSubmit}>
         <div className="field" style={{ marginBottom: 16 }}>
-          <div className="label">Name *</div>
+          <div className="label">{t.categories.fieldName} *</div>
           <input
             className="input"
             value={name}
             onChange={(e) => { setName(e.target.value); setNameError(''); }}
-            placeholder="Category name"
+            placeholder={t.categories.namePlaceholder}
           />
           {nameError ? <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{nameError}</div> : null}
         </div>
         <div className="field" style={{ marginBottom: 16 }}>
-          <div className="label">Type *</div>
+          <div className="label">{t.categories.fieldType} *</div>
           <select className="select" value={type} onChange={(e) => setType(e.target.value)}>
             {TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -107,7 +113,7 @@ export function AddCategoryModal({ open, onClose }: Props) {
           </select>
         </div>
         <div className="field" style={{ marginBottom: 16 }}>
-          <div className="label">Icon (JPEG/PNG, max 2MB)</div>
+          <div className="label">{t.categories.iconHint}</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -117,22 +123,22 @@ export function AddCategoryModal({ open, onClose }: Props) {
           />
           {iconPreview ? (
             <div style={{ marginTop: 8 }}>
-              <img src={iconPreview} alt="Preview" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
+              <img src={iconPreview} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
             </div>
           ) : null}
         </div>
         <div className="field" style={{ marginBottom: 16 }}>
-          <div className="label">Description</div>
+          <div className="label">{t.categories.fieldDescription}</div>
           <textarea
             className="input"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Optional description"
+            placeholder={t.categories.descPlaceholder}
           />
         </div>
         <div className="field" style={{ marginBottom: 16 }}>
-          <div className="label">Sort Order</div>
+          <div className="label">{t.categories.fieldSortOrder}</div>
           <input
             type="number"
             className="input"
@@ -144,9 +150,9 @@ export function AddCategoryModal({ open, onClose }: Props) {
           <div style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 16 }}>{submitError}</div>
         ) : null}
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" className="btn" onClick={handleClose}>Cancel</button>
+          <button type="button" className="btn" onClick={handleClose}>{t.common.cancel}</button>
           <button type="submit" className="btn btnPrimary" disabled={isLoading}>
-            {isLoading ? 'Creating…' : 'Create'}
+            {isLoading ? t.common.creating : t.common.create}
           </button>
         </div>
       </form>

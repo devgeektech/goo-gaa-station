@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { VendorListItem, VendorDetail } from '@/lib/api/vendors.api';
 import { isVendorImageWithinLimit, VENDOR_IMAGE_SIZE_LABEL } from '@/lib/constants/uploads';
+import { useTranslations } from '@/lib/i18n/useTranslations';
+import { formatT } from '@/lib/i18n/translations';
 
 export type EditVendorForm = {
   name: string;
@@ -50,6 +52,7 @@ export function EditVendorDrawer({
   onSubmit: (formData: FormData) => void;
   loading: boolean;
 }) {
+  const t = useTranslations();
   const [form, setForm] = useState<EditVendorForm>(toForm(vendor));
   const [fileError, setFileError] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -76,7 +79,7 @@ export function EditVendorDrawer({
     e.preventDefault();
     if (!form.name.trim()) return;
     if (form.logo && !isVendorImageWithinLimit(form.logo)) {
-      setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+      setFileError(formatT(t.vendors.logoMaxError, { max: VENDOR_IMAGE_SIZE_LABEL }));
       return;
     }
     const fd = new FormData();
@@ -117,8 +120,8 @@ export function EditVendorDrawer({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modalHeader" style={{ borderBottom: '1px solid var(--border)' }}>
-          <div className="modalTitle">Edit Vendor</div>
-          <button type="button" className="btn" onClick={onClose} aria-label="Close">
+          <div className="modalTitle">{t.vendors.editTitle}</div>
+          <button type="button" className="btn" onClick={onClose} aria-label={t.common.close}>
             <X size={18} aria-hidden />
           </button>
         </div>
@@ -126,34 +129,34 @@ export function EditVendorDrawer({
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {fileError ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{fileError}</div> : null}
             <div className="field">
-              <label className="label">Name *</label>
+              <label className="label">{t.vendors.fieldName} *</label>
               <input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
             </div>
             <div className="field">
-              <label className="label">Slug</label>
+              <label className="label">{t.vendors.fieldSlug}</label>
               <input className="input" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} />
             </div>
             <div className="field">
-              <label className="label">Description</label>
+              <label className="label">{t.vendors.fieldDescription}</label>
               <textarea className="textarea" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} />
             </div>
             <div className="field">
-              <label className="label">Email</label>
+              <label className="label">{t.vendors.fieldEmail}</label>
               <input type="email" className="input" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
             <div className="field">
-              <label className="label">Phone</label>
+              <label className="label">{t.vendors.fieldPhone}</label>
               <input className="input" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             </div>
             <div className="field">
-              <label className="label">Status</label>
+              <label className="label">{t.common.status}</label>
               <select className="select" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-                <option value="active">Active</option>
-                <option value="blocked">Blocked</option>
+                <option value="active">{t.status.account.active}</option>
+                <option value="blocked">{t.status.account.blocked}</option>
               </select>
             </div>
             <div className="field">
-              <label className="label">Logo (replace, max {VENDOR_IMAGE_SIZE_LABEL})</label>
+              <label className="label">{formatT(t.vendors.logoReplaceMax, { max: VENDOR_IMAGE_SIZE_LABEL })}</label>
               {logoUrl && <img src={logoUrl} alt="" style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover', marginBottom: 8 }} />}
               <input
                 type="file"
@@ -161,7 +164,7 @@ export function EditVendorDrawer({
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
                   if (file && !isVendorImageWithinLimit(file)) {
-                    setFileError(`Logo must be at most ${VENDOR_IMAGE_SIZE_LABEL}`);
+                    setFileError(formatT(t.vendors.logoMaxError, { max: VENDOR_IMAGE_SIZE_LABEL }));
                     setForm((f) => ({ ...f, logo: null }));
                     e.target.value = '';
                     return;
@@ -172,9 +175,9 @@ export function EditVendorDrawer({
               />
             </div>
             <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" className="btn" onClick={onClose}>Cancel</button>
+              <button type="button" className="btn" onClick={onClose}>{t.common.cancel}</button>
               <button type="submit" className="btn btnPrimary" disabled={loading || !form.name.trim()}>
-                {loading ? 'Saving…' : 'Save'}
+                {loading ? t.common.saving : t.common.save}
               </button>
             </div>
           </form>
