@@ -17,6 +17,7 @@ import { searchDrivers, type DriverListItem } from '@/lib/api/drivers.api';
 import { formatDateTime, formatMoney, copyToClipboard } from '@/lib/utils/format';
 import { paymentBadge, statusBadge } from '@/components/orders/orderBadges';
 import { OrderDriversNotified } from '@/components/orders/OrderDriversNotified';
+import { OrderAddressesSection } from '@/components/orders/OrderAddressesSection';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 
@@ -382,36 +383,12 @@ export default function OrderDetailPage() {
             <div className="cardBody">
               <div style={{ fontWeight: 800 }}>Addresses</div>
               <div className="divider" />
-              <div className="grid2">
-                <div>
-                  <div className="muted">Pickup</div>
-                  <div style={{ marginTop: 6 }}>
-                    {order.pickupAddress ? (
-                      <>
-                        <div style={{ fontWeight: 700 }}>{order.pickupAddress.name ?? 'Pickup'}</div>
-                        <div className="muted" style={{ fontSize: 13 }}>{order.pickupAddress.street}, {order.pickupAddress.city}, {order.pickupAddress.country}</div>
-                      </>
-                    ) : <span className="muted">—</span>}
-                  </div>
-                </div>
-                <div>
-                  <div className="muted">Delivery</div>
-                  <div style={{ marginTop: 6 }}>
-                    <div style={{ fontWeight: 700 }}>{order.deliveryAddress?.contactName ?? 'Delivery'}</div>
-                    <div className="muted" style={{ fontSize: 13 }}>{order.deliveryAddress?.street}, {order.deliveryAddress?.city}, {order.deliveryAddress?.country}</div>
-                    {order.deliveryAddress?.contactPhone ? (
-                      <button type="button" className="btn" style={{ marginTop: 8 }} onClick={() => void copyPhone(order.deliveryAddress?.contactPhone ?? undefined)}>
-                        <Copy size={16} /> {order.deliveryAddress.contactPhone}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
+              <OrderAddressesSection order={order} onCopyPhone={(phone) => void copyPhone(phone)} />
             </div>
           </div>
 
           {/* Status timeline */}
-          <div className="card">
+          {/* <div className="card">
             <div className="cardBody">
               <div className="row adminPageHeader" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontWeight: 800 }}>Status timeline</div>
@@ -435,7 +412,7 @@ export default function OrderDetailPage() {
                 ))}
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Admin actions */}
           {!isFinal ? (

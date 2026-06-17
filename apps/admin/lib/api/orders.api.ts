@@ -28,7 +28,22 @@ export type OrderListItem = {
   orderNumber: string;
   customerId?: { _id: string; name?: string; phone?: string; email?: string } | string;
   driverId?: { _id: string; name?: string; phone?: string } | string | null;
-  vendorId?: { _id: string; name?: string; slug?: string; logo?: string } | string | null;
+  vendorId?: {
+    _id: string;
+    name?: string;
+    slug?: string;
+    logo?: string;
+    phone?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      country?: string | null;
+      landmark?: string | null;
+      lat?: number | null;
+      lng?: number | null;
+      addressLabel?: string | null;
+    } | null;
+  } | string | null;
   items: Array<{ name: string; qty: number; unitPrice: number; subtotal: number }>;
   total: number;
   paymentStatus: PaymentStatus;

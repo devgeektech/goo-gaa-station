@@ -11,6 +11,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { adminAssignDriver, adminCancelOrder, adminUpdateOrderStatus, fetchOrderById } from '@/store/slices/ordersSlice';
 import { searchDrivers, type DriverListItem } from '@/lib/api/drivers.api';
 import { OrderDriversNotified } from '@/components/orders/OrderDriversNotified';
+import { OrderAddressesSection } from '@/components/orders/OrderAddressesSection';
 
 function asObj<T extends object>(v: unknown): T | null {
   if (!v || typeof v !== 'object') return null;
@@ -271,37 +272,11 @@ export function OrderDetailModal({
               <div className="cardBody">
                 <div style={{ fontWeight: 800 }}>Addresses</div>
                 <div className="divider" />
-                <div className="grid2">
-                  <div>
-                    <div className="muted">Pickup</div>
-                    <div style={{ marginTop: 6 }}>
-                      {order.pickupAddress ? (
-                        <>
-                          <div style={{ fontWeight: 700 }}>{order.pickupAddress.name ?? 'Pickup'}</div>
-                          <div className="muted" style={{ fontSize: 12 }}>
-                            {order.pickupAddress.street}, {order.pickupAddress.city}, {order.pickupAddress.country}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="muted">—</div>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="muted">Delivery</div>
-                    <div style={{ marginTop: 6 }}>
-                      <div style={{ fontWeight: 700 }}>{order.deliveryAddress?.contactName ?? 'Delivery'}</div>
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        {order.deliveryAddress?.street}, {order.deliveryAddress?.city}, {order.deliveryAddress?.country}
-                      </div>
-                      {order.deliveryAddress?.contactPhone ? (
-                        <button className="btn" style={{ marginTop: 8 }} onClick={() => void copyPhone(order.deliveryAddress?.contactPhone ?? undefined)}>
-                          <Copy size={16} /> {order.deliveryAddress.contactPhone}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
+                <OrderAddressesSection
+                  order={order}
+                  addressLineStyle={{ fontSize: 12 }}
+                  onCopyPhone={(phone) => void copyPhone(phone)}
+                />
               </div>
             </div>
           </div>

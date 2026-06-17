@@ -147,11 +147,11 @@ export function OrderDriversNotified({
   return (
     <div className="card" style={{ boxShadow: 'none' }}>
       <div className="cardBody">
-        <div style={{ fontWeight: 800 }}>Drivers notified (new order)</div>
-        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+        <div style={{ fontWeight: 800 }}>Drivers notified</div>
+        {/* <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
           Drivers who received broadcast after vendor accept (socket, push, in-app). Use for delivery testing.
-        </div>
-        {order.driver_assigned === true && assignedDriverId ? (
+        </div> */}
+        {/* {order.driver_assigned === true && assignedDriverId ? (
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
             Assigned driver:{' '}
             <Link href={`/drivers/${assignedDriverId}`} style={{ fontWeight: 700 }}>
@@ -166,7 +166,7 @@ export function OrderDriversNotified({
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
             Assignment deadline was {formatDateTime(deadline)}
           </div>
-        ) : null}
+        ) : null} */}
         <div className="divider" />
         {drivers.length === 0 ? (
           <div className="muted" style={{ fontSize: 13 }}>
@@ -232,9 +232,9 @@ export function OrderDriversNotified({
                 })}
               </tbody>
             </table>
-            <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            {/* <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
               Count: {drivers.length}
-            </div>
+            </div> */}
           </div>
         )}
       </div>
