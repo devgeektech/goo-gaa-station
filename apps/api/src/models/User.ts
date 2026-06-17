@@ -62,6 +62,8 @@ const UserSchema = new mongoose.Schema(
     fcmTokens: [FcmTokenSchema],
     preferredLang: { type: String, enum: ['en', 'de'], default: 'en' },
     lastActiveAt: { type: Date, default: null },
+    /** Incremented on each OTP login to enforce single-device sessions. */
+    sessionVersion: { type: Number, default: 0, min: 0 },
     totalOrders: { type: Number, default: 0 },
     totalSpent: { type: Number, default: 0 },
     points: { type: Number, default: 0 },

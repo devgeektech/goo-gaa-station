@@ -5,6 +5,7 @@ import { AppError } from '../utils/AppError';
 import { MESSAGES } from '../constants/messages';
 import { Vendor } from '../models/Vendor';
 import { createAccountBlockedError } from '../utils/accountBlockError';
+import { appSessionMatches, createSessionRevokedError } from '../services/appSession.service';
 
 export interface VendorJwtPayload {
   _id: string;
@@ -12,6 +13,7 @@ export interface VendorJwtPayload {
   role: string;
   model: string;
   type?: 'access' | 'refresh';
+  sessionVersion?: number;
 }
 
 declare global {
@@ -53,6 +55,7 @@ export function authVendor(req: Request, res: Response, next: NextFunction): voi
   }
 
   Vendor.findById(decoded._id)
+    .select('status blockReason sessionVersion')
     .lean()
     .exec()
     .then((v) => {
@@ -62,6 +65,10 @@ export function authVendor(req: Request, res: Response, next: NextFunction): voi
       }
       if ((v as { status?: string }).status === 'blocked') {
         next(createAccountBlockedError((v as { blockReason?: string | null }).blockReason));
+        return;
+      }
+      if (!appSessionMatches(decoded.sessionVersion, (v as { sessionVersion?: number }).sessionVersion)) {
+        next(createSessionRevokedError());
         return;
       }
       (req as Request).vendor = v as Request['vendor'];

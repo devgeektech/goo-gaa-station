@@ -1,14 +1,15 @@
-import type { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import { Driver } from '../models/Driver';
 import { invalidateAllRefreshTokensForUser } from './auth.service';
+import { appSessionMatches } from './appSession.service';
+import type { Server as SocketIOServer } from 'socket.io';
 
-/** Compare JWT session version with driver document (missing treated as 0). */
+/** @deprecated Use appSessionMatches from appSession.service */
 export function driverSessionMatches(
   tokenVersion: number | undefined,
   driverVersion: number | undefined | null
 ): boolean {
-  return (tokenVersion ?? 0) === (driverVersion ?? 0);
+  return appSessionMatches(tokenVersion, driverVersion);
 }
 
 /**

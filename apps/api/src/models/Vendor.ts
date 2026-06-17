@@ -77,6 +77,8 @@ const VendorSchema = new mongoose.Schema(
     isOpen: { type: Boolean, default: false },
     status: { type: String, enum: ['active', 'blocked', 'deleted', 'pending'], default: 'active' },
     blockReason: { type: String, default: null },
+    /** Incremented on each OTP login to enforce single-device sessions. */
+    sessionVersion: { type: Number, default: 0, min: 0 },
     categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: [] }],
     openingHours: {
       type: [

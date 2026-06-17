@@ -13,6 +13,7 @@ import {
 import { setVendorClosedFromApp } from './vendorPresence.service';
 import { createAccountBlockedError, formatBlockReason } from '../utils/accountBlockError';
 import { AppError } from '../utils/AppError';
+import { bumpCustomerSessionVersion, bumpVendorSessionVersion } from './appSession.service';
 
 type BlockNotifyOptions = {
   io?: SocketIOServer;
@@ -60,6 +61,7 @@ export async function applyCustomerAccountBlock(
   const idStr = oid.toString();
 
   await invalidateAllRefreshTokensForUser(oid, 'User');
+  await bumpCustomerSessionVersion(oid);
 
   disconnectRoom(options.io, `customer:${idStr}`, options.blockReason);
 
@@ -79,6 +81,7 @@ export async function applyVendorAccountBlock(
   const idStr = oid.toString();
 
   await invalidateAllRefreshTokensForUser(oid, 'Vendor');
+  await bumpVendorSessionVersion(oid);
   await setVendorClosedFromApp(idStr, options.io);
 
   disconnectRoom(options.io, `vendor:${idStr}`, options.blockReason);

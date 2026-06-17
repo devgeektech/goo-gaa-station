@@ -25,6 +25,16 @@ import {
 import { logAuthFailure } from '../utils/securityLog';
 import { assertCustomerAccountActive } from '../services/accountBlock.service';
 import { createAccountBlockedError } from '../utils/accountBlockError';
+import {
+  assertCustomerSessionMatches,
+  startNewCustomerSession,
+  startNewVendorSession,
+} from '../services/appSession.service';
+import type { Server as SocketIOServer } from 'socket.io';
+
+function getIo(req: Request): SocketIOServer | undefined {
+  return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+}
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
@@ -198,6 +208,18 @@ export const appRefresh = asyncHandler(async (req: Request, res: Response) => {
     const payload = await verifyRefreshToken(raw);
     if (payload.model === 'User') {
       await assertCustomerAccountActive(payload._id);
+      const sessionVersion = await assertCustomerSessionMatches(payload._id, payload.sessionVersion);
+      const refreshed = await rotateRefreshToken(
+        raw,
+        new mongoose.Types.ObjectId(payload._id),
+        payload.model,
+        { ...payload, sessionVersion }
+      );
+      return sendSuccess(res, {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+        expiresIn: refreshed.expiresIn,
+      });
     }
     const refreshed = await rotateRefreshToken(
       raw,
@@ -220,6 +242,7 @@ export const appRefresh = asyncHandler(async (req: Request, res: Response) => {
         'REFRESH_TOKEN_EXPIRED'
       );
     }
+    if (err instanceof AppError && err.code === 'SESSION_REVOKED') throw err;
     if (
       e.message === 'INVALID_REFRESH_TOKEN' ||
       e.message === 'REFRESH_TOKEN_NOT_FOUND' ||
@@ -448,16 +471,19 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
     } else if (vendorStatus === 'blocked') {
       throw createAccountBlockedError((vendor as { blockReason?: string | null }).blockReason);
     }
+    const vendorOid = new mongoose.Types.ObjectId(String((vendor as { _id: unknown })._id));
+    const sessionVersion = await startNewVendorSession(vendorOid, getIo(req));
     const payload: AccessPayload = {
-      _id: (vendor as { _id: unknown })._id.toString(),
+      _id: vendorOid.toString(),
       phone: (vendor as { phone?: string }).phone ?? undefined,
       role: 'vendor',
       model: 'Vendor',
+      sessionVersion,
     };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
     await storeRefreshToken(
-      new mongoose.Types.ObjectId(String((vendor as { _id: unknown })._id)),
+      vendorOid,
       'Vendor',
       refreshToken
     );
@@ -514,16 +540,19 @@ export const appVerifyOtp = asyncHandler(async (req: Request, res: Response) => 
     } else if (userStatus === 'blocked') {
       throw createAccountBlockedError((user as { blockReason?: string | null }).blockReason);
     }
+    const userOid = new mongoose.Types.ObjectId(String((user as { _id: unknown })._id));
+    const sessionVersion = await startNewCustomerSession(userOid, getIo(req));
     const payload: AccessPayload = {
-      _id: (user as { _id: unknown })._id.toString(),
+      _id: userOid.toString(),
       phone: (user as { phone?: string }).phone ?? undefined,
       role: 'user',
       model: 'User',
+      sessionVersion,
     };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
     await storeRefreshToken(
-      new mongoose.Types.ObjectId(String((user as { _id: unknown })._id)),
+      userOid,
       'User',
       refreshToken
     );

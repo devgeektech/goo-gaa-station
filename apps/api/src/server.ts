@@ -8,10 +8,12 @@ import { connectDatabase } from './config/database';
 import app from './app';
 import { env } from './config/env';
 import { Driver } from './models/Driver';
+import { User } from './models/User';
 import { startVendorResponseTimeoutWorker } from './workers/vendorResponseTimeout.worker';
 import { registerVendorSocket } from './sockets/vendorSocket';
 import { registerChatHandlers } from './sockets/chatHandler';
 import { driverSessionMatches } from './services/driverSession.service';
+import { appSessionMatches } from './services/appSession.service';
 import { driverHasActiveDelivery } from './utils/driverActiveDelivery';
 import { tryRebroadcastOpenOrdersToDriver } from './services/driverOpenOrderBroadcast.service';
 import { setVendorClosedFromApp } from './services/vendorPresence.service';
@@ -41,8 +43,35 @@ io.on('connection', (socket) => {
   registerVendorSocket(socket, io);
 
   /** Customer app: join `customer:<customerId>` for order notifications. */
-  socket.on('customer:join', (payload: { customerId?: string }) => {
+  socket.on('customer:join', async (payload: { customerId?: string; accessToken?: string; token?: string }) => {
+    const token = payload?.accessToken ?? payload?.token ?? (socket.handshake.auth?.token as string | undefined);
     const customerId = payload?.customerId;
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, env.JWT_SECRET) as {
+          _id?: string;
+          model?: string;
+          type?: 'access' | 'refresh';
+          sessionVersion?: number;
+        };
+        if (decoded.model !== 'User' || !decoded._id) return;
+        if (decoded.type !== undefined && decoded.type !== 'access') return;
+        if (customerId && customerId !== decoded._id) return;
+        if (!mongoose.Types.ObjectId.isValid(decoded._id)) return;
+
+        const user = await User.findById(decoded._id).select('status sessionVersion').lean();
+        if (!user || user.status === 'blocked' || user.status === 'deleted') return;
+        if (!appSessionMatches(decoded.sessionVersion, (user as { sessionVersion?: number }).sessionVersion)) return;
+
+        socket.data.customerId = decoded._id;
+        socket.join(`customer:${decoded._id}`);
+        return;
+      } catch {
+        return;
+      }
+    }
+
     if (!customerId || !mongoose.Types.ObjectId.isValid(customerId)) return;
     socket.join(`customer:${customerId}`);
   });

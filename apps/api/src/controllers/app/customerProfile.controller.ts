@@ -15,6 +15,7 @@ import {
   MAX_FILE_SIZE_10MB,
 } from '../../utils/storageProvider';
 import { invalidateAllRefreshTokensForUser } from '../../services/auth.service';
+import { bumpCustomerSessionVersion } from '../../services/appSession.service';
 
 const uploadUserImage = getUploadMiddleware('users', MAX_FILE_SIZE_10MB);
 const COORD_PRECISION = 6;
@@ -641,6 +642,7 @@ export const deleteAccount = asyncHandler(async (req: Request, res: Response) =>
 
   await User.findByIdAndUpdate(id, { status: 'deleted', fcmToken: null });
   await invalidateAllRefreshTokensForUser(new mongoose.Types.ObjectId(id), 'User');
+  await bumpCustomerSessionVersion(id);
 
   return sendSuccess(res, {
     success: true,

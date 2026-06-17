@@ -19,6 +19,12 @@ import {
 import { setVendorClosedFromApp } from '../services/vendorPresence.service';
 import { assertVendorAccountActive } from '../services/accountBlock.service';
 import { createAccountBlockedError } from '../utils/accountBlockError';
+import { assertVendorSessionMatches, startNewVendorSession } from '../services/appSession.service';
+import type { Server as SocketIOServer } from 'socket.io';
+
+function getIo(req: Request): SocketIOServer | undefined {
+  return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
+}
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 min
 const MAX_OTP_ATTEMPTS = 5;
@@ -162,11 +168,14 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
   }
 
+  const sessionVersion = await startNewVendorSession(vendor._id, getIo(req));
+
   const payload: AccessPayload = {
     _id: vendor._id.toString(),
     phone: vendor.phone ?? undefined,
     role: 'vendor',
     model: 'Vendor',
+    sessionVersion,
   };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
@@ -230,11 +239,12 @@ export const vendorRefresh = asyncHandler(async (req: Request, res: Response) =>
       throw new AppError({ en: 'Invalid token for vendor', de: 'Ungültiger Token' }, 401, 'INVALID_REFRESH_TOKEN');
     }
     await assertVendorAccountActive(payload._id);
+    const sessionVersion = await assertVendorSessionMatches(payload._id, payload.sessionVersion);
     const refreshed = await rotateRefreshToken(
       raw,
       new mongoose.Types.ObjectId(payload._id),
       'Vendor',
-      payload
+      { ...payload, sessionVersion }
     );
     return sendSuccess(res, {
       accessToken: refreshed.accessToken,

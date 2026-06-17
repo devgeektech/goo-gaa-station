@@ -10,7 +10,7 @@ export interface AccessPayload {
   phone?: string;
   role: string;
   model: UserModelType;
-  /** Driver-only: incremented on each login to invalidate other devices */
+  /** Incremented on each app OTP login to invalidate other devices (User, Vendor, Driver). */
   sessionVersion?: number;
 }
 
@@ -97,6 +97,7 @@ export async function rotateRefreshToken(
     phone: payload.phone,
     role: payload.role,
     model: payload.model,
+    ...(payload.sessionVersion !== undefined ? { sessionVersion: payload.sessionVersion } : {}),
   };
   const accessToken = generateAccessToken(accessPayload);
   const refreshToken = generateRefreshToken(accessPayload);

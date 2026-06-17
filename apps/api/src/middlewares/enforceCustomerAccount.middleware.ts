@@ -2,16 +2,19 @@ import type { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User';
 import { createAccountBlockedError } from '../utils/accountBlockError';
 import { AppError } from '../utils/AppError';
+import { appSessionMatches, createSessionRevokedError } from '../services/appSession.service';
 
-/** After authenticateJWT — reject blocked/deleted customers on protected routes. */
+/** After authenticateJWT — reject blocked/deleted customers and stale sessions on protected routes. */
 export function enforceCustomerAccount(req: Request, _res: Response, next: NextFunction): void {
   if (req.user?.model !== 'User' || !req.user._id) {
     next();
     return;
   }
 
+  const tokenVersion = (req.user as { sessionVersion?: number }).sessionVersion;
+
   User.findById(req.user._id)
-    .select('status blockReason')
+    .select('status blockReason sessionVersion')
     .lean()
     .then((user) => {
       if (!user) {
@@ -33,6 +36,10 @@ export function enforceCustomerAccount(req: Request, _res: Response, next: NextF
       }
       if (user.status === 'blocked') {
         next(createAccountBlockedError(user.blockReason));
+        return;
+      }
+      if (!appSessionMatches(tokenVersion, (user as { sessionVersion?: number }).sessionVersion)) {
+        next(createSessionRevokedError());
         return;
       }
       next();
