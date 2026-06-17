@@ -13,6 +13,7 @@ import {
   MAX_FILE_SIZE_2MB,
 } from '../utils/storageProvider';
 import { CATEGORY_TYPES, isCategoryType } from '../utils/categoryTypes';
+import { applyVendorAvailabilityFieldsMany } from '../services/vendorAvailability.service';
 const uploadCategoryIcon = getUploadMiddleware('categories', MAX_FILE_SIZE_2MB);
 
 /** GET /api/v1/admin/categories — List (isDeleted: false), filter by type & isActive, sort by sortOrder */
@@ -215,7 +216,7 @@ export const appCategoryVendors = asyncHandler(async (req: Request, res: Respons
 
   const [vendors, total] = await Promise.all([
     Vendor.find(filter)
-      .select('name slug description logo coverImage address categoryIds sortOrder')
+      .select('name slug description logo coverImage address categoryIds sortOrder isOpen operatingHours timezone')
       .populate('categoryIds', '_id name slug icon')
       .lean()
       .sort(sort)
@@ -223,6 +224,8 @@ export const appCategoryVendors = asyncHandler(async (req: Request, res: Respons
       .limit(limit),
     Vendor.countDocuments(filter),
   ]);
+
+  applyVendorAvailabilityFieldsMany(vendors as any[]);
 
   const pages = Math.ceil(total / limit) || 1;
   return sendSuccess(res, { vendors, total, page, pages });

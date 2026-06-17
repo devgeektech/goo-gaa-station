@@ -10,6 +10,7 @@ import { parsePagination } from '../../utils/pagination';
 import { getDistanceMatrixEstimates } from '../../services/googleDistanceMatrix.service';
 import { haversineKm } from '../../utils/haversine';
 import { resolveVendorCategoryIdsFilter } from '../../utils/vendorCategoryFilter';
+import { applyVendorAvailabilityFields, applyVendorAvailabilityFieldsMany } from '../../services/vendorAvailability.service';
 
 function getFallbackEtaMinutes(vendor: any): number | null {
   const raw = Number(vendor?.deliveryTime);
@@ -218,7 +219,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
 
   const customerCoords = await resolveCustomerCoordsFromRequest(req);
 
-  // Return all active vendors; client uses `isOpen` for offline/faded UI. Pagination after radius filter.
+  // Return all active vendors; client should use `isAvailableNow` for orderable UI (`isOpen` = app online only).
   let vendors = await Vendor.find(filter)
     .select('name slug description logo coverImage address categoryIds sortOrder deliveryTime isOpen operatingHours timezone rating averageRating totalRatings')
     .populate('categoryIds', '_id name slug icon')
@@ -264,6 +265,7 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   for (let i = 0; i < vendors.length; i++) {
     normalizeVendorRating((vendors as any)[i]);
   }
+  applyVendorAvailabilityFieldsMany(vendors as any[]);
 
   const pages = Math.ceil(total / limit) || 1;
   return sendSuccess(res, { vendors, total, page, pages });
@@ -325,6 +327,7 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
   for (let i = 0; i < vendors.length; i++) {
     normalizeVendorRating(vendors[i]);
   }
+  applyVendorAvailabilityFieldsMany(vendors);
 
   return sendSuccess(res, { vendors, total: vendors.length, page: 1, pages: 1 });
 });
@@ -395,6 +398,7 @@ export const getVendor = asyncHandler(async (req: Request, res: Response) => {
   vendorOut.estimatedTime = estimatedTime;
   // Ensure customer-side always gets normalized vendor ratings.
   normalizeVendorRating(vendorOut);
+  applyVendorAvailabilityFields(vendorOut);
 
   return sendSuccess(res, { vendor: vendorOut, products });
 });

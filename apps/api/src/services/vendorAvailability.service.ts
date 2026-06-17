@@ -93,3 +93,19 @@ export function getVendorAvailabilityStatus(
     withinOperatingHours,
   };
 }
+
+/** Attach computed availability fields to a vendor payload (keeps DB `isOpen` unchanged). */
+export function applyVendorAvailabilityFields<T extends VendorAvailabilityInput>(
+  vendor: T,
+  now: Date = new Date()
+): T & VendorAvailabilityStatus {
+  const status = getVendorAvailabilityStatus(vendor, now);
+  return Object.assign(vendor, status);
+}
+
+export function applyVendorAvailabilityFieldsMany<T extends VendorAvailabilityInput>(
+  vendors: T[],
+  now: Date = new Date()
+): Array<T & VendorAvailabilityStatus> {
+  return vendors.map((v) => applyVendorAvailabilityFields(v, now));
+}

@@ -14,6 +14,7 @@ import { getPlatformCommissionRate } from '../../services/appSettings.service';
 import type { Server as SocketIOServer } from 'socket.io';
 import { CUSTOMER_CANCEL_WINDOW_MS } from '../../constants/customerCancel';
 import { customerCancelRemainingSeconds } from '../../services/vendorOrderNotify.service';
+import { isVendorAvailableNow } from '../../services/vendorAvailability.service';
 
 const ACTIVE_STATUSES = ['pending', 'vendor_notified', 'placed', 'accepted', 'confirmed', 'preparing', 'picked_up', 'on_the_way'] as const;
 
@@ -67,12 +68,23 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
   if (!vendor) {
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
   }
-  const v = vendor as { status?: string; isOpen?: boolean; minimumOrder?: number; deliveryFee?: number };
+  const v = vendor as {
+    status?: string;
+    isOpen?: boolean;
+    minimumOrder?: number;
+    deliveryFee?: number;
+    operatingHours?: unknown[];
+    timezone?: string | null;
+  };
   if (v.status !== 'active') {
     throw new AppError({ en: 'Vendor not found or not active', de: 'Anbieter nicht verfügbar' }, 404, 'NOT_FOUND');
   }
-  if (v.isOpen === false) {
-    throw new AppError({ en: 'Vendor is currently closed', de: 'Anbieter ist geschlossen' }, 400, 'VENDOR_CLOSED');
+  if (!isVendorAvailableNow(v, new Date())) {
+    throw new AppError(
+      { en: 'Vendor is currently unavailable (offline or closed)', de: 'Anbieter ist derzeit nicht verfügbar' },
+      400,
+      'VENDOR_CLOSED'
+    );
   }
 
   const productIds = items.map((i: { productId?: string }) => i?.productId).filter(Boolean);

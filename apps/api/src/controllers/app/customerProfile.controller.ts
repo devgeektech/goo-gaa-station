@@ -16,6 +16,7 @@ import {
 } from '../../utils/storageProvider';
 import { invalidateAllRefreshTokensForUser } from '../../services/auth.service';
 import { bumpCustomerSessionVersion } from '../../services/appSession.service';
+import { applyVendorAvailabilityFields } from '../../services/vendorAvailability.service';
 
 const uploadUserImage = getUploadMiddleware('users', MAX_FILE_SIZE_10MB);
 const COORD_PRECISION = 6;
@@ -702,7 +703,7 @@ export const getWishlist = asyncHandler(async (req: Request, res: Response) => {
     _id: { $in: vendorIds },
     status: { $ne: 'deleted' },
   })
-    .select('name slug logo coverImage rating averageRating totalRatings deliveryTime isOpen')
+    .select('name slug logo coverImage rating averageRating totalRatings deliveryTime isOpen operatingHours timezone')
     .lean();
 
   const vendorById = new Map(vendors.map((v: any) => [String(v._id), v]));
@@ -713,12 +714,12 @@ export const getWishlist = asyncHandler(async (req: Request, res: Response) => {
       const avg = Number(v?.averageRating);
       const legacy = Number(v?.rating);
       const rating = Number.isFinite(avg) ? avg : (Number.isFinite(legacy) ? legacy : 0);
-      return {
+      return applyVendorAvailabilityFields({
         ...v,
         rating,
         averageRating: rating,
         totalRatings: Number.isFinite(Number(v?.totalRatings)) ? Number(v.totalRatings) : 0,
-      };
+      });
     });
 
   return sendSuccess(res, { vendors: ordered, total: ordered.length });
