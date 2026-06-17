@@ -19,7 +19,7 @@ export interface VendorJwtPayload {
 declare global {
   namespace Express {
     interface Request {
-      vendor?: Record<string, unknown> & { _id: unknown; status?: string };
+      vendor?: Record<string, unknown> & { _id: unknown; status?: string; approvalStatus?: string };
     }
   }
 }
@@ -55,7 +55,7 @@ export function authVendor(req: Request, res: Response, next: NextFunction): voi
   }
 
   Vendor.findById(decoded._id)
-    .select('status blockReason sessionVersion')
+    .select('status blockReason sessionVersion approvalStatus')
     .lean()
     .exec()
     .then((v) => {
