@@ -228,7 +228,10 @@ export async function notifyDriverOfOrderRequest(params: {
 
   if (io) {
     const room = `driver:${driverId}`;
-    io.to(room).emit('order:driver_request', notifyPayload);
+    // Old payload (summary/miles shape) — replaced by the FCM orderPayload card shape below.
+    // io.to(room).emit('order:driver_request', notifyPayload);
+    // Same card payload as FCM push `data.orderPayload` / GET /driver/orders/new response shape.
+    io.to(room).emit('order:driver_request', { data: [driverNewApiCard] });
   }
 
   if ((driver.fcmTokens ?? []).length > 0) {
