@@ -14,9 +14,11 @@
     "seed": "node dist/seeders/adminSeeder.js",
     "seed:admin": "node dist/seeders/adminSeeder.js",
     "seed:categories": "node dist/seeders/categorySeeder.js",
-    "seed:all": "node dist/seeders/adminSeeder.js && node dist/seeders/categorySeeder.js",
+    "seed:vendor-products": "node dist/seeders/vendorProductSeeder.js",
+    "seed:all": "node dist/seeders/adminSeeder.js && node dist/seeders/categorySeeder.js && node dist/seeders/vendorProductSeeder.js",
     "seed:admin:dev": "ts-node src/seeders/adminSeeder.ts",
     "seed:categories:dev": "ts-node src/seeders/categorySeeder.ts",
+    "seed:vendor-products:dev": "ts-node src/seeders/vendorProductSeeder.ts",
     "lint": "echo 'lint api'",
     "test": "echo 'test api'",
     "test:socket": "node scripts/test-socket.js"
