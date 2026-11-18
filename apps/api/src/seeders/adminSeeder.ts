@@ -5,6 +5,8 @@ import { Admin } from '../models/Admin';
 
 /** Seed default super_admin if none exists. Idempotent. */
 export async function runAdminSeed(): Promise<void> {
+  console.log('Admin seed: connecting (NODE_ENV=%s)...', env.NODE_ENV);
+
   if (!env.MONGO_URI) {
     console.warn('MONGO_URI not set — skipping admin seed');
     return;
@@ -32,8 +34,10 @@ export async function runAdminSeed(): Promise<void> {
 }
 
 if (require.main === module) {
-  runAdminSeed().catch((err) => {
-    console.error('Admin seed failed:', err);
-    process.exit(1);
-  });
+  runAdminSeed()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('Admin seed failed:', err);
+      process.exit(1);
+    });
 }
