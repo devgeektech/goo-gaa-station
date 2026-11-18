@@ -7,7 +7,7 @@ module.exports = {
     {
       name: 'goo-gaa-admin',
       cwd: adminRoot,
-      script: 'node_modules/next/dist/bin/next',
+      script: path.join(adminRoot, 'node_modules', '.bin', 'next'),
       args: 'start -p 3002',
       instances: 1,
       exec_mode: 'fork',
