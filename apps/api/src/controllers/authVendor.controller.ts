@@ -21,6 +21,7 @@ import { assertVendorAccountActive } from '../services/accountBlock.service';
 import { createAccountBlockedError } from '../utils/accountBlockError';
 import { assertVendorSessionMatches, startNewVendorSession } from '../services/appSession.service';
 import type { Server as SocketIOServer } from 'socket.io';
+import { generateLoginOtp, shouldExposeLoginOtpInResponse } from '../utils/loginOtp';
 
 function getIo(req: Request): SocketIOServer | undefined {
   return (req.app as { get?(key: string): unknown }).get?.('io') as SocketIOServer | undefined;
@@ -45,10 +46,6 @@ function maskPhone(phone: string): string {
   const last = phone.slice(-4);
   const start = phone.slice(0, Math.min(6, phone.length - 4));
   return `${start}${'*'.repeat(Math.max(0, phone.length - 10))}${last}`;
-}
-
-function generateOtp(): string {
-  return String(1000 + Math.floor(Math.random() * 9000));
 }
 
 function isPlaceholderVendor(vendor: { name?: string; description?: string }): boolean {
@@ -85,8 +82,7 @@ export const vendorSendOtp = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
-  const otp = generateOtp();
-  console.log('otp', otp);
+  const otp = generateLoginOtp();
   const phoneOtpHash = await bcrypt.hash(otp, BCRYPT_ROUNDS);
   const phoneOtpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
   // Use findOneAndUpdate so select:false fields (phoneOtp, phoneOtpExpiry) are persisted (Mongoose may not persist them on doc.save() when they were not selected)
@@ -98,8 +94,8 @@ export const vendorSendOtp = asyncHandler(async (req: Request, res: Response) =>
 
   // Twilio WhatsApp OTP disabled by request.
   // await sendOtp(normalizedPhone, otp);
-  if (process.env.NODE_ENV === 'development') {
-    return sendSuccess(res, { message: 'OTP sent (dev)', otp });
+  if (shouldExposeLoginOtpInResponse()) {
+    return sendSuccess(res, { message: 'OTP sent', otp, maskedPhone: maskPhone(normalizedPhone) });
   }
   return sendSuccess(res, { message: 'OTP sent', maskedPhone: maskPhone(normalizedPhone) });
 });
@@ -142,7 +138,6 @@ export const vendorVerifyOtp = asyncHandler(async (req: Request, res: Response) 
   }
 
   const otpStr = String(otp).trim();
-  console.log('otpStr', otpStr);
   const match = await bcrypt.compare(otpStr, vendor.phoneOtp ?? '');
   if (!match) {
     const newAttempts = (vendor.phoneOtpAttempts ?? 0) + 1;
@@ -206,7 +201,7 @@ export const vendorResendOtp = asyncHandler(async (req: Request, res: Response) 
     throw new AppError({ en: 'Vendor not found', de: 'Anbieter nicht gefunden' }, 404, 'NOT_FOUND');
   }
 
-  const otp = generateOtp();
+  const otp = generateLoginOtp();
   const phoneOtpHash = await bcrypt.hash(otp, BCRYPT_ROUNDS);
   const phoneOtpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
   await Vendor.findOneAndUpdate(
@@ -217,8 +212,8 @@ export const vendorResendOtp = asyncHandler(async (req: Request, res: Response) 
 
   // Twilio WhatsApp OTP disabled by request.
   // await sendOtp(normalizedPhone, otp);
-  if (process.env.NODE_ENV === 'development') {
-    return sendSuccess(res, { message: 'OTP resent (dev)', otp });
+  if (shouldExposeLoginOtpInResponse()) {
+    return sendSuccess(res, { message: 'OTP resent', otp, maskedPhone: maskPhone(normalizedPhone) });
   }
   return sendSuccess(res, { message: 'OTP resent', maskedPhone: maskPhone(normalizedPhone) });
 });

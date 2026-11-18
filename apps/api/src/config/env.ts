@@ -69,6 +69,11 @@ export const env = {
   /** SMS for vendor OTP (e.g. Africa's Talking). */
   SMS_PROVIDER: (process.env.SMS_PROVIDER || '').toLowerCase(),
   SMS_API_KEY: process.env.SMS_API_KEY || '',
+  /**
+   * Fixed phone-login OTP when SMS/WhatsApp is not used (default 12345).
+   * Set to empty string when Twilio/SMS delivery is enabled and sendOtp is uncommented.
+   */
+  OTP_STATIC_CODE: (process.env.OTP_STATIC_CODE ?? '12345').trim(),
   /** Google Maps Distance Matrix API key (used for vendor listing estimated time). */
   GOOGLE_DISTANCE_MATRIX_API_KEY: process.env.GOOGLE_DISTANCE_MATRIX_API_KEY || '',
 } as const;

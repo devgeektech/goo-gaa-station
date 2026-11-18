@@ -7,7 +7,6 @@ import { Driver, type DriverDocument } from '../models/Driver';
 import { AppError } from '../utils/AppError';
 import { sendSuccess } from '../utils/response';
 import { asyncHandler } from '../utils/asyncHandler';
-import { env } from '../config/env';
 import {
   deleteRefreshToken,
   generateAccessToken,
@@ -24,6 +23,7 @@ import { createAccountBlockedError } from '../utils/accountBlockError';
 import { permanentlyDeleteLegacySoftDeletedDriver } from '../services/driverHardDelete.service';
 import { MESSAGES } from '../constants/messages';
 import type { Server as SocketIOServer } from 'socket.io';
+import { generateLoginOtp, shouldExposeLoginOtpInResponse } from '../utils/loginOtp';
 
 const SALT_ROUNDS = 12;
 const OTP_TTL_MINUTES = 10;
@@ -103,7 +103,7 @@ export const driverSendOtp = asyncHandler(async (req: Request, res: Response) =>
   }
 
   const normalizedPhone = normalizePhone(phone);
-  const otp = String(1000 + Math.floor(Math.random() * 9000));
+  const otp = generateLoginOtp();
   const otpHash = await bcrypt.hash(otp, SALT_ROUNDS);
   const phoneOtpExpiry = getOTPExpiry();
 
@@ -121,9 +121,8 @@ export const driverSendOtp = asyncHandler(async (req: Request, res: Response) =>
   // Twilio WhatsApp OTP disabled by request.
   // await sendOtp(normalizedPhone, otp);
 
-  // In dev, smsService already logs OTP to console (per repo behavior).
-  if (env.NODE_ENV === 'development') {
-    return sendSuccess(res, { message: 'OTP sent (dev)', otp });
+  if (shouldExposeLoginOtpInResponse()) {
+    return sendSuccess(res, { message: 'OTP sent', otp, maskedPhone: maskPhone(normalizedPhone) });
   }
   return sendSuccess(res, { message: 'OTP sent', maskedPhone: maskPhone(normalizedPhone) });
 });
@@ -234,7 +233,7 @@ export const driverResendOtp = asyncHandler(async (req: Request, res: Response) 
   }
 
   const normalizedPhone = normalizePhone(phone);
-  const otp = String(1000 + Math.floor(Math.random() * 9000));
+  const otp = generateLoginOtp();
   const otpHash = await bcrypt.hash(otp, SALT_ROUNDS);
   const phoneOtpExpiry = getOTPExpiry();
 
@@ -249,8 +248,8 @@ export const driverResendOtp = asyncHandler(async (req: Request, res: Response) 
   // Twilio WhatsApp OTP disabled by request.
   // await sendOtp(normalizedPhone, otp);
 
-  if (env.NODE_ENV === 'development') {
-    return sendSuccess(res, { message: 'OTP resent (dev)', otp });
+  if (shouldExposeLoginOtpInResponse()) {
+    return sendSuccess(res, { message: 'OTP resent', otp, maskedPhone: maskPhone(normalizedPhone) });
   }
   return sendSuccess(res, { message: 'OTP resent', maskedPhone: maskPhone(normalizedPhone) });
 });

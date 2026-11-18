@@ -8,6 +8,7 @@ import { User } from '../models/User';
 import { Driver } from '../models/Driver';
 import { Vendor } from '../models/Vendor';
 import { OTP, getOTPExpiry } from '../models/OTP';
+import { generateLoginOtp, shouldExposeLoginOtpInResponse } from '../utils/loginOtp';
 import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { MESSAGES } from '../constants/messages';
@@ -54,8 +55,8 @@ const COOKIE_OPTIONS = {
 };
 const ACCESS_MAX_AGE = 24 * 60 * 60 * 1000;       // 24 hours
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
-/** Temp OTP for development (WhatsApp not configured). Use this in app when NODE_ENV=development. */
-export const TEMP_OTP_DEV = '1234';
+/** Static login OTP while SMS is off (see OTP_STATIC_CODE; default 12345). */
+export const TEMP_OTP_DEV = '12345';
 
 function hashOtp(otp: string): string {
   return crypto.createHash('sha256').update(otp).digest('hex');
@@ -317,7 +318,7 @@ export const appSendOtp = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  const otp = String(Math.floor(1000 + Math.random() * 9000));
+  const otp = generateLoginOtp();
   const otpHash = hashOtp(otp);
   await OTP.findOneAndUpdate(
     { phone: normalizedPhone, role: roleStr },
@@ -328,8 +329,8 @@ export const appSendOtp = asyncHandler(async (req: Request, res: Response) => {
   // Twilio WhatsApp OTP disabled by request.
   // await sendOtp(normalizedPhone, otp);
 
-  if (env.NODE_ENV === 'development') {
-    return sendSuccess(res, { message: 'OTP sent (dev)', otp });
+  if (shouldExposeLoginOtpInResponse()) {
+    return sendSuccess(res, { message: 'OTP sent', otp });
   }
   return sendSuccess(res, { message: 'OTP sent' });
 });
@@ -373,7 +374,7 @@ export const appResendOtp = asyncHandler(async (req: Request, res: Response) => 
     }
   }
 
-  const otp = String(Math.floor(1000 + Math.random() * 9000));
+  const otp = generateLoginOtp();
   const otpHash = hashOtp(otp);
   await OTP.findOneAndUpdate(
     { phone: normalizedPhone, role: roleStr },
@@ -384,8 +385,8 @@ export const appResendOtp = asyncHandler(async (req: Request, res: Response) => 
   // Twilio WhatsApp OTP disabled by request.
   // await sendOtp(normalizedPhone, otp);
 
-  if (env.NODE_ENV === 'development') {
-    return sendSuccess(res, { message: 'OTP resent (dev)', otp });
+  if (shouldExposeLoginOtpInResponse()) {
+    return sendSuccess(res, { message: 'OTP resent', otp });
   }
   return sendSuccess(res, { message: 'OTP resent' });
 });

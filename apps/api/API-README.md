@@ -82,3 +82,48 @@ Two auth flows:
 4. **Admin:** Use only for dashboard; cookie auth after admin login.
 
 For detailed request/response shapes, use **Swagger UI** (`/api-docs`) or the **Postman collection**.
+
+---
+
+## Production (PM2 on a server)
+
+1. On the server: Node **≥ 18**, **pnpm**, **MongoDB** reachable from `MONGO_URI`, **PM2** (`npm install -g pm2`).
+2. Clone/pull the repo and install from the monorepo root:
+
+   ```bash
+   pnpm install
+   pnpm build
+   ```
+
+3. Configure env under `apps/api/`:
+   - **`apps/api/.env.production`** — required when `NODE_ENV=production` (see `.env.example`).
+   - Optional overlay: `apps/api/.env` for secrets not committed to git.
+
+4. Build must exist: `apps/api/dist/server.js` (from `pnpm build`).
+
+5. Start with PM2 (cwd is `apps/api` automatically):
+
+   ```bash
+   cd apps/api
+   pnpm pm2:start:prod
+   ```
+
+   Or from the repo root: `pnpm start:api:pm2` (first start only; use `pm2 restart` after deploy).
+
+6. After code updates:
+
+   ```bash
+   pnpm build
+   cd apps/api && pnpm pm2:restart
+   ```
+
+7. Persist across reboots:
+
+   ```bash
+   pm2 save
+   pm2 startup
+   ```
+
+8. Health check: `curl http://localhost:5000/api/health` (use your `PORT` if different).
+
+PM2 logs: `apps/api/logs/pm2-*.log` or `pnpm --filter @delivereats/api pm2:logs`.
