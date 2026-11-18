@@ -8,7 +8,7 @@ module.exports = {
       name: 'goo-gaa-admin',
       cwd: adminRoot,
       script: path.join(adminRoot, 'node_modules', '.bin', 'next'),
-      args: 'start -p 3002',
+      args: 'start -H 127.0.0.1 -p 3002',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -20,7 +20,7 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: '3002',
+        PORT: 3002,
       },
     },
   ],
