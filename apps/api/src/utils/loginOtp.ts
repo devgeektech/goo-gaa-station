@@ -9,7 +9,7 @@ function twilioOtpDeliveryConfigured(): boolean {
 }
 
 /**
- * Phone-login OTP. While SMS/WhatsApp is off, uses OTP_STATIC_CODE (default 12345).
+ * Phone-login OTP. While SMS/WhatsApp is off, uses OTP_STATIC_CODE (default 1234, 4 digits).
  * Set OTP_STATIC_CODE= (empty) in env when real delivery is enabled and sendOtp is wired.
  */
 export function generateLoginOtp(): string {

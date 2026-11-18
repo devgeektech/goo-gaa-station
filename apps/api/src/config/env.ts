@@ -47,6 +47,16 @@ export const env = {
   ADMIN_DEFAULT_EMAIL: process.env.ADMIN_DEFAULT_EMAIL || 'admin@deliveryapp.com',
   ADMIN_DEFAULT_PASSWORD: process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@12345',
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:3000',
+  /**
+   * Admin auth cookies. Default true in production (requires HTTPS for cross-subdomain login).
+   * Set COOKIE_SECURE=false for HTTP admin + API on subdomains (e.g. admin.* and api.*).
+   */
+  COOKIE_SECURE:
+    process.env.COOKIE_SECURE === 'false'
+      ? false
+      : process.env.COOKIE_SECURE === 'true'
+        ? true
+        : nodeEnv === 'production',
   /** Comma-separated origins for CORS; if set, used instead of CLIENT_ORIGIN for cors({ origin }) */
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
@@ -70,10 +80,10 @@ export const env = {
   SMS_PROVIDER: (process.env.SMS_PROVIDER || '').toLowerCase(),
   SMS_API_KEY: process.env.SMS_API_KEY || '',
   /**
-   * Fixed phone-login OTP when SMS/WhatsApp is not used (default 12345).
+   * Fixed phone-login OTP when SMS/WhatsApp is not used (default 1234).
    * Set to empty string when Twilio/SMS delivery is enabled and sendOtp is uncommented.
    */
-  OTP_STATIC_CODE: (process.env.OTP_STATIC_CODE ?? '12345').trim(),
+  OTP_STATIC_CODE: (process.env.OTP_STATIC_CODE ?? '1234').trim(),
   /** Google Maps Distance Matrix API key (used for vendor listing estimated time). */
   GOOGLE_DISTANCE_MATRIX_API_KEY: process.env.GOOGLE_DISTANCE_MATRIX_API_KEY || '',
 } as const;

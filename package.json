@@ -8,6 +8,7 @@
     "start:api": "pnpm --filter @delivereats/api start",
     "start:api:pm2": "pnpm --filter @delivereats/api pm2:start:prod",
     "start:admin": "pnpm --filter @delivereats/admin start",
+    "start:admin:pm2": "pnpm --filter @delivereats/admin pm2:start",
     "lint": "turbo run lint",
     "test": "turbo run test"
   },

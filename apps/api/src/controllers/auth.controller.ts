@@ -46,17 +46,17 @@ function getClientIp(req: Request): string {
   return req.ip ?? req.socket?.remoteAddress ?? 'unknown';
 }
 
-const isProd = env.NODE_ENV === 'production';
-const cookieSameSite = isProd ? ('none' as const) : ('lax' as const);
+const cookieSecure = env.COOKIE_SECURE;
+const cookieSameSite = cookieSecure ? ('none' as const) : ('lax' as const);
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: isProd,
+  secure: cookieSecure,
   sameSite: cookieSameSite,
 };
 const ACCESS_MAX_AGE = 24 * 60 * 60 * 1000;       // 24 hours
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
-/** Static login OTP while SMS is off (see OTP_STATIC_CODE; default 12345). */
-export const TEMP_OTP_DEV = '12345';
+/** Static login OTP while SMS is off (see OTP_STATIC_CODE; default 1234). */
+export const TEMP_OTP_DEV = '1234';
 
 function hashOtp(otp: string): string {
   return crypto.createHash('sha256').update(otp).digest('hex');
