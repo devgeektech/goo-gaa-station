@@ -1,6 +1,6 @@
+import './seedEnv';
 import mongoose from 'mongoose';
-import { env } from '../config/env';
-import { connectDatabase } from '../config/database';
+import { connectSeedDatabase } from './seedDatabase';
 import { Vendor } from '../models/Vendor';
 import { Category } from '../models/Category';
 import { Product } from '../models/Product';
@@ -120,12 +120,12 @@ async function resolveVendor(): Promise<mongoose.Types.ObjectId> {
 
 /** Seed sample products for a vendor. Idempotent (upsert by vendor + name). Run category seed first. */
 export async function runVendorProductSeed(): Promise<void> {
-  if (!env.MONGO_URI) {
+  if (!(process.env.MONGO_URI || '').trim()) {
     console.warn('MONGO_URI not set — skipping vendor product seed');
     return;
   }
 
-  await connectDatabase();
+  await connectSeedDatabase();
 
   const vendorId = await resolveVendor();
   let upserted = 0;

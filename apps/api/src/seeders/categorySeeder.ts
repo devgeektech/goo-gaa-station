@@ -1,5 +1,5 @@
-import '../config/env';
-import { connectDatabase } from '../config/database';
+import './seedEnv';
+import { connectSeedDatabase } from './seedDatabase';
 import { Category } from '../models/Category';
 
 const CATEGORIES = [
@@ -28,7 +28,7 @@ export async function runCategorySeed(): Promise<void> {
     return;
   }
 
-  await connectDatabase();
+  await connectSeedDatabase();
 
   let inserted = 0;
   for (const c of CATEGORIES) {
