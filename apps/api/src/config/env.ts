@@ -22,6 +22,19 @@ if (cwd !== apiRoot) {
   dotenvConfig({ path: path.join(cwd, '.env') });
 }
 
+const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:3002';
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : ([] as string[]);
+const corsOrigins = allowedOrigins.length > 0 ? allowedOrigins : [clientOrigin];
+
+function resolveCookieSecure(): boolean {
+  if (process.env.COOKIE_SECURE === 'false') return false;
+  if (process.env.COOKIE_SECURE === 'true') return true;
+  if (corsOrigins.some((o) => o.startsWith('http://'))) return false;
+  return nodeEnv === 'production';
+}
+
 /** Validated env accessor — use this instead of process.env in app code */
 export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
@@ -46,21 +59,14 @@ export const env = {
   WIFIPAY_WEBHOOK_SECRET: process.env.WIFIPAY_WEBHOOK_SECRET || '',
   ADMIN_DEFAULT_EMAIL: process.env.ADMIN_DEFAULT_EMAIL || 'admin@deliveryapp.com',
   ADMIN_DEFAULT_PASSWORD: process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@12345',
-  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:3002',
+  CLIENT_ORIGIN: clientOrigin,
   /**
-   * Admin auth cookies. Default true in production (requires HTTPS for cross-subdomain login).
-   * Set COOKIE_SECURE=false for HTTP admin + API on subdomains (e.g. admin.* and api.*).
+   * Admin auth cookies. Off when admin uses http:// (CLIENT_ORIGIN / ALLOWED_ORIGINS).
+   * Override with COOKIE_SECURE=true|false.
    */
-  COOKIE_SECURE:
-    process.env.COOKIE_SECURE === 'false'
-      ? false
-      : process.env.COOKIE_SECURE === 'true'
-        ? true
-        : nodeEnv === 'production',
+  COOKIE_SECURE: resolveCookieSecure(),
   /** Comma-separated origins for CORS; if set, used instead of CLIENT_ORIGIN for cors({ origin }) */
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
-    : [] as string[],
+  ALLOWED_ORIGINS: allowedOrigins,
   MAIL_PROVIDER: (process.env.MAIL_PROVIDER || 'mailtrap').toLowerCase(),
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.mailtrap.io',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '2525', 10),
