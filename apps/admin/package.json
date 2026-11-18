@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "clean": "rm -rf .next",
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
-    "start": "next start -p 3000",
+    "start": "next start -p 3002",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:restart": "pm2 restart goo-gaa-admin",
     "pm2:stop": "pm2 stop goo-gaa-admin",

@@ -46,7 +46,7 @@ export const env = {
   WIFIPAY_WEBHOOK_SECRET: process.env.WIFIPAY_WEBHOOK_SECRET || '',
   ADMIN_DEFAULT_EMAIL: process.env.ADMIN_DEFAULT_EMAIL || 'admin@deliveryapp.com',
   ADMIN_DEFAULT_PASSWORD: process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@12345',
-  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:3000',
+  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:3002',
   /**
    * Admin auth cookies. Default true in production (requires HTTPS for cross-subdomain login).
    * Set COOKIE_SECURE=false for HTTP admin + API on subdomains (e.g. admin.* and api.*).

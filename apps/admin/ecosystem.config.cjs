@@ -8,7 +8,7 @@ module.exports = {
       name: 'goo-gaa-admin',
       cwd: adminRoot,
       script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      args: 'start -p 3002',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -20,7 +20,7 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: '3000',
+        PORT: '3002',
       },
     },
   ],
