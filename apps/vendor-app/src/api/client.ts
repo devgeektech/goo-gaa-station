@@ -1,5 +1,6 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
+import { getAccessToken } from '../lib/authStorage';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl ?? process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
 
@@ -17,3 +18,13 @@ export function setVendorAccessToken(token: string | null) {
     delete apiClient.defaults.headers.common['Authorization'];
   }
 }
+
+apiClient.interceptors.request.use(async (config) => {
+  if (!config.headers.Authorization) {
+    const token = await getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});

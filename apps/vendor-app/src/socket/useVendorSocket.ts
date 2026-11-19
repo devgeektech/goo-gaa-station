@@ -1,8 +1,11 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 import Constants from 'expo-constants';
 
-const SOCKET_URL = Constants.expoConfig?.extra?.socketUrl ?? process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:5000';
+// const SOCKET_URL = Constants.expoConfig?.extra?.socketUrl ?? process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:5000';
+const rawSocketUrl = Constants.expoConfig?.extra?.socketUrl ?? process.env.EXPO_PUBLIC_SOCKET_URL ?? '';
+const SOCKET_URL = String(rawSocketUrl).trim() || 'http://localhost:5000';
 
 export type VendorSocketEvents = {
   vendorId?: string | null;
@@ -67,6 +70,24 @@ export function useVendorSocket(accessToken: string | null, handlers: VendorSock
       disconnect();
     };
   }, [accessToken, disconnect]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !accessToken) return;
+      const socket = socketRef.current;
+      if (!socket) return;
+      if (!socket.connected) {
+        socket.connect();
+        return;
+      }
+      const vendorId = handlersRef.current.vendorId;
+      socket.emit('vendor:join', {
+        accessToken,
+        ...(vendorId ? { vendorId } : {}),
+      });
+    });
+    return () => sub.remove();
+  }, [accessToken]);
 
   return { disconnect };
 }

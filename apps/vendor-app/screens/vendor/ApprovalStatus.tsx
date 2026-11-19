@@ -10,7 +10,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { getOnboardingStatus, resubmitOnboarding, type OnboardingStatusResponse } from '../../src/api/vendorOnboarding';
-import { useVendorSocket } from '../../src/socket/useVendorSocket';
+// Socket presence now lives at app root (VendorPresence). Keep this import for a future screen-level listener.
+// import { useVendorSocket } from '../../src/socket/useVendorSocket';
 
 const POLL_INTERVAL_MS = 30 * 1000;
 const ONBOARDING_STEP_LABELS = [
@@ -72,10 +73,11 @@ export function ApprovalStatus({
     }
   }, [status?.approvalStatus, fetchStatus]);
 
-  useVendorSocket(accessToken ?? null, {
-    onApproved: () => fetchStatus(),
-    onRejected: () => fetchStatus(),
-  });
+  // Old: socket only while this screen is mounted — leaving it set isOpen back to false.
+  // useVendorSocket(accessToken ?? null, {
+  //   onApproved: () => fetchStatus(),
+  //   onRejected: () => fetchStatus(),
+  // });
 
   // Pending: rotating hourglass animation
   useEffect(() => {

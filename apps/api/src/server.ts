@@ -195,7 +195,13 @@ io.on('connection', (socket) => {
     const vendorId = socket.data?.vendorId as string | undefined;
     if (vendorId) {
       try {
-        await setVendorClosedFromApp(vendorId, io);
+        // Old: always mark closed, even if another socket for this vendor is still connected.
+        // await setVendorClosedFromApp(vendorId, io);
+        const room = io.sockets.adapter.rooms.get(`vendor:${vendorId}`);
+        const remaining = room ? [...room].filter((id) => id !== socket.id).length : 0;
+        if (remaining === 0) {
+          await setVendorClosedFromApp(vendorId, io);
+        }
       } catch {
         // ignore
       }

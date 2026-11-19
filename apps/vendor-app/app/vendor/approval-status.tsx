@@ -1,5 +1,6 @@
 import { ApprovalStatus } from '../../screens/vendor/ApprovalStatus';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '../../src/context/AuthContext';
 
 /**
  * Route: /vendor/approval-status
@@ -12,7 +13,8 @@ export default function ApprovalStatusRoute() {
   const params = useLocalSearchParams<{ approvalStatus?: string }>();
   const initialApprovalStatus = params.approvalStatus as 'pending' | 'approved' | 'rejected' | undefined;
   // TODO: get accessToken from auth context, e.g. useAuth().accessToken
-  const accessToken = null;
+  // const accessToken = null;
+  const { accessToken } = useAuth();
 
   return (
     <ApprovalStatus
