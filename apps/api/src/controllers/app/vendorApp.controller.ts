@@ -12,7 +12,7 @@ import { haversineKm } from '../../utils/haversine';
 import { resolveVendorCategoryIdsFilter } from '../../utils/vendorCategoryFilter';
 import {
   applyVendorAvailabilityFields,
-  applyVendorAvailabilityFieldsMany,
+  // applyVendorAvailabilityFieldsMany,
   applyRecommendedVendorAvailabilityFieldsMany,
 } from '../../services/vendorAvailability.service';
 
@@ -269,7 +269,9 @@ export const listVendors = asyncHandler(async (req: Request, res: Response) => {
   for (let i = 0; i < vendors.length; i++) {
     normalizeVendorRating((vendors as any)[i]);
   }
-  applyVendorAvailabilityFieldsMany(vendors as any[]);
+  // Old: copied DB socket-presence isOpen onto GET /app/vendors (Burger King stayed false).
+  // applyVendorAvailabilityFieldsMany(vendors as any[]);
+  applyRecommendedVendorAvailabilityFieldsMany(vendors as any[]);
 
   const pages = Math.ceil(total / limit) || 1;
   return sendSuccess(res, { vendors, total, page, pages });
