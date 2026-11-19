@@ -10,7 +10,11 @@ import { parsePagination } from '../../utils/pagination';
 import { getDistanceMatrixEstimates } from '../../services/googleDistanceMatrix.service';
 import { haversineKm } from '../../utils/haversine';
 import { resolveVendorCategoryIdsFilter } from '../../utils/vendorCategoryFilter';
-import { applyVendorAvailabilityFields, applyVendorAvailabilityFieldsMany } from '../../services/vendorAvailability.service';
+import {
+  applyVendorAvailabilityFields,
+  applyVendorAvailabilityFieldsMany,
+  applyRecommendedVendorAvailabilityFieldsMany,
+} from '../../services/vendorAvailability.service';
 
 function getFallbackEtaMinutes(vendor: any): number | null {
   const raw = Number(vendor?.deliveryTime);
@@ -327,7 +331,9 @@ export const getRecommendedVendors = asyncHandler(async (req: Request, res: Resp
   for (let i = 0; i < vendors.length; i++) {
     normalizeVendorRating(vendors[i]);
   }
-  applyVendorAvailabilityFieldsMany(vendors);
+  // Old: copied DB socket-presence isOpen (usually false) onto the recommended payload.
+  // applyVendorAvailabilityFieldsMany(vendors);
+  applyRecommendedVendorAvailabilityFieldsMany(vendors);
 
   return sendSuccess(res, { vendors, total: vendors.length, page: 1, pages: 1 });
 });

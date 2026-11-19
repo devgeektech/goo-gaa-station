@@ -109,3 +109,26 @@ export function applyVendorAvailabilityFieldsMany<T extends VendorAvailabilityIn
 ): Array<T & VendorAvailabilityStatus> {
   return vendors.map((v) => applyVendorAvailabilityFields(v, now));
 }
+
+/**
+ * Recommended list only: do not send stored socket-presence `isOpen`.
+ * Default `isOpen` to true; `isAvailableNow` follows today's operating hours.
+ */
+export function applyRecommendedVendorAvailabilityFields<T extends VendorAvailabilityInput>(
+  vendor: T,
+  now: Date = new Date()
+): T & VendorAvailabilityStatus {
+  const withinOperatingHours = isWithinOperatingHours(vendor, now);
+  return Object.assign(vendor, {
+    isOpen: true,
+    withinOperatingHours,
+    isAvailableNow: withinOperatingHours,
+  });
+}
+
+export function applyRecommendedVendorAvailabilityFieldsMany<T extends VendorAvailabilityInput>(
+  vendors: T[],
+  now: Date = new Date()
+): Array<T & VendorAvailabilityStatus> {
+  return vendors.map((v) => applyRecommendedVendorAvailabilityFields(v, now));
+}
