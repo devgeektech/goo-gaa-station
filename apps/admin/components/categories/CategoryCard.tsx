@@ -4,7 +4,10 @@ import { GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 import type { CategoryItem } from '@/store/api';
 
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+const IMG_BASE = (typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '').replace(
+  /\/api\/v1\/?$/,
+  ''
+);
 
 const TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   food: { bg: 'rgba(234, 88, 12, 0.15)', text: 'rgb(194, 65, 12)' },

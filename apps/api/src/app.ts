@@ -1,4 +1,5 @@
 import 'express-async-errors';
+import fs from 'fs';
 import path from 'path';
 import express, { type Request } from 'express';
 import cookieParser from 'cookie-parser';
@@ -10,6 +11,7 @@ import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
 
 import { env } from './config/env';
+import { getPublicUploadsDir } from './utils/storageProvider';
 import { requestIdMiddleware } from './middlewares/requestId.middleware';
 import { notFoundMiddleware } from './middlewares/notFound.middleware';
 import { errorMiddleware } from './middlewares/error.middleware';
@@ -167,11 +169,16 @@ const adminLimiter = rateLimit({
 });
 app.use('/api/v1/admin', adminLimiter);
 
-// --- Static uploads (local storage only) ---
-if ((env.STORAGE_PROVIDER || 'local').toLowerCase() === 'local') {
-  const uploadsPath = path.join(process.cwd(), env.UPLOAD_DIR);
-  app.use('/uploads', express.static(uploadsPath));
+// --- Static uploads from apps/api/public/uploads (S3 currently unused) ---
+// if ((env.STORAGE_PROVIDER || 'local').toLowerCase() === 'local') {
+//   const uploadsPath = path.join(process.cwd(), env.UPLOAD_DIR);
+//   app.use('/uploads', express.static(uploadsPath));
+// }
+const uploadsPath = getPublicUploadsDir();
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
 }
+app.use('/uploads', express.static(uploadsPath));
 
 // --- API routes (health at /api/health, v1 at /api/v1) ---
 app.use('/api', routes);

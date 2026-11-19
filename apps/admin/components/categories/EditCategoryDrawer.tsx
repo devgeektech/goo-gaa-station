@@ -8,7 +8,10 @@ import { useToast } from '@/components/ui/Toast';
 import { useTranslations } from '@/lib/i18n/useTranslations';
 
 const MAX_ICON_SIZE = 2 * 1024 * 1024;
-const IMG_BASE = typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '';
+const IMG_BASE = (typeof process !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? '') : '').replace(
+  /\/api\/v1\/?$/,
+  ''
+);
 
 type Props = { category: CategoryItem | null; open: boolean; onClose: () => void };
 

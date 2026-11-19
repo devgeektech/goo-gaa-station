@@ -44,8 +44,11 @@ export const env = {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || '',
   JWT_EXPIRY: process.env.JWT_EXPIRY || '24h',
   JWT_REFRESH_EXPIRY: process.env.JWT_REFRESH_EXPIRY || '7d',
-  STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || 'local',
-  UPLOAD_DIR: process.env.UPLOAD_DIR || 'uploads',
+  // S3 currently unused — uploads always go to apps/api/public/uploads.
+  STORAGE_PROVIDER: 'local',
+  // STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || 'local',
+  UPLOAD_DIR: 'public/uploads',
+  // UPLOAD_DIR: process.env.UPLOAD_DIR || 'uploads',
   AWS_BUCKET: process.env.AWS_BUCKET || '',
   AWS_REGION: process.env.AWS_REGION || '',
   AWS_ACCESS_KEY: process.env.AWS_ACCESS_KEY || '',

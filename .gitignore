@@ -5,7 +5,11 @@ node_modules
 dist/
 .next/
 coverage/
-uploads/
+# Uploaded files (keep the public/uploads directory placeholder)
+/uploads/
+apps/api/uploads/
+apps/api/public/uploads/**
+!apps/api/public/uploads/.gitkeep
 .DS_Store
 *.log
 .turbo/

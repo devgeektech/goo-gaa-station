@@ -234,7 +234,7 @@ async function start(): Promise<void> {
     console.log(`Node env:    ${env.NODE_ENV}`);
     console.log(`Port:        ${env.PORT}`);
     console.log('DB:          connected');
-    console.log(`Storage:     ${env.STORAGE_PROVIDER}`);
+    console.log(`Storage:     ${env.STORAGE_PROVIDER} (${env.UPLOAD_DIR})`);
     console.log(`WifiPay:     ${wifipayMode}`);
     console.log('-----------------------');
   });
